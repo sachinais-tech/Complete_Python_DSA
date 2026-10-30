@@ -1,0 +1,2148 @@
+==============================================================================
+        PYTHON OBJECT-ORIENTED PROGRAMMING: CLASSES, OBJECTS,
+   CONSTRUCTORS, INHERITANCE, POLYMORPHISM, ENCAPSULATION, ABSTRACTION
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. WHAT IS OOP?
+------------------------------------------------------------------------------
+Object-Oriented Programming organises a program around OBJECTS that bundle
+DATA (attributes) and BEHAVIOUR (methods). A CLASS is the blueprint; an
+OBJECT (instance) is one thing built from it.
+
+    Class "Car"  ->  objects: my_car, your_car
+    attributes: color, speed        methods: start(), stop()
+
+Procedural vs object-oriented:
+  Procedural                      | Object-oriented
+  --------------------------------|-----------------------------------------
+  Functions operate on data       | Objects own data and the methods that
+                                  | use it
+  Data is passed around           | Data is protected inside the object
+  Good for small scripts          | Good for large, evolving programs
+
+The four pillars:
+  Pillar        | Idea                                    | Python tool
+  --------------|-----------------------------------------|------------------
+  Encapsulation | bundle data + methods, control access   | _x, __x, property
+  Abstraction   | expose WHAT, hide HOW                   | abc, interfaces
+  Inheritance   | a class reuses/extends another          | class B(A), super
+  Polymorphism  | one interface, many behaviours          | overriding, duck
+                |                                         | typing, operators
+
+Everything in Python is an object: numbers, strings, functions, modules and
+even classes themselves.
+
+Contents:
+    A. Classes and objects      B. Constructors        C. Inheritance
+    D. Polymorphism             E. Encapsulation       F. Abstraction
+    G. Special (dunder) methods, design tips, pitfalls
+    H. Worked examples for every pillar, by category
+    I. Interview questions and answers
+
+
+==============================================================================
+                      A. CLASSES AND OBJECTS
+==============================================================================
+
+2. DEFINING A CLASS AND CREATING OBJECTS
+------------------------------------------------------------------------------
+    class Person:                        # class names use PascalCase
+        """A simple person."""           # class docstring
+        species = "human"                # CLASS attribute (shared)
+
+        def __init__(self, name, age):   # constructor / initializer
+            self.name = name             # INSTANCE attributes (per object)
+            self.age = age
+
+        def greet(self):                 # instance method
+            return f"Hi, I am {self.name}"
+
+    p1 = Person("Amit", 25)              # create an object (instantiate)
+    p2 = Person("Bina", 30)
+    p1.name                              # 'Amit'      access an attribute
+    p1.greet()                           # 'Hi, I am Amit'    call a method
+    p1.age = 26                          # change an attribute
+    type(p1)                             # <class '__main__.Person'>
+    isinstance(p1, Person)               # True
+    p1 is p2                             # False (different objects)
+
+Syntax notes:
+    - class Name:  or  class Name(Base):  followed by an indented body.
+    - An empty class needs pass:   class Empty: pass
+    - Objects are created by CALLING the class: Person(...).
+    - Each object has its own attribute dictionary:
+          p1.__dict__            # {'name': 'Amit', 'age': 26}
+    - Attributes can be added later: p1.city = "Delhi" (unless __slots__).
+    - hasattr(p1, "city"), getattr(p1, "city", None), setattr(p1, "x", 1),
+      delattr(p1, "x"), del p1.city.
+
+3. THE self PARAMETER
+------------------------------------------------------------------------------
+self is the object the method is called on. It is the first parameter of
+every instance method; Python passes it automatically.
+
+    p1.greet()              # is exactly:   Person.greet(p1)
+
+    - The name self is a convention, not a keyword (but always use it).
+    - Forgetting self in the definition:
+          def greet(): ...     ->  TypeError: greet() takes 0 positional
+                                   arguments but 1 was given
+    - Inside the class, attributes need self.:  self.name, not name.
+    - A method that never uses self can be a @staticmethod.
+
+4. CLASS ATTRIBUTES vs INSTANCE ATTRIBUTES
+------------------------------------------------------------------------------
+    class Counter:
+        count = 0                    # class attribute, shared by all
+        def __init__(self):
+            Counter.count += 1       # update through the class name
+            self.id = Counter.count  # instance attribute
+
+    a, b = Counter(), Counter()
+    Counter.count                    # 2
+    a.id, b.id                       # 1 2
+
+Lookup order for obj.attr:  instance __dict__ -> class -> base classes
+(MRO) -> AttributeError.
+
+    class C:
+        x = 1
+    c1, c2 = C(), C()
+    c1.x = 5                         # creates an INSTANCE attribute in c1
+    print(C.x, c1.x, c2.x)           # 1 5 1
+    C.x = 9
+    print(c1.x, c2.x)                # 5 9  (c1 shadows the class value)
+
+Mutable class attribute trap (shared by every instance):
+    class Bag:
+        items = []                   # one list for ALL objects
+        def add(self, x): self.items.append(x)
+    a, b = Bag(), Bag()
+    a.add(1); print(b.items)         # [1]   surprise
+    Fix: create it in __init__:   self.items = []
+
+5. TYPES OF METHODS
+------------------------------------------------------------------------------
+  Kind             | Decorator      | First arg | Can access
+  -----------------|----------------|-----------|---------------------------
+  Instance method  | (none)         | self      | instance and class data
+  Class method     | @classmethod   | cls       | class data, create instances
+  Static method    | @staticmethod  | (none)    | nothing implicit; a plain
+                   |                |           | function in the class
+                   |                |           | namespace
+
+    class Person:
+        count = 0
+        def __init__(self, name, age):
+            self.name, self.age = name, age
+            Person.count += 1
+
+        def greet(self):                      # instance method
+            return f"Hi {self.name}"
+
+        @classmethod
+        def from_string(cls, s):              # alternative constructor
+            name, age = s.split(",")
+            return cls(name, int(age))        # cls works for subclasses
+
+        @classmethod
+        def total(cls):
+            return cls.count
+
+        @staticmethod
+        def is_adult(age):                    # utility, no self / cls
+            return age >= 18
+
+    p = Person.from_string("Amit,25")         # Person with name Amit, age 25
+    Person.total()                            # 1
+    Person.is_adult(20)                       # True
+    p.is_adult(20)                            # True (also via an instance)
+
+Use: instance method for object behaviour; classmethod for factory
+constructors and class-wide data; staticmethod for helper functions that
+logically belong to the class.
+
+6. OBJECT IDENTITY, EQUALITY AND COPYING
+------------------------------------------------------------------------------
+    a = Person("A", 1); b = Person("A", 1)
+    a == b                       # False by default (== compares identity)
+    a is b                       # False
+    c = a; c is a                # True (alias: same object)
+    id(a)                        # identity number
+
+Define __eq__ to compare by value. Then also define __hash__, otherwise the
+class becomes unhashable (usable neither as a dict key nor in a set):
+    class P:
+        def __init__(self, x): self.x = x
+        def __eq__(self, other):
+            return isinstance(other, P) and self.x == other.x
+        def __hash__(self):
+            return hash(self.x)
+    P(1) == P(1)                 # True
+    {P(1), P(1)}                 # one element
+    (without __hash__:  {P(1)} -> TypeError: unhashable type: 'P')
+
+Copying:
+    import copy
+    copy.copy(obj)               # shallow: new object, shared inner objects
+    copy.deepcopy(obj)           # deep: everything copied
+    b = a                        # NOT a copy, just another name
+
+7. __str__ AND __repr__
+------------------------------------------------------------------------------
+    class P:
+        def __init__(self, x): self.x = x
+        def __repr__(self):                    # for developers, unambiguous
+            return f"P({self.x!r})"
+        def __str__(self):                     # for users, readable
+            return f"Point with x={self.x}"
+
+    p = P(3)
+    print(p)              # Point with x=3        (print uses __str__)
+    str(p)                # 'Point with x=3'
+    repr(p)               # 'P(3)'
+    [p]                   # [P(3)]                (containers use __repr__)
+    f"{p}"                # 'Point with x=3'      f"{p!r}" -> 'P(3)'
+
+    - If only __repr__ exists, str() falls back to it.
+    - Without either: <__main__.P object at 0x...>.
+    - Good __repr__ looks like the code that would create the object.
+
+8. OBJECT LIFE CYCLE AND __del__
+------------------------------------------------------------------------------
+    create:  __new__ (allocate) -> __init__ (initialise)
+    use:     methods, attributes
+    destroy: when the reference count reaches 0 (or the cycle collector runs)
+             __del__ is called just before the memory is freed
+
+    class R:
+        def __del__(self): print("deleted")
+    r = R()
+    del r                    # removes the NAME; "deleted" prints only if no
+                             # other reference exists
+
+    - del x deletes a name, not necessarily the object.
+    - __del__ timing is not guaranteed (cycles, interpreter exit); use
+      with / context managers or try / finally for real clean-up.
+    - sys.getrefcount(obj), gc.collect(), weakref for reference control.
+
+9. SOME USEFUL BUILT-INS FOR OBJECTS
+------------------------------------------------------------------------------
+    type(obj)                     class of obj
+    isinstance(obj, Cls)          True for Cls and its subclasses
+    isinstance(obj, (A, B))       either
+    issubclass(Sub, Base)         class relationship
+    dir(obj)                      names of attributes and methods
+    vars(obj) / obj.__dict__      instance attributes
+    obj.__class__                 class;   obj.__class__.__name__ -> 'Person'
+    Cls.__bases__  Cls.__mro__    parents; method resolution order
+    id(obj)  callable(obj)  hasattr/getattr/setattr/delattr
+    help(Cls)                     documentation
+
+
+==============================================================================
+                          B. CONSTRUCTORS
+==============================================================================
+
+10. __init__ - THE INITIALISER
+------------------------------------------------------------------------------
+__init__ runs automatically right after an object is created and sets up its
+initial state.
+
+    class Student:
+        def __init__(self, name, marks=0):    # default value
+            self.name = name
+            self.marks = marks
+            self.grades = []                   # fresh list per object
+
+    s1 = Student("A")                          # marks = 0
+    s2 = Student("B", 90)
+    s3 = Student(marks=70, name="C")           # keyword arguments
+
+Facts:
+    - __init__ must return None. Returning anything else is an error:
+          def __init__(self): return 5   ->  TypeError: __init__() should
+                                            return None, not 'int'
+    - If a class defines no __init__, it inherits object.__init__ (the
+      "default constructor": no arguments, no setup). Calling it with
+      arguments then fails: Plain(5) -> TypeError.
+    - No constructor overloading: a second def __init__ replaces the first.
+      Emulate with default arguments, *args / **kwargs, or classmethods:
+          class Point:
+              def __init__(self, x=0, y=0): self.x, self.y = x, y
+              @classmethod
+              def from_tuple(cls, t): return cls(*t)
+              @classmethod
+              def origin(cls): return cls()
+    - Validate in __init__ and raise ValueError / TypeError for bad input.
+    - Types of constructors by use: default (no parameters), parameterised
+      (with parameters), copy (build from another object, via a classmethod
+      or copy.copy).
+
+    class Circle:
+        def __init__(self, r):
+            if r <= 0:
+                raise ValueError("radius must be positive")
+            self.r = r
+
+11. __new__ - THE REAL CONSTRUCTOR
+------------------------------------------------------------------------------
+Creating an object is two steps:
+    1. cls.__new__(cls, ...)   allocates and returns the new instance
+    2. instance.__init__(...)  initialises it (only if __new__ returned an
+                               instance of cls)
+
+    class A:
+        def __new__(cls, *args, **kwargs):
+            print("new")
+            return super().__new__(cls)
+        def __init__(self):
+            print("init")
+    A()                          # new
+                                 # init
+
+Use __new__ for immutable subclasses (int, str, tuple) and for patterns like
+Singleton:
+
+    class Singleton:
+        _instance = None
+        def __new__(cls, *args, **kwargs):
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+            return cls._instance
+
+    s1, s2 = Singleton(), Singleton()
+    s1 is s2                     # True   (__init__ still runs on every call)
+
+  Aspect        | __new__                    | __init__
+  --------------|----------------------------|-----------------------------
+  Purpose       | create the object          | initialise the object
+  Receives      | cls                        | self
+  Returns       | the new instance           | None
+  Called        | first                      | second
+
+12. THE CONSTRUCTOR IN INHERITANCE
+------------------------------------------------------------------------------
+A subclass that defines __init__ REPLACES the parent's. Call the parent's
+explicitly with super():
+
+    class Animal:
+        def __init__(self, name):
+            self.name = name
+
+    class Dog(Animal):
+        def __init__(self, name, breed):
+            super().__init__(name)          # initialise the Animal part
+            self.breed = breed
+
+    d = Dog("Rex", "Lab")
+    d.name, d.breed                          # 'Rex' 'Lab'
+
+If the subclass has no __init__, the parent's is used. If the subclass defines
+__init__ but forgets super().__init__(), the parent's attributes are never
+set:
+    class Cat(Animal):
+        def __init__(self): self.lives = 9
+    Cat().name                               # AttributeError
+
+
+==============================================================================
+                         C. INHERITANCE
+==============================================================================
+
+13. SINGLE INHERITANCE AND OVERRIDING
+------------------------------------------------------------------------------
+Inheritance lets a CHILD (subclass, derived class) reuse the attributes and
+methods of a PARENT (superclass, base class): an "is-a" relationship.
+
+    class Animal:
+        def __init__(self, name):
+            self.name = name
+        def speak(self):
+            return "..."
+        def info(self):
+            return f"{self.name} says {self.speak()}"
+
+    class Dog(Animal):                       # Dog is an Animal
+        def speak(self):                     # OVERRIDES the parent's method
+            return "Woof"
+
+    class Cat(Animal):
+        def speak(self):
+            return "Meow"
+
+    Dog("Rex").info()                        # 'Rex says Woof'
+    Cat("Tom").info()                        # 'Tom says Meow'
+    Animal("x").speak()                      # '...'
+
+    isinstance(Dog("a"), Animal)             # True
+    issubclass(Dog, Animal)                  # True
+    type(Dog("a")) is Animal                 # False (exact type check)
+    Dog.__bases__                            # (<class 'Animal'>,)
+    Dog.__mro__                              # (Dog, Animal, object)
+
+Method overriding: a subclass defines a method with the same name. Python
+picks the version found first in the MRO (the most specific class).
+
+Extending a parent method (call it, then add):
+    class Puppy(Dog):
+        def speak(self):
+            return super().speak() + "!"     # 'Woof!'
+
+Everything inherits from object (class A: and class A(object): are the
+same in Python 3).
+
+14. super()
+------------------------------------------------------------------------------
+super() returns a proxy that finds the NEXT class in the method resolution
+order. Use it to call parent methods without naming the parent.
+
+    super().__init__(...)        call parent initialiser
+    super().method(...)          call parent version of a method
+    Parent.method(self, ...)     older explicit form (breaks with multiple
+                                 inheritance)
+
+Benefits: no hard-coded parent names; works with multiple inheritance when
+every class cooperates.
+
+15. TYPES OF INHERITANCE
+------------------------------------------------------------------------------
+    Single        A <- B                  one parent
+    Multilevel    A <- B <- C             grandparent -> parent -> child
+    Hierarchical  A <- B,  A <- C         many children of one parent
+    Multiple      A, B <- C               one child, several parents
+    Hybrid        a mix, e.g. diamond
+
+    class A: pass
+    class B(A): pass                 # single
+    class C(B): pass                 # multilevel (C -> B -> A)
+    class D(A): pass                 # hierarchical (B and D from A)
+    class E(B, D): pass              # multiple
+
+16. MULTIPLE INHERITANCE AND THE MRO
+------------------------------------------------------------------------------
+    class Flyer:
+        def move(self): return "fly"
+    class Swimmer:
+        def move(self): return "swim"
+    class Duck(Flyer, Swimmer):
+        pass
+    Duck().move()                    # 'fly'  (Flyer is first in the bases)
+
+MRO (Method Resolution Order): the order in which classes are searched for an
+attribute. Python uses C3 linearisation; rules: children before parents, the
+order of the bases is kept, each class appears once.
+
+    Duck.__mro__                     # (Duck, Flyer, Swimmer, object)
+    Duck.mro()                       # same as a list
+
+Diamond problem:
+         A
+        / \
+       B   C
+        \ /
+         D
+    class A:
+        def hi(self): print("A")
+    class B(A):
+        def hi(self): print("B"); super().hi()
+    class C(A):
+        def hi(self): print("C"); super().hi()
+    class D(B, C):
+        def hi(self): print("D"); super().hi()
+
+    D().hi()                         # D  B  C  A  (each exactly once)
+    [c.__name__ for c in D.mro()]    # ['D', 'B', 'C', 'A', 'object']
+
+Inconsistent order raises an error:
+    class A: pass
+    class B(A): pass
+    class X(A, B): pass              # TypeError: Cannot create a consistent
+                                     # method resolution order (MRO)
+    (A must come after its subclass B: write class X(B, A))
+
+Mixins: small classes that add one feature and are meant to be combined:
+    class JsonMixin:
+        def to_json(self):
+            import json
+            return json.dumps(self.__dict__)
+    class User(JsonMixin):
+        def __init__(self, n): self.name = n
+    User("A").to_json()              # '{"name": "A"}'
+
+Cooperative __init__ in multiple inheritance: every class calls
+super().__init__(**kwargs) so that each initialiser runs exactly once.
+
+17. COMPOSITION ("HAS-A") vs INHERITANCE ("IS-A")
+------------------------------------------------------------------------------
+    class Engine:
+        def start(self): return "engine on"
+
+    class Car:                       # a Car HAS an Engine
+        def __init__(self):
+            self.engine = Engine()   # composition
+        def start(self):
+            return self.engine.start()
+
+  Inheritance                      | Composition
+  ---------------------------------|----------------------------------------
+  "is-a" (Dog is an Animal)        | "has-a" (Car has an Engine)
+  Tight coupling to the parent     | Loose coupling, easy to swap parts
+  Reuses code by extending         | Reuses code by delegating
+  Hierarchy can become deep        | Flat and flexible
+
+Guideline: prefer composition; use inheritance only for a true "is-a"
+relationship where the subclass can be used wherever the parent is
+(Liskov Substitution Principle).
+
+18. INHERITANCE FACTS AND GOTCHAS
+------------------------------------------------------------------------------
+ 1. Forgetting super().__init__() leaves parent attributes unset.
+ 2. A mutable class attribute is shared by all subclasses and instances.
+ 3. Overriding __eq__ without __hash__ makes the class unhashable.
+ 4. isinstance(True, int) is True (bool subclasses int); prefer isinstance
+    to type(x) == Cls to accept subclasses.
+ 5. A subclass can add attributes and methods and override any method.
+ 6. Private-looking names __x are mangled per class (section 25), so a
+    subclass cannot reach a parent's __x directly.
+ 7. Deep hierarchies are fragile; keep them shallow.
+ 8. Use abstract base classes (section 30) to force subclasses to implement
+    required methods.
+ 9. A method call self.method() always uses the object's real class (dynamic
+    dispatch), even inside parent code.
+10. Built-in types can be subclassed (class MyList(list), class MyDict(dict)).
+
+
+==============================================================================
+                        D. POLYMORPHISM
+==============================================================================
+
+19. WHAT IS POLYMORPHISM?
+------------------------------------------------------------------------------
+"Many forms": the same operation or interface behaves differently for
+different objects/types. Code can work with a general interface without
+knowing the concrete class.
+
+Forms in Python:
+    1. Method overriding (runtime polymorphism via inheritance)
+    2. Duck typing (any object with the right methods works)
+    3. Operator overloading (special methods like __add__)
+    4. Built-in functions/operators that work on many types
+    5. Function flexibility (default arguments, *args, singledispatch)
+
+20. METHOD OVERRIDING (RUNTIME POLYMORPHISM)
+------------------------------------------------------------------------------
+    class Shape:
+        def area(self):
+            raise NotImplementedError
+
+    class Rectangle(Shape):
+        def __init__(self, w, h): self.w, self.h = w, h
+        def area(self): return self.w * self.h
+
+    class Circle(Shape):
+        def __init__(self, r): self.r = r
+        def area(self): return 3.14159 * self.r ** 2
+
+    shapes = [Rectangle(2, 3), Circle(1)]
+    for s in shapes:
+        print(type(s).__name__, s.area())
+    # Rectangle 6
+    # Circle 3.14159
+
+    def total_area(shapes):                  # works for ANY Shape
+        return sum(s.area() for s in shapes)
+
+The call s.area() is resolved at RUN time from the object's real class
+(dynamic dispatch). New shapes can be added without changing total_area.
+
+21. DUCK TYPING
+------------------------------------------------------------------------------
+"If it walks like a duck and quacks like a duck, it is a duck." Python cares
+about what an object CAN DO, not what class it is.
+
+    class Duck:
+        def speak(self): return "Quack"
+    class Robot:                              # unrelated class
+        def speak(self): return "Beep"
+
+    def make_it_speak(thing):
+        return thing.speak()                  # needs only a speak() method
+
+    make_it_speak(Duck())                     # 'Quack'
+    make_it_speak(Robot())                    # 'Beep'
+    make_it_speak(5)                          # AttributeError
+
+Built-in example: any object with __iter__ works in a for loop; any object
+with __len__ works with len(); any file-like object with read() can be
+passed to json.load.
+
+Structural typing with typing.Protocol (static type checkers verify it):
+    from typing import Protocol
+    class Speaker(Protocol):
+        def speak(self) -> str: ...
+    def talk(x: Speaker) -> str: return x.speak()
+
+Handle failure the Python way (EAFP):
+    try:
+        thing.speak()
+    except AttributeError:
+        ...
+
+22. OPERATOR OVERLOADING
+------------------------------------------------------------------------------
+Special methods let your objects work with operators and built-ins.
+
+    class Vector:
+        def __init__(self, x, y):
+            self.x, self.y = x, y
+        def __repr__(self):
+            return f"Vector({self.x}, {self.y})"
+        def __add__(self, other):
+            if not isinstance(other, Vector):
+                return NotImplemented
+            return Vector(self.x + other.x, self.y + other.y)
+        def __sub__(self, other):
+            return Vector(self.x - other.x, self.y - other.y)
+        def __mul__(self, k):                 # Vector * number
+            return Vector(self.x * k, self.y * k)
+        def __rmul__(self, k):                # number * Vector
+            return self * k
+        def __eq__(self, other):
+            return (self.x, self.y) == (other.x, other.y)
+        def __neg__(self):
+            return Vector(-self.x, -self.y)
+        def __abs__(self):
+            return (self.x ** 2 + self.y ** 2) ** 0.5
+        def __len__(self):
+            return 2
+        def __bool__(self):
+            return bool(self.x or self.y)
+        def __getitem__(self, i):
+            return (self.x, self.y)[i]
+
+    a, b = Vector(1, 2), Vector(3, 4)
+    a + b              # Vector(4, 6)
+    b - a              # Vector(2, 2)
+    a * 3              # Vector(3, 6)
+    3 * a              # Vector(3, 6)    (uses __rmul__)
+    -a                 # Vector(-1, -2)
+    abs(Vector(3, 4))  # 5.0
+    a == Vector(1, 2)  # True
+    len(a), a[0]       # 2 1
+
+    sum([a, b])        # TypeError: int + Vector (sum starts at 0)
+    sum([a, b], Vector(0, 0))      # Vector(4, 6)   or define __radd__
+
+Returning NotImplemented (not raising) lets Python try the other operand's
+reflected method.
+
+Operator -> method:
+    +  __add__       -  __sub__       *  __mul__       /  __truediv__
+    // __floordiv__  %  __mod__       ** __pow__       @  __matmul__
+    == __eq__  != __ne__  < __lt__  <= __le__  > __gt__  >= __ge__
+    &  __and__       |  __or__        ^  __xor__       << __lshift__
+    reflected: __radd__ __rsub__ __rmul__ ...   in-place: __iadd__ __isub__
+    unary: __neg__ __pos__ __abs__ __invert__
+    len() __len__    x[i] __getitem__    x[i] = v __setitem__
+    in __contains__  iter() __iter__     call x() __call__
+    bool() __bool__  hash() __hash__     str() __str__   repr() __repr__
+    with __enter__ / __exit__
+
+functools.total_ordering fills in all comparisons from __eq__ and one of
+__lt__, __le__, __gt__, __ge__.
+
+23. BUILT-IN POLYMORPHISM AND FLEXIBLE FUNCTIONS
+------------------------------------------------------------------------------
+    len("abc"), len([1, 2]), len({"a": 1})    # one function, many types
+    1 + 2          "a" + "b"          [1] + [2]      # + for numbers, text,
+                                                       lists
+    "ab" * 3       [0] * 3                           # * repeats
+    max(3, 5)      max("a", "b")      max([1, 9])
+    sorted([3, 1]) sorted("cba")
+
+No method overloading by signature: the LAST def with a name wins.
+    def f(a): ...
+    def f(a, b): ...        # replaces the first f
+Emulate it:
+    def area(a, b=None):                       # default arguments
+        return a * a if b is None else a * b
+    def total(*nums): return sum(nums)         # variable arguments
+    def show(x):                               # type checks
+        if isinstance(x, int): ...
+        elif isinstance(x, str): ...
+
+functools.singledispatch chooses the function by the type of the first
+argument:
+    from functools import singledispatch
+
+    @singledispatch
+    def show(x):
+        print("other:", x)
+    @show.register(int)
+    def _(x):
+        print("int:", x)
+    @show.register(list)
+    def _(x):
+        print("list of", len(x))
+
+    show(5)          # int: 5
+    show([1, 2])     # list of 2
+    show("a")        # other: a
+
+Overloading by class name for methods: functools.singledispatchmethod.
+
+
+==============================================================================
+                        E. ENCAPSULATION
+==============================================================================
+
+24. WHAT IS ENCAPSULATION?
+------------------------------------------------------------------------------
+Bundling data and the methods that work on it inside one unit (the class),
+and controlling how the outside world can reach that data. It protects the
+object's internal state and keeps its rules (invariants) intact, e.g. a
+balance can never become negative through careless assignment.
+
+Python does not have enforced private members; it relies on NAMING
+CONVENTIONS ("we are all consenting adults"), plus name mangling.
+
+25. ACCESS CONVENTIONS
+------------------------------------------------------------------------------
+  Name        | Meaning                    | Enforcement
+  ------------|----------------------------|-------------------------------
+  name        | public                     | none: use freely
+  _name       | protected / internal use   | convention only; still reachable
+  __name      | private (name mangled)     | renamed to _Class__name
+  __name__    | special (dunder) method    | Python's own protocol names;
+              |                            | do not invent new ones
+  name_       | avoid keyword clash        | e.g. class_ , type_
+
+    class Account:
+        def __init__(self, owner, balance):
+            self.owner = owner          # public
+            self._bank = "XYZ"          # protected (internal)
+            self.__balance = balance    # private (mangled)
+
+        def deposit(self, amount):
+            if amount <= 0:
+                raise ValueError("amount must be positive")
+            self.__balance += amount
+
+        def withdraw(self, amount):
+            if amount > self.__balance:
+                raise ValueError("insufficient funds")
+            self.__balance -= amount
+
+        def get_balance(self):          # getter
+            return self.__balance
+
+    a = Account("Amit", 100)
+    a.deposit(50)
+    a.get_balance()                     # 150
+    a.__balance                         # AttributeError
+    a._Account__balance                 # 150 (mangled name still reachable)
+    hasattr(a, "__balance")             # False
+    "_Account__balance" in dir(a)       # True
+
+Name mangling: inside class C, __x is rewritten to _C__x. Its goal is to
+avoid accidental clashes in subclasses - NOT security. Names that end with
+two underscores (__init__) are not mangled.
+
+    class A:
+        def __init__(self): self.__x = 1
+    class B(A):
+        def show(self): return self.__x      # becomes self._B__x
+    B().show()                                # AttributeError
+    (access with self._A__x, or use a single underscore for subclass access)
+
+Module level: a leading underscore (_helper) hides a name from
+"from module import *"; __all__ lists the public names.
+
+26. @property - PYTHONIC GETTERS AND SETTERS
+------------------------------------------------------------------------------
+Use plain attributes first. Add a property when you need validation or a
+computed value, WITHOUT changing how callers use the attribute.
+
+    class Temperature:
+        def __init__(self, celsius):
+            self.celsius = celsius            # goes through the setter
+
+        @property
+        def celsius(self):                    # getter
+            return self._celsius
+
+        @celsius.setter
+        def celsius(self, value):             # setter with validation
+            if value < -273.15:
+                raise ValueError("below absolute zero")
+            self._celsius = value
+
+        @celsius.deleter
+        def celsius(self):
+            del self._celsius
+
+        @property
+        def fahrenheit(self):                 # read-only computed attribute
+            return self._celsius * 9 / 5 + 32
+
+    t = Temperature(25)
+    t.celsius                    # 25      (looks like an attribute)
+    t.celsius = 30               # runs the setter
+    t.fahrenheit                 # 86.0
+    t.celsius = -300             # ValueError
+    t.fahrenheit = 100           # AttributeError (no setter: read-only)
+
+Notes:
+    - Store the value in a different name (_celsius) than the property name.
+    - A property without a setter is read-only.
+    - @functools.cached_property computes once and caches the result.
+    - Java-style get_x() / set_x() methods are not needed in Python.
+
+27. __slots__ AND OTHER WAYS TO RESTRICT ACCESS
+------------------------------------------------------------------------------
+    class Point:
+        __slots__ = ("x", "y")        # only these attributes are allowed
+        def __init__(self, x, y): self.x, self.y = x, y
+
+    p = Point(1, 2)
+    p.z = 3                           # AttributeError: no attribute 'z'
+    p.__dict__                        # AttributeError (no per-object dict)
+    - Saves memory when creating very many objects and prevents typos.
+    - Slotted classes cannot add attributes dynamically.
+
+Read-only / immutable objects:
+    @dataclass(frozen=True), namedtuple, or override __setattr__:
+        def __setattr__(self, name, value):
+            raise AttributeError("immutable")
+    Read-only attribute via property without setter.
+
+Hiding implementation with closures and modules is also encapsulation.
+
+28. WHY ENCAPSULATE? (BENEFITS)
+------------------------------------------------------------------------------
+    - Data protection and validation in one place
+    - Freedom to change internals without breaking users of the class
+    - Clear public interface (methods) vs internal details (_ and __)
+    - Easier debugging and testing
+    - Reduced coupling between parts of a program
+
+Guidelines: keep attributes non-public unless callers must set them; expose
+behaviour (deposit, withdraw) rather than raw data; validate in setters.
+
+
+==============================================================================
+                         F. ABSTRACTION
+==============================================================================
+
+29. WHAT IS ABSTRACTION?
+------------------------------------------------------------------------------
+Showing only the essential interface (WHAT an object does) and hiding the
+implementation details (HOW it does it).
+
+    - You use len(), print() or a car pedal without knowing the internals.
+    - A class exposes a few clean methods; callers never see the machinery.
+    - Abstraction is achieved with functions, classes, modules, and
+      ABSTRACT BASE CLASSES that define a contract subclasses must follow.
+
+Abstraction vs encapsulation:
+  Abstraction                           | Encapsulation
+  --------------------------------------|----------------------------------
+  Design level: WHAT to expose          | Implementation level: HOW to
+                                        | protect the data
+  Hides complexity (implementation)     | Hides data (state) and controls
+                                        | access
+  Done with ABCs, interfaces, clean     | Done with _x / __x, property,
+  public APIs                           | getters / setters
+
+30. ABSTRACT BASE CLASSES (abc MODULE)
+------------------------------------------------------------------------------
+An abstract class cannot be instantiated; it declares abstract methods that
+every concrete subclass MUST implement.
+
+    from abc import ABC, abstractmethod
+
+    class Shape(ABC):
+        @abstractmethod
+        def area(self):
+            """Return the area."""
+
+        @abstractmethod
+        def perimeter(self):
+            ...
+
+        def describe(self):                    # concrete method (shared)
+            return f"{type(self).__name__}: area={self.area()}"
+
+    Shape()                    # TypeError: Can't instantiate abstract class
+                               # Shape (without implementations of abstract
+                               # methods 'area', 'perimeter')
+
+    class Square(Shape):
+        def __init__(self, s): self.s = s
+        def area(self): return self.s ** 2
+        def perimeter(self): return 4 * self.s
+
+    class Bad(Shape):
+        def area(self): return 0               # forgot perimeter
+
+    Square(3).describe()       # 'Square: area=9'
+    Bad()                      # TypeError (still abstract)
+    isinstance(Square(1), Shape)       # True
+
+Rules:
+    - The class must inherit from ABC (or use metaclass=ABCMeta).
+    - A subclass becomes concrete only when ALL abstract methods are
+      overridden.
+    - The check happens at INSTANTIATION time.
+    - Abstract classes may have __init__, attributes and concrete methods.
+    - Abstract methods can have a body (callable through super()).
+    - Abstract properties:
+          @property
+          @abstractmethod
+          def name(self): ...
+    - @classmethod / @staticmethod can be abstract too (put @abstractmethod
+      innermost, directly above def).
+
+Compare with the older NotImplementedError approach:
+    def area(self): raise NotImplementedError
+    - only fails when the method is CALLED; the ABC fails at creation.
+
+Template Method pattern (abstraction + inheritance):
+    class Report(ABC):
+        def generate(self):                    # fixed workflow
+            data = self.fetch()
+            return self.format(data)
+        @abstractmethod
+        def fetch(self): ...
+        @abstractmethod
+        def format(self, data): ...
+
+Polymorphic use of an abstraction:
+    class Payment(ABC):
+        @abstractmethod
+        def pay(self, amount): ...
+    class Card(Payment):
+        def pay(self, amount): return f"Card paid {amount}"
+    class UPI(Payment):
+        def pay(self, amount): return f"UPI paid {amount}"
+
+    def checkout(method: Payment, amount):
+        return method.pay(amount)               # works with any Payment
+    checkout(Card(), 100)        # 'Card paid 100'
+    checkout(UPI(), 50)          # 'UPI paid 50'
+
+31. INTERFACES IN PYTHON
+------------------------------------------------------------------------------
+Python has no interface keyword. Options:
+    1. ABC with only abstract methods  (nominal: subclass must inherit)
+    2. typing.Protocol                  (structural: any class with the
+                                         methods matches; checked by tools
+                                         like mypy)
+    3. Plain duck typing                (no declaration at all)
+
+    from typing import Protocol, runtime_checkable
+    @runtime_checkable
+    class Closeable(Protocol):
+        def close(self) -> None: ...
+    isinstance(open("f.txt"), Closeable)       # True
+
+  Feature            | ABC                       | Protocol
+  -------------------|---------------------------|--------------------------
+  Must inherit       | yes (or register)         | no
+  Checked at         | instantiation (run time)  | static analysis (and
+                     |                           | isinstance if
+                     |                           | runtime_checkable)
+  Can share code     | yes (concrete methods)    | normally only signatures
+
+collections.abc provides ready-made ABCs: Iterable, Iterator, Sequence,
+Mapping, MutableMapping, Callable, Hashable, Sized, ... Implement the
+required methods and you get the rest (mixin methods):
+    from collections.abc import Sequence
+    class Deck(Sequence):                       # define __getitem__ & __len__
+        def __init__(self): self._cards = list(range(52))
+        def __getitem__(self, i): return self._cards[i]
+        def __len__(self): return len(self._cards)
+    d = Deck(); 5 in d; list(reversed(d)); d.index(3)    # all work
+
+Abstract class vs interface (conceptually):
+  Abstract class                          | Interface
+  ----------------------------------------|---------------------------------
+  May contain state and concrete methods  | only the contract (method names)
+  A base for related classes              | can be implemented by unrelated
+                                          | classes
+
+32. LEVELS OF ABSTRACTION IN PRACTICE
+------------------------------------------------------------------------------
+    - Function: sorted(data) hides the sorting algorithm.
+    - Class:    file objects hide system calls behind read / write.
+    - Module:   json.dumps hides the encoder.
+    - Layered design: UI -> service -> repository -> database; each layer
+      uses only the layer below through a clear interface.
+    Keep interfaces small and stable; implementations can change freely.
+
+
+==============================================================================
+          G. SPECIAL METHODS, DESIGN TIPS, PITFALLS, Q&A
+==============================================================================
+
+33. DUNDER (MAGIC) METHODS QUICK TABLE
+------------------------------------------------------------------------------
+  Group          | Methods
+  ---------------|---------------------------------------------------------
+  Creation       | __new__  __init__  __del__
+  Representation | __str__  __repr__  __format__  __bytes__
+  Comparison     | __eq__  __ne__  __lt__  __le__  __gt__  __ge__  __hash__
+  Arithmetic     | __add__ __sub__ __mul__ __truediv__ __floordiv__ __mod__
+                 | __pow__ and reflected / in-place forms
+  Container      | __len__ __getitem__ __setitem__ __delitem__ __contains__
+                 | __iter__ __next__ __reversed__
+  Attribute      | __getattr__ __getattribute__ __setattr__ __delattr__
+                 | __dir__ __slots__
+  Callable       | __call__
+  Context        | __enter__  __exit__
+  Conversion     | __bool__ __int__ __float__ __index__ __complex__
+  Class creation | __init_subclass__ __class_getitem__ (metaclasses)
+
+    class Adder:
+        def __init__(self, n): self.n = n
+        def __call__(self, x): return x + self.n     # callable object
+    add5 = Adder(5)
+    add5(10)                     # 15
+    callable(add5)               # True
+
+34. COMMON DESIGN PATTERNS (SHORT)
+------------------------------------------------------------------------------
+    Singleton   one instance only              (__new__ or a module variable)
+    Factory     create objects via a function  (classmethod / dictionary)
+    Strategy    swap behaviour at run time     (pass objects/functions)
+    Observer    notify subscribers on change   (list of callbacks)
+    Decorator   wrap an object/function        (@decorator syntax)
+    Iterator    traverse a collection          (__iter__ / __next__)
+    Template Method  fixed workflow, steps overridden (abstract methods)
+
+    class Shape:
+        @staticmethod
+        def create(kind, *args):                 # simple factory
+            return {"circle": Circle, "rect": Rectangle}[kind](*args)
+
+35. CLASS DESIGN GUIDELINES (SOLID IN ONE LINE EACH)
+------------------------------------------------------------------------------
+    S  Single Responsibility : a class should have one reason to change
+    O  Open/Closed          : open for extension, closed for modification
+                              (add a subclass instead of editing if-chains)
+    L  Liskov Substitution  : a subclass must work wherever its parent is
+                              expected
+    I  Interface Segregation: many small interfaces beat one big one
+    D  Dependency Inversion : depend on abstractions, not concrete classes
+
+Also: prefer composition, keep classes small, name methods as verbs, give
+classes clear __repr__, avoid mutable class attributes, avoid deep
+hierarchies, document with docstrings, use dataclasses for plain data.
+
+36. COMMON MISTAKES
+------------------------------------------------------------------------------
+  Symptom / error                          | Cause and fix
+  -----------------------------------------|--------------------------------
+  TypeError: takes 0 positional arguments  | forgot self in a method
+  but 1 was given                          |
+  NameError: name 'x' is not defined       | used x instead of self.x
+  AttributeError: 'X' has no attribute 'y' | typo, not set, or __init__
+                                           | did not call super().__init__
+  Shared state between objects             | mutable class attribute or
+                                           | mutable default argument
+  TypeError: Can't instantiate abstract    | subclass missing an abstract
+  class                                    | method
+  TypeError: unhashable type               | defined __eq__ without __hash__
+  Parent method ignored                    | forgot super() in the override
+  Wrong method runs in multiple            | check Class.__mro__
+  inheritance                              |
+  RecursionError in a property             | setter assigns to the property
+                                           | name itself (use _name)
+  print(obj) shows <... object at 0x...>   | define __str__ / __repr__
+  Changing a "copy" changes the original   | assignment aliases; use copy
+  Calling a method on the class            | Person.greet() needs an
+                                           | instance: Person.greet(p)
+  __init__ returns a value                 | must return None
+  int + Vector fails in sum()              | add __radd__ or a start value
+
+37. CHECKLIST
+------------------------------------------------------------------------------
+  1. A class is a blueprint; an object is an instance; Python creates it by
+     __new__ then __init__.
+  2. self is the instance; cls is the class; static methods get neither.
+  3. Instance attributes live in obj.__dict__; class attributes are shared;
+     assignment through an instance creates an instance attribute.
+  4. Create mutable attributes inside __init__, never at class level.
+  5. There is no constructor overloading: use defaults and classmethods.
+  6. Call super().__init__() in subclass constructors.
+  7. Overriding = same name in a subclass; the most specific class wins
+     according to the MRO.
+  8. MRO order: C3 linearisation; inspect with Class.__mro__.
+  9. Prefer composition over inheritance.
+ 10. Polymorphism in Python = overriding + duck typing + operator
+     overloading; there is no overloading by signature.
+ 11. _x means internal; __x is name-mangled; neither is enforced privacy.
+ 12. Use @property for validation and computed attributes.
+ 13. ABC + @abstractmethod: cannot instantiate until every abstract method
+     is implemented.
+ 14. Define __repr__ always, __str__ for friendly output.
+ 15. Define __hash__ whenever you define __eq__ for hashable objects.
+
+
+==============================================================================
+            H. WORKED EXAMPLES FOR EVERY PILLAR, BY CATEGORY
+==============================================================================
+Each pillar below is split into its CATEGORIES (kinds). Every category has a
+small, complete example with its output, so you can copy, run and modify it.
+
+    Pillar          | Categories covered
+    ----------------|------------------------------------------------------
+    Encapsulation   | access levels, property getter/setter, read-only,
+                    | validation, class-level (private class data)
+    Abstraction     | abstract class, interface style, template method,
+                    | hiding complexity (facade), abstract property
+    Inheritance     | single, multilevel, hierarchical, multiple, hybrid,
+                    | composition (has-a)
+    Polymorphism    | overriding, duck typing, operator overloading,
+                    | overloading emulation, built-in, class-method
+    All together    | one banking program using all four pillars
+
+
+38. ENCAPSULATION - CATEGORIES WITH EXAMPLES
+------------------------------------------------------------------------------
+Idea: keep data inside the object, allow access only through a controlled
+interface.
+
+(E1) Category: ACCESS LEVELS (public, protected, private)
+    class Employee:
+        company = "TechCorp"              # public class attribute
+
+        def __init__(self, name, salary, ssn):
+            self.name = name              # public
+            self._salary = salary         # protected (convention)
+            self.__ssn = ssn              # private (name mangled)
+
+        def show(self):
+            return f"{self.name}, {self._salary}, {self.__mask()}"
+
+        def __mask(self):                 # private method
+            return "***-**-" + self.__ssn[-4:]
+
+    class Manager(Employee):
+        def bonus(self):
+            return self._salary * 0.1     # subclass may use protected data
+
+    e = Employee("Amit", 50000, "123-45-6789")
+    print(e.name)                         # Amit
+    print(e._salary)                      # 50000   (works; internal by habit)
+    print(e.show())                       # Amit, 50000, ***-**-6789
+    try:
+        print(e.__ssn)
+    except AttributeError:
+        print("private: no direct access")        # printed
+    print(e._Employee__ssn)               # 123-45-6789  (mangled name)
+    print(e._Employee__mask())            # ***-**-6789
+    print(Manager("Riya", 80000, "999-88-7777").bonus())    # 8000.0
+
+(E2) Category: GETTERS AND SETTERS WITH @property (the Python way)
+    class BankAccount:
+        def __init__(self, owner, balance=0):
+            self.owner = owner
+            self.__balance = 0
+            self.__history = []
+            if balance:
+                self.deposit(balance)
+
+        @property
+        def balance(self):                     # read-only attribute
+            return self.__balance
+
+        @property
+        def history(self):                     # hand out a COPY (tuple)
+            return tuple(self.__history)
+
+        def deposit(self, amount):
+            if amount <= 0:
+                raise ValueError("Deposit must be positive")
+            self.__balance += amount
+            self.__history.append(("deposit", amount))
+
+        def withdraw(self, amount):
+            if amount <= 0:
+                raise ValueError("Withdrawal must be positive")
+            if amount > self.__balance:
+                raise ValueError("Insufficient funds")
+            self.__balance -= amount
+            self.__history.append(("withdraw", amount))
+
+    acc = BankAccount("Amit", 1000)
+    acc.deposit(500)
+    acc.withdraw(200)
+    print(acc.balance)            # 1300
+    print(acc.history)            # (('deposit', 1000), ('deposit', 500),
+                                  #  ('withdraw', 200))
+    try:
+        acc.balance = 1_000_000   # no setter
+    except AttributeError:
+        print("balance is read-only")
+    try:
+        acc.withdraw(5000)
+    except ValueError as e:
+        print(e)                  # Insufficient funds
+
+    Outside code can change the balance ONLY through deposit / withdraw, so
+    the rules (positive amounts, no overdraft) can never be bypassed.
+
+(E3) Category: VALIDATION IN A SETTER
+    class Student:
+        def __init__(self, name, marks):
+            self.name = name
+            self.marks = marks                 # runs the setter
+
+        @property
+        def marks(self):
+            return self._marks
+
+        @marks.setter
+        def marks(self, value):
+            if not 0 <= value <= 100:
+                raise ValueError("marks must be between 0 and 100")
+            self._marks = value
+
+        @property
+        def grade(self):                       # computed, read-only
+            m = self._marks
+            return "A" if m >= 90 else "B" if m >= 75 else "C"
+
+    s = Student("Bina", 88)
+    print(s.marks, s.grade)       # 88 B
+    s.marks = 95
+    print(s.marks, s.grade)       # 95 A
+    s.marks = 120                 # ValueError: marks must be 0 to 100
+    Student("Chen", -5)           # ValueError (the constructor validates too)
+
+(E4) Category: READ-ONLY / IMMUTABLE OBJECTS
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class Point:
+        x: int
+        y: int
+
+    p = Point(1, 2)
+    print(p)                      # Point(x=1, y=2)
+    p.x = 10                      # FrozenInstanceError (cannot assign)
+    print(hash(p) == hash(Point(1, 2)))     # True (frozen -> hashable)
+
+(E5) Category: CLASS-LEVEL (PRIVATE CLASS DATA)
+    class IDGenerator:
+        __next = 1                              # private class variable
+
+        @classmethod
+        def new_id(cls):
+            value = cls.__next
+            cls.__next += 1
+            return value
+
+    print(IDGenerator.new_id())   # 1
+    print(IDGenerator.new_id())   # 2
+    print(IDGenerator._IDGenerator__next)   # 3 (mangled; avoid in real code)
+
+What encapsulation gives you: validation in one place, freedom to change
+the internals later, and a small public surface (deposit, withdraw, balance).
+
+
+39. ABSTRACTION - CATEGORIES WITH EXAMPLES
+------------------------------------------------------------------------------
+Idea: expose WHAT can be done, hide HOW. Callers depend on the abstraction,
+not on a concrete class.
+
+(A1) Category: ABSTRACT CLASS (abstract + concrete methods)
+    from abc import ABC, abstractmethod
+
+    class Vehicle(ABC):
+        def __init__(self, brand):
+            self.brand = brand
+
+        @abstractmethod
+        def start(self): ...
+
+        @abstractmethod
+        def wheels(self): ...
+
+        def describe(self):                    # concrete, uses the abstract
+            return f"{self.brand}: {self.start()} on {self.wheels()} wheels"
+
+    class Car(Vehicle):
+        def start(self):  return "engine started"
+        def wheels(self): return 4
+
+    class Bike(Vehicle):
+        def start(self):  return "kick started"
+        def wheels(self): return 2
+
+    print(Car("Honda").describe())    # Honda: engine started on 4 wheels
+    print(Bike("Hero").describe())    # Hero: kick started on 2 wheels
+    try:
+        Vehicle("generic")
+    except TypeError as e:
+        print("cannot instantiate:", type(e).__name__)   # TypeError
+
+(A2) Category: INTERFACE STYLE (only abstract methods = a contract)
+    class Notifier(ABC):
+        @abstractmethod
+        def send(self, to, message): ...
+
+    class EmailNotifier(Notifier):
+        def send(self, to, message):
+            print(f"Email to {to}: {message}")
+
+    class SMSNotifier(Notifier):
+        def send(self, to, message):
+            print(f"SMS to {to}: {message}")
+
+    def alert(notifier: Notifier, user):       # depends on the interface only
+        notifier.send(user, "Server down")
+
+    for n in (EmailNotifier(), SMSNotifier()):
+        alert(n, "amit")
+    # Email to amit: Server down
+    # SMS to amit: Server down
+
+    Same idea without inheritance (structural typing):
+    from typing import Protocol
+    class Sender(Protocol):
+        def send(self, to: str, message: str) -> None: ...
+    Any class with a matching send() fits Sender; no base class is needed.
+
+(A3) Category: TEMPLATE METHOD (fixed workflow, steps left abstract)
+    class Beverage(ABC):
+        def prepare(self):                     # the template (fixed order)
+            steps = [self.boil_water(), self.brew(),
+                     self.pour(), self.add_condiments()]
+            return " -> ".join(steps)
+
+        def boil_water(self): return "boil water"      # shared step
+        def pour(self):       return "pour in cup"     # shared step
+
+        @abstractmethod
+        def brew(self): ...                            # varies
+        @abstractmethod
+        def add_condiments(self): ...                  # varies
+
+    class Tea(Beverage):
+        def brew(self):           return "steep tea"
+        def add_condiments(self): return "add lemon"
+
+    class Coffee(Beverage):
+        def brew(self):           return "drip coffee"
+        def add_condiments(self): return "add milk"
+
+    print(Tea().prepare())
+    # boil water -> steep tea -> pour in cup -> add lemon
+    print(Coffee().prepare())
+    # boil water -> drip coffee -> pour in cup -> add milk
+
+(A4) Category: HIDING COMPLEXITY (a simple public method, private steps)
+    class CoffeeMachine:
+        def make_coffee(self):                 # the only thing users call
+            self.__grind()
+            self.__heat()
+            self.__brew()
+            return "Coffee ready"
+
+        def __grind(self): print("grinding beans")
+        def __heat(self):  print("heating water")
+        def __brew(self):  print("brewing")
+
+    print(CoffeeMachine().make_coffee())
+    # grinding beans
+    # heating water
+    # brewing
+    # Coffee ready
+    The user presses one button; the three internal steps can change freely.
+    (Built-in examples: len(), sorted(), open(), print().)
+
+(A5) Category: ABSTRACT PROPERTY
+    class Staff(ABC):
+        @property
+        @abstractmethod
+        def role(self): ...
+
+        def intro(self):
+            return f"I am a {self.role}"
+
+    class Developer(Staff):
+        @property
+        def role(self):
+            return "developer"
+
+    print(Developer().intro())        # I am a developer
+
+Abstraction vs encapsulation in the examples: Vehicle / Notifier / Beverage
+define a CONTRACT (abstraction); BankAccount's private balance PROTECTS DATA
+(encapsulation). Real designs use both.
+
+
+40. INHERITANCE - CATEGORIES WITH EXAMPLES
+------------------------------------------------------------------------------
+Idea: a subclass reuses and extends a parent ("is-a").
+
+(I1) Category: SINGLE INHERITANCE            Person <- Student
+    class Person:
+        def __init__(self, name, age):
+            self.name = name
+            self.age = age
+        def introduce(self):
+            return f"I am {self.name}, {self.age} years old"
+
+    class Student(Person):
+        def __init__(self, name, age, roll):
+            super().__init__(name, age)        # parent part first
+            self.roll = roll
+        def introduce(self):                   # overrides and extends
+            return super().introduce() + f", roll no {self.roll}"
+
+    s = Student("Amit", 20, 101)
+    print(s.introduce())     # I am Amit, 20 years old, roll no 101
+    print(isinstance(s, Person), issubclass(Student, Person))   # True True
+
+(I2) Category: MULTILEVEL INHERITANCE        Person <- Employee <- Manager
+    class Employee(Person):
+        def __init__(self, name, age, salary):
+            super().__init__(name, age)
+            self.salary = salary
+
+    class Manager(Employee):
+        def __init__(self, name, age, salary, team):
+            super().__init__(name, age, salary)
+            self.team = team
+        def summary(self):
+            return f"{self.name} manages {len(self.team)} people, " \
+                   f"earns {self.salary}"
+
+    m = Manager("Riya", 40, 90000, ["A", "B", "C"])
+    print(m.summary())       # Riya manages 3 people, earns 90000
+    print(m.introduce())     # I am Riya, 40 years old   (from Person)
+    print([c.__name__ for c in Manager.__mro__])
+    # ['Manager', 'Employee', 'Person', 'object']
+
+(I3) Category: HIERARCHICAL INHERITANCE      one parent, many children
+    import math
+
+    class Shape:
+        def __init__(self, name):
+            self.name = name
+        def area(self):
+            raise NotImplementedError
+        def __str__(self):
+            return f"{self.name} area={self.area():.2f}"
+
+    class Circle(Shape):
+        def __init__(self, r):
+            super().__init__("Circle"); self.r = r
+        def area(self): return math.pi * self.r ** 2
+
+    class Rectangle(Shape):
+        def __init__(self, w, h):
+            super().__init__("Rectangle"); self.w, self.h = w, h
+        def area(self): return self.w * self.h
+
+    class Triangle(Shape):
+        def __init__(self, b, h):
+            super().__init__("Triangle"); self.b, self.h = b, h
+        def area(self): return 0.5 * self.b * self.h
+
+    for s in (Circle(2), Rectangle(3, 4), Triangle(6, 5)):
+        print(s)
+    # Circle area=12.57
+    # Rectangle area=12.00
+    # Triangle area=15.00
+
+(I4) Category: MULTIPLE INHERITANCE          two parents, one child
+    class Flyer:
+        def fly(self):  return f"{self.name} flies"
+
+    class Swimmer:
+        def swim(self): return f"{self.name} swims"
+
+    class Duck(Flyer, Swimmer):
+        def __init__(self, name):
+            self.name = name
+
+    d = Duck("Donald")
+    print(d.fly())           # Donald flies
+    print(d.swim())          # Donald swims
+    print([c.__name__ for c in Duck.__mro__])
+    # ['Duck', 'Flyer', 'Swimmer', 'object']
+
+(I5) Category: HYBRID INHERITANCE (the diamond) with cooperative super()
+              A
+             / \
+            B   C
+             \ /
+              D
+    class A:
+        def __init__(self):
+            print("A init")
+    class B(A):
+        def __init__(self):
+            super().__init__(); print("B init")
+    class C(A):
+        def __init__(self):
+            super().__init__(); print("C init")
+    class D(B, C):
+        def __init__(self):
+            super().__init__(); print("D init")
+
+    D()
+    # A init
+    # C init
+    # B init
+    # D init
+    print([c.__name__ for c in D.__mro__])   # ['D', 'B', 'C', 'A', 'object']
+    A runs once because super() follows the MRO (D, B, C, A), not the
+    parent names written in the code.
+
+(I6) Category: COMPOSITION ("has-a") - the alternative to inheritance
+    class Engine:
+        def __init__(self, hp):
+            self.hp = hp
+        def start(self):
+            return f"{self.hp}hp engine started"
+
+    class Car:
+        def __init__(self, brand, engine):
+            self.brand = brand
+            self.engine = engine               # a Car HAS an Engine
+        def start(self):
+            return f"{self.brand}: {self.engine.start()}"
+
+    print(Car("Tata", Engine(110)).start())    # Tata: 110hp engine started
+    Swap the engine for another object with start() and Car is unchanged.
+
+Summary of inheritance categories:
+  Category      | Shape            | Example above
+  --------------|------------------|--------------------------------------
+  Single        | A <- B           | Person <- Student
+  Multilevel    | A <- B <- C      | Person <- Employee <- Manager
+  Hierarchical  | A <- B, A <- C   | Shape <- Circle / Rectangle / Triangle
+  Multiple      | A, B <- C        | Flyer, Swimmer <- Duck
+  Hybrid        | diamond / mix    | A <- B, C <- D
+  Composition   | has-a            | Car has an Engine
+
+
+41. POLYMORPHISM - CATEGORIES WITH EXAMPLES
+------------------------------------------------------------------------------
+Idea: one interface, many behaviours. The caller does not care which class
+it holds.
+
+(P1) Category: METHOD OVERRIDING (run-time polymorphism)
+    class Employee:
+        def __init__(self, name):
+            self.name = name
+        def pay(self):
+            raise NotImplementedError
+
+    class FullTime(Employee):
+        def __init__(self, name, monthly):
+            super().__init__(name); self.monthly = monthly
+        def pay(self): return self.monthly
+
+    class PartTime(Employee):
+        def __init__(self, name, hours, rate):
+            super().__init__(name); self.hours, self.rate = hours, rate
+        def pay(self): return self.hours * self.rate
+
+    class Intern(Employee):
+        def pay(self): return 15000            # fixed stipend
+
+    staff = [FullTime("A", 50000), PartTime("B", 80, 250), Intern("C")]
+    for e in staff:
+        print(f"{e.name}: {e.pay()}")
+    # A: 50000
+    # B: 20000
+    # C: 15000
+    print("Total:", sum(e.pay() for e in staff))      # Total: 85000
+    The loop and sum() never check the type; a new Employee class needs no
+    change to this code.
+
+(P2) Category: DUCK TYPING (no common base class)
+    class ConsoleLogger:
+        def log(self, msg):
+            print("[console]", msg)
+
+    class MemoryLogger:
+        def __init__(self):
+            self.lines = []
+        def log(self, msg):
+            self.lines.append(msg)
+
+    def run(logger):                           # needs only a log() method
+        logger.log("started")
+        logger.log("finished")
+
+    run(ConsoleLogger())
+    # [console] started
+    # [console] finished
+    mem = MemoryLogger()
+    run(mem)
+    print(mem.lines)                           # ['started', 'finished']
+    run(42)                    # AttributeError: 'int' object has no attribute
+                               # 'log'
+
+(P3) Category: OPERATOR OVERLOADING
+    class Money:
+        def __init__(self, amount, cur="INR"):
+            self.amount, self.cur = amount, cur
+
+        def __add__(self, other):
+            if self.cur != other.cur:
+                raise ValueError("currency mismatch")
+            return Money(self.amount + other.amount, self.cur)
+
+        def __mul__(self, k):
+            return Money(self.amount * k, self.cur)
+        __rmul__ = __mul__                     # makes 3 * Money work
+
+        def __eq__(self, other):
+            return (self.amount, self.cur) == (other.amount, other.cur)
+        def __hash__(self):
+            return hash((self.amount, self.cur))
+        def __lt__(self, other):
+            return self.amount < other.amount
+        def __str__(self):
+            return f"{self.cur} {self.amount:.2f}"
+
+    a, b = Money(100), Money(50.5)
+    print(a + b)                       # INR 150.50
+    print(a * 3)                       # INR 300.00
+    print(2 * b)                       # INR 101.00
+    print(a == Money(100))             # True
+    print(a < b)                       # False
+    print(sorted([a, b])[0])           # INR 50.50   (sorted uses __lt__)
+    print(a + Money(5, "USD"))         # ValueError: currency mismatch
+
+    Container protocol (len, indexing, in, for) through special methods:
+    class Playlist:
+        def __init__(self, songs):
+            self.songs = list(songs)
+        def __len__(self):
+            return len(self.songs)
+        def __getitem__(self, i):
+            return self.songs[i]
+
+    p = Playlist(["x", "y", "z"])
+    print(len(p), p[0], p[-1])         # 3 x z
+    print("y" in p)                    # True
+    print([s.upper() for s in p])      # ['X', 'Y', 'Z']
+
+(P4) Category: "OVERLOADING" EMULATION (Python has no signature overloading)
+    # 1. Default arguments
+    class Rect:
+        def area(self, w, h=None):
+            h = w if h is None else h
+            return w * h
+    r = Rect()
+    print(r.area(4), r.area(4, 5))     # 16 20
+
+    # 2. Variable arguments
+    class Calc:
+        def add(self, *nums):
+            return sum(nums)
+    print(Calc().add(1, 2), Calc().add(1, 2, 3, 4))      # 3 10
+
+    # 3. Dispatch on the argument type
+    from functools import singledispatch
+
+    @singledispatch
+    def describe(x):
+        return f"something: {x}"
+    @describe.register(int)
+    def _(x):
+        return f"integer {x}"
+    @describe.register(list)
+    def _(x):
+        return f"list of {len(x)}"
+
+    print(describe(5), "|", describe([1, 2]), "|", describe("a"))
+    # integer 5 | list of 2 | something: a
+
+(P5) Category: BUILT-IN POLYMORPHISM (one name, many types)
+    print(len("abc"), len([1, 2, 3, 4]), len({"a": 1}))    # 3 4 1
+    print(1 + 2, "a" + "b", [1] + [2])                     # 3 ab [1, 2]
+    print(3 * 2, "ab" * 2, [0] * 2)                        # 6 abab [0, 0]
+    print(max(3, 7), max("a", "z"), max([1, 9, 4]))        # 7 z 9
+    print(sorted([3, 1, 2]), sorted("cab"))   # [1, 2, 3] ['a', 'b', 'c']
+
+(P6) Category: CLASS-METHOD POLYMORPHISM (cls adapts to the subclass)
+    class Animal:
+        def __init__(self, name):
+            self.name = name
+        @classmethod
+        def create(cls, name):
+            return cls(name)               # builds the CALLING class
+        def speak(self):
+            return "..."
+
+    class Dog(Animal):
+        def speak(self): return "Woof"
+
+    class Cat(Animal):
+        def speak(self): return "Meow"
+
+    for kind in (Dog, Cat):
+        pet = kind.create("Pet")
+        print(type(pet).__name__, pet.speak())
+    # Dog Woof
+    # Cat Meow
+
+Summary of polymorphism categories:
+  Category              | Mechanism                  | Decided
+  ----------------------|----------------------------|-------------------
+  Overriding            | inheritance                | at run time
+  Duck typing           | same method names          | at run time
+  Operator overloading  | special methods            | at run time
+  Overloading emulation | defaults, *args, dispatch  | at call time
+  Built-in              | protocols (__len__, ...)   | at run time
+  Class-method          | cls                        | at run time
+  (Python has no compile-time polymorphism: there is no overloading by
+  signature.)
+
+
+42. ALL FOUR PILLARS IN ONE PROGRAM
+------------------------------------------------------------------------------
+A small banking system. Comments mark where each pillar appears.
+
+    from abc import ABC, abstractmethod
+
+    class Account(ABC):                           # ABSTRACTION: contract
+        _count = 0
+
+        def __init__(self, owner, balance=0):
+            self.owner = owner                    # public
+            self.__balance = balance              # ENCAPSULATION: private
+            Account._count += 1
+
+        @property
+        def balance(self):                        # controlled read access
+            return self.__balance
+
+        def deposit(self, amount):
+            if amount <= 0:
+                raise ValueError("amount must be positive")
+            self.__balance += amount
+
+        def withdraw(self, amount):
+            if amount > self.available():         # polymorphic call
+                raise ValueError("insufficient funds")
+            self.__balance -= amount
+
+        @abstractmethod
+        def available(self): ...                  # each type decides
+
+        @abstractmethod
+        def month_end(self): ...                  # each type decides
+
+        def __str__(self):
+            return f"{type(self).__name__}({self.owner}, {self.balance:.2f})"
+
+    class Savings(Account):                       # INHERITANCE
+        def __init__(self, owner, balance=0, rate=0.04):
+            super().__init__(owner, balance)
+            self.rate = rate
+        def available(self):
+            return self.balance
+        def month_end(self):                      # POLYMORPHISM: overriding
+            self.deposit(self.balance * self.rate / 12)
+
+    class Current(Account):                       # INHERITANCE
+        def __init__(self, owner, balance=0, overdraft=1000):
+            super().__init__(owner, balance)
+            self.overdraft = overdraft
+        def available(self):
+            return self.balance + self.overdraft
+        def month_end(self):                      # POLYMORPHISM: overriding
+            self.withdraw(10)                     # maintenance fee
+
+    accounts = [Savings("Amit", 12000), Current("Bina", 500)]
+
+    for a in accounts:                            # same call, two behaviours
+        a.month_end()
+    for a in accounts:
+        print(a)
+    # Savings(Amit, 12040.00)        (interest 12000 * 0.04 / 12 = 40)
+    # Current(Bina, 490.00)          (fee 10)
+
+    accounts[1].withdraw(1400)            # allowed: 490 + 1000 >= 1400
+    print(accounts[1])                # Current(Bina, -910.00)
+    try:
+        accounts[1].withdraw(500)     # available is now only 90
+    except ValueError as e:
+        print(e)                      # insufficient funds
+    try:
+        Account("x")                  # TypeError: abstract class
+    except TypeError:
+        print("Account is abstract")
+    try:
+        accounts[0].balance = 1       # AttributeError: no setter
+    except AttributeError:
+        print("balance is read-only")
+    print(Account._count)             # 2
+
+Where the pillars appear:
+    Abstraction   : Account is an abstract contract (available, month_end);
+                    callers use Account methods only.
+    Encapsulation : __balance is private; deposit / withdraw validate;
+                    balance is read-only.
+    Inheritance   : Savings and Current reuse deposit, withdraw, __str__ and
+                    the constructor (via super()).
+    Polymorphism  : month_end() and available() behave differently per
+                    class, yet the loop treats all accounts alike.
+
+43. WHICH EXAMPLE FOR WHICH QUESTION?
+------------------------------------------------------------------------------
+    "Explain access modifiers in Python"        -> E1
+    "How do you create getters and setters?"    -> E2, E3
+    "How can an object be immutable?"           -> E4
+    "How do you create an abstract class?"      -> A1
+    "Interface in Python?"                      -> A2 (ABC / Protocol)
+    "What is the Template Method pattern?"      -> A3
+    "Types of inheritance with examples"        -> I1 to I5
+    "Diamond problem and MRO"                   -> I5
+    "Inheritance or composition?"               -> I6
+    "Overriding / runtime polymorphism"         -> P1
+    "What is duck typing?"                      -> P2
+    "Operator overloading"                      -> P3
+    "Does Python support overloading?"          -> P4
+    "Polymorphism in built-ins"                 -> P5
+    "Use all four pillars together"             -> section 42
+
+
+==============================================================================
+                  I. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+CLASSES AND OBJECTS
+Q1. What is the difference between a class and an object?
+A.  A class is a blueprint that defines attributes and methods; an object
+    (instance) is a concrete thing created from the class, with its own data.
+    Person is a class; Person("Amit", 25) is an object.
+
+Q2. What is self? What is the output?
+        class A:
+            def f(self): return self
+        a = A(); print(a.f() is a)
+A.  self is the instance on which the method is called, passed automatically
+    as the first argument (a.f() is A.f(a)). Output: True.
+
+Q3. What is the output?
+        class C: x = 1
+        c1, c2 = C(), C()
+        c1.x = 5
+        print(C.x, c1.x, c2.x)
+        C.x = 9
+        print(c1.x, c2.x)
+A.  1 5 1
+    5 9
+    Assigning c1.x creates an instance attribute that shadows the class
+    attribute; c2 still reads the class value.
+
+Q4. What is the output?
+        class A: l = []
+        a, b = A(), A()
+        a.l.append(1)
+        print(b.l)
+A.  [1]   (the list is a class attribute shared by all instances; create it
+    in __init__ instead).
+
+Q5. Explain instance method, class method and static method.
+A.  Instance method: takes self, works on one object. Class method
+    (@classmethod): takes cls, works with class data and is often an
+    alternative constructor. Static method (@staticmethod): takes neither; a
+    utility function placed in the class namespace.
+
+Q6. What is the difference between __str__ and __repr__?
+A.  __str__ gives a readable string for users (print, str(), f-strings).
+    __repr__ gives an unambiguous developer string, ideally valid code
+    (repr(), REPL, inside containers). If only __repr__ exists, str() uses it.
+
+Q7. What is the output?
+        class P:
+            def __str__(self): return "S"
+            def __repr__(self): return "R"
+        p = P(); print(p, [p], repr(p))
+A.  S [R] R
+
+Q8. What does == do by default for objects? How do you change it?
+A.  It compares identity (same as is). Define __eq__ to compare values; then
+    also define __hash__ (or the class becomes unhashable) if the objects are
+    used in sets or as dictionary keys.
+
+Q9. What is the output?   class A: pass
+                          print(type(A), type(A()), type(type))
+A.  <class 'type'> <class '__main__.A'> <class 'type'>   (classes are objects
+    too; their type is the metaclass type).
+
+Q10. Can you add attributes to an object after creation? How do you stop it?
+A.  Yes (obj.new = 1) because instances have a __dict__. Define __slots__ to
+    allow only the listed attributes; others raise AttributeError.
+
+CONSTRUCTORS
+Q11. Difference between __new__ and __init__?
+A.  __new__(cls) creates and returns the instance (static, called first);
+    __init__(self) initialises the already-created instance and returns None.
+    Override __new__ for immutable types and patterns like Singleton.
+
+Q12. Does Python support constructor overloading?
+A.  No: a second __init__ replaces the first. Use default arguments,
+    *args / **kwargs, or classmethods as alternative constructors
+    (from_string, from_dict).
+
+Q13. What happens?
+        class A:
+            def __init__(self): return 5
+        A()
+A.  TypeError: __init__() should return None, not 'int'.
+
+Q14. What is the output?
+        class A:
+            def __new__(cls):
+                print("new"); return super().__new__(cls)
+            def __init__(self): print("init")
+        A()
+A.  new
+    init
+
+Q15. What happens?
+        class Animal:
+            def __init__(self, name): self.name = name
+        class Cat(Animal):
+            def __init__(self): self.lives = 9
+        print(Cat().name)
+A.  AttributeError: 'Cat' object has no attribute 'name'. The subclass
+    __init__ replaced the parent's and never called super().__init__(name).
+
+Q16. How do you implement a Singleton?
+A.  Override __new__ to create the instance once and return it every time
+    (store it in a class attribute), or use a module-level instance. Then
+    A() is A() is True.
+
+Q17. What is __del__? Is it reliable?
+A.  The destructor hook, called when an object is about to be freed. Its
+    timing is not guaranteed (reference cycles, interpreter shutdown), so use
+    context managers (with) or try / finally for clean-up.
+
+INHERITANCE
+Q18. Name the types of inheritance with an example of each.
+A.  Single (B(A)), multilevel (C(B), B(A)), hierarchical (B(A), C(A)),
+    multiple (C(A, B)) and hybrid (a combination such as the diamond).
+
+Q19. What does super() do? What is the output?
+        class A:
+            def hi(self): return "A"
+        class B(A):
+            def hi(self): return super().hi() + "B"
+        print(B().hi())
+A.  AB   (super() finds the next class in the MRO and calls its hi()).
+
+Q20. What is the output (diamond)?
+        class A:
+            def hi(self): print("A")
+        class B(A):
+            def hi(self): print("B"); super().hi()
+        class C(A):
+            def hi(self): print("C"); super().hi()
+        class D(B, C):
+            def hi(self): print("D"); super().hi()
+        D().hi()
+A.  D
+    B
+    C
+    A
+    The MRO is D, B, C, A, object; each class runs once.
+
+Q21. What is the MRO and how do you see it?
+A.  The method resolution order: the sequence of classes searched for an
+    attribute, computed by C3 linearisation (children before parents, bases
+    in the given order, no repeats). See it with Class.__mro__ or
+    Class.mro().
+
+Q22. What is the output?
+        class A: pass
+        class B(A): pass
+        print(isinstance(B(), A), issubclass(B, A), type(B()) is A)
+A.  True True False   (isinstance accepts subclasses; type() is exact).
+
+Q23. What happens?   class A: pass
+                     class B(A): pass
+                     class X(A, B): pass
+A.  TypeError: Cannot create a consistent method resolution order (MRO). A
+    cannot come before its own subclass B; write class X(B, A).
+
+Q24. Composition vs inheritance - when do you use each?
+A.  Inheritance models "is-a" (Dog is an Animal) and shares behaviour but
+    couples classes tightly. Composition models "has-a" (Car has an Engine)
+    by holding objects and delegating - more flexible and easier to change.
+    Prefer composition unless a true is-a relationship exists.
+
+Q25. Difference between method overriding and overloading?
+A.  Overriding: a subclass redefines a parent's method (same name and
+    signature) - supported, resolved at run time. Overloading: several
+    methods with the same name but different parameters - not supported by
+    signature in Python (the last def wins); use defaults, *args or
+    singledispatch.
+
+Q26. What is a mixin?
+A.  A small class providing one reusable feature (e.g. to_json) meant to be
+    combined with other classes through multiple inheritance, not used on its
+    own.
+
+Q27. How do you call the parent's method from an overriding method?
+A.  super().method(...) (preferred, MRO-aware) or Parent.method(self, ...).
+
+POLYMORPHISM
+Q28. What is polymorphism? How is it achieved in Python?
+A.  The same interface behaving differently for different objects. In Python
+    through method overriding, duck typing, operator overloading and
+    built-ins that accept many types (len, +, max), plus singledispatch.
+
+Q29. What is duck typing?
+A.  An object's suitability is decided by the methods/attributes it has, not
+    by its class: if it has speak(), it can be passed to code that calls
+    speak(). No common base class is required.
+
+Q30. What is the output?
+        class Duck:  speak = lambda self: "Quack"
+        class Dog:   speak = lambda self: "Woof"
+        for a in (Duck(), Dog()): print(a.speak())
+A.  Quack
+    Woof
+
+Q31. What is operator overloading? What is the output?
+        class V:
+            def __init__(self, x): self.x = x
+            def __add__(self, o): return V(self.x + o.x)
+            def __repr__(self): return f"V({self.x})"
+        print(V(1) + V(2))
+A.  Defining special methods (__add__, __eq__, __len__ ...) so objects work
+    with operators and built-ins. Output: V(3).
+
+Q32. Why does sum([V(1), V(2)]) fail and how do you fix it?
+A.  sum starts with the integer 0 and computes 0 + V(1), which needs
+    int.__add__ (fails) and then V.__radd__ (missing) -> TypeError. Define
+    __radd__ or call sum(vs, V(0)).
+
+Q33. Does Python support method overloading?
+A.  Not by signature: defining a method twice keeps the last one. Emulate
+    with default arguments, *args / **kwargs, isinstance checks,
+    classmethods, or functools.singledispatch(method).
+
+Q34. What is the output?   print(len("abc"), len([1, 2]), len({1: 2}))
+A.  3 2 1   (len is polymorphic: it calls __len__ of each type).
+
+ENCAPSULATION
+Q35. How is data hiding done in Python? What is the output?
+        class A:
+            def __init__(self): self.__x = 1
+        a = A()
+        print(hasattr(a, "__x"), a._A__x)
+A.  By convention (_x) and name mangling (__x -> _A__x). Output: False 1.
+    It prevents accidental access and name clashes, not deliberate access.
+
+Q36. Difference between _x, __x and __x__?
+A.  _x: internal/protected by convention. __x: name-mangled to _Class__x
+    (private-ish, avoids subclass clashes). __x__: special dunder names
+    defined by Python (__init__, __str__); not mangled.
+
+Q37. What is @property and why use it?
+A.  It turns a method into an attribute-style accessor, allowing validation
+    (setter), computed values and read-only attributes without changing how
+    callers write obj.attr. It replaces explicit get_/set_ methods.
+
+Q38. What happens?
+        class C:
+            @property
+            def x(self): return 1
+        c = C(); c.x = 5
+A.  AttributeError: a property without a setter is read-only.
+
+Q39. What does __slots__ do?
+A.  It restricts instances to the listed attributes and removes the
+    per-instance __dict__, saving memory and preventing accidental new
+    attributes (assigning others raises AttributeError).
+
+Q40. What is the purpose of encapsulation? Give an example.
+A.  Keeping an object's data valid and its internals changeable by
+    controlling access. A BankAccount keeps __balance private and changes it
+    only through deposit() / withdraw() that check the rules.
+
+ABSTRACTION
+Q41. What is abstraction? How does it differ from encapsulation?
+A.  Abstraction exposes only what an object does and hides how (interfaces,
+    abstract classes). Encapsulation hides and protects the data inside an
+    object (access control). Abstraction is a design idea; encapsulation is
+    the mechanism that guards the state.
+
+Q42. What happens?
+        from abc import ABC, abstractmethod
+        class Shape(ABC):
+            @abstractmethod
+            def area(self): ...
+        Shape()
+A.  TypeError: Can't instantiate abstract class Shape ... abstract method
+    'area'.
+
+Q43. A subclass of an ABC does not implement every abstract method. What
+     happens?
+A.  The subclass is still abstract; instantiating it raises TypeError. It
+    must override all abstract methods to become concrete.
+
+Q44. Can an abstract class have concrete methods and a constructor?
+A.  Yes. It can hold state (__init__), concrete methods that use the abstract
+    ones (Template Method pattern) and abstract methods that subclasses fill
+    in.
+
+Q45. Does Python have interfaces?
+A.  Not as a keyword. Use an ABC containing only abstract methods, a
+    typing.Protocol (structural typing), or plain duck typing.
+
+Q46. ABC vs NotImplementedError?
+A.  An ABC fails when you try to instantiate an incomplete subclass.
+    Raising NotImplementedError inside a method fails only when that method
+    is called, later and less visibly.
+
+OTHER
+Q47. What is the output?
+        class P:
+            def __init__(self, n): self.n = n
+            @classmethod
+            def from_str(cls, s): return cls(int(s))
+        print(P.from_str("7").n)
+A.  7   (a classmethod used as an alternative constructor).
+
+Q48. What is __call__? What is the output?
+        class Mul:
+            def __init__(self, k): self.k = k
+            def __call__(self, x): return x * self.k
+        print(Mul(3)(4), callable(Mul(3)))
+A.  12 True   (instances become callable like functions).
+
+Q49. What is the output?
+        class P:
+            __slots__ = ("x",)
+        p = P(); p.x = 1
+        p.y = 2
+A.  AttributeError: 'P' object has no attribute 'y' (only x is allowed).
+
+Q50. State the four pillars of OOP and one Python feature for each.
+A.  Encapsulation (_x, __x, @property), Abstraction (abc.ABC,
+    @abstractmethod, Protocol), Inheritance (class B(A), super(), MRO),
+    Polymorphism (method overriding, duck typing, operator overloading).
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

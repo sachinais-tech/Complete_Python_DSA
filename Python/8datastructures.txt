@@ -1,0 +1,1309 @@
+==============================================================================
+       PYTHON BUILT-IN DATA STRUCTURES: STRINGS, LISTS, TUPLES, SETS,
+                         DICTIONARIES - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW AND COMPARISON
+------------------------------------------------------------------------------
+A data structure organises data so that it can be stored, accessed and
+changed efficiently. Python ships with five core ones:
+
+  Type   | Literal       | Mutable | Ordered | Duplicates | Indexed | Hashable
+  -------|---------------|---------|---------|------------|---------|---------
+  str    | "abc"         |   No    |  Yes    |   Yes      |  Yes    |  Yes
+  list   | [1, 2, 3]     |  Yes    |  Yes    |   Yes      |  Yes    |  No
+  tuple  | (1, 2, 3)     |   No    |  Yes    |   Yes      |  Yes    |  Yes*
+  set    | {1, 2, 3}     |  Yes    |  No     |   No       |  No     |  No
+  dict   | {"a": 1}      |  Yes    |  Yes**  | keys: No   | by key  |  No
+
+  frozenset: immutable set, hashable.
+  *  a tuple is hashable only if all its items are hashable.
+  ** dict keeps insertion order (Python 3.7+); it is not sorted.
+
+Keywords:
+    Mutable    - can be changed in place (list, set, dict).
+    Immutable  - cannot be changed; "changing" makes a new object.
+    Ordered    - items keep a position (index or insertion order).
+    Hashable   - has a fixed hash value (needed for dict keys / set items).
+    Sequence   - ordered, indexed, sliceable: str, list, tuple, range.
+
+Universal operations on sequences (str, list, tuple, range):
+    len(x)  x[i]  x[a:b:c]  x + y  x * n  item in x  item not in x
+    min(x)  max(x)  sum(x)  sorted(x)  reversed(x)  x.index(i)  x.count(i)
+    for item in x   enumerate(x)   zip(x, y)   comparison < <= == > >=
+
+Big-O summary (average case):
+  Operation        | str  | list   | tuple | set  | dict
+  -----------------|------|--------|-------|------|-------
+  index / get      | O(1) | O(1)   | O(1)  | -    | O(1)
+  search (in)      | O(n) | O(n)   | O(n)  | O(1) | O(1) keys
+  append / add     | -    | O(1)*  | -     | O(1) | O(1)
+  insert / delete  | -    | O(n)   | -     | O(1) | O(1)
+  slice            | O(k) | O(k)   | O(k)  | -    | -
+  iterate          | O(n) | O(n)   | O(n)  | O(n) | O(n)
+  sort             | -    | O(n log n) | -  | -    | -
+  * amortised; list.pop() from the end is O(1), pop(0)/insert(0) is O(n).
+
+
+==============================================================================
+                             A. STRINGS
+==============================================================================
+
+2. WHAT IS A STRING?
+------------------------------------------------------------------------------
+An immutable, ordered sequence of Unicode characters (class str).
+
+Creation:
+    s1 = 'single'               s2 = "double"
+    s3 = '''multi
+    line'''                     s4 = """also
+    multi-line"""
+    s5 = "It's"                 s6 = 'say "hi"'
+    s7 = 'It\'s'                s8 = r"C:\new\table"    # raw string
+    s9 = ""                     s10 = str(123)          # '123'
+    s11 = "ab" "cd"             # adjacent literals join: 'abcd'
+    s12 = f"{1 + 1}"            # f-string: '2'
+
+Escape sequences:
+    \n newline  \t tab  \\ backslash  \' \"  \r  \b  \0  \xHH  \uXXXX
+    \N{name}    raw strings (r"...") keep the backslash literally
+
+Strings are objects of class str; a single character is a str of length 1
+(there is no char type).
+
+3. INDEXING AND SLICING
+------------------------------------------------------------------------------
+    s = "Python"
+        # P  y  t  h  o  n
+        # 0  1  2  3  4  5       positive index
+        #-6 -5 -4 -3 -2 -1       negative index
+
+    s[0]        # 'P'            s[-1]       # 'n'
+    s[2]        # 't'            s[6]        # IndexError
+    s[1:4]      # 'yth'          stop is excluded
+    s[:3]       # 'Pyt'          s[3:]       # 'hon'
+    s[:]        # 'Python'       s[-3:]      # 'hon'
+    s[::2]      # 'Pto'          step 2
+    s[::-1]     # 'nohtyP'       reverse
+    s[5:1:-1]   # 'noht'         backwards from index 5 down to 2
+    s[-1:-4:-1] # 'noh'
+    s[10:20]    # ''             slices never raise IndexError
+    s[2:2]      # ''
+    s[::0]      # ValueError: slice step cannot be zero
+    sl = slice(1, 4); s[sl]      # 'yth'
+
+Rule: s[start:stop:step]; defaults start=0, stop=len, step=1 (for a negative
+step the defaults flip: start = last, stop = before the first).
+
+4. OPERATORS AND BASIC FUNCTIONS
+------------------------------------------------------------------------------
+    "ab" + "cd"        # 'abcd'
+    "ab" * 3           # 'ababab'      "ab" * 0 -> ''   "ab" * -1 -> ''
+    "a" in "cat"       # True          substring test
+    "" in "cat"        # True          empty string is in every string
+    "at" in "cat"      # True          "ct" in "cat" -> False
+    "x" not in "cat"   # True
+    len("héllo")       # 5             characters, not bytes
+    "apple" < "banana" # True          by Unicode code point
+    "A" < "a"          # True          uppercase codes come first
+    "10" < "9"         # True          text order, not numeric
+    "a" == "a"         # True          compare with ==, not is
+    "5" + 5            # TypeError     convert: "5" + str(5) or int("5") + 5
+    min("hello"), max("hello")          # 'e' 'o'
+    sorted("hello")                     # ['e', 'h', 'l', 'l', 'o']
+    ord("A") -> 65 ; chr(65) -> 'A'
+    for ch in "abc": ...                # iterate characters
+    list("abc") -> ['a', 'b', 'c']      tuple("abc"), set("abc")
+    str(None) -> 'None' ; str([1]) -> '[1]' ; repr("a") -> "'a'"
+
+5. IMMUTABILITY
+------------------------------------------------------------------------------
+    s = "hello"
+    s[0] = "H"            # TypeError: 'str' object does not support item
+                          # assignment
+    s = "H" + s[1:]       # builds a NEW string 'Hello'; s now names it
+    s.upper()             # returns a new string; s itself is unchanged
+    id(s) changes after s += "x" (a different object)
+
+Consequences:
+    - Methods never modify the string; ALWAYS use their return value:
+          s.replace("l", "L")      # result discarded!  s = s.replace(...)
+    - To change characters, convert: chars = list(s); chars[0] = "H";
+      "".join(chars)
+    - Strings are hashable, so they can be dict keys and set items.
+    - Equal short strings may be the same object (interning); never rely on
+      "is" for strings; use ==.
+
+6. STRING METHODS (ALL RETURN NEW VALUES)
+------------------------------------------------------------------------------
+CASE
+    "hello world".upper()        # 'HELLO WORLD'
+    "HELLO".lower()              # 'hello'
+    "hello world".title()        # 'Hello World'
+    "hello world".capitalize()   # 'Hello world'   (only the first letter)
+    "PyThOn".swapcase()          # 'pYtHoN'
+    "Straße".casefold()          # 'strasse'  (strong lowercase, for compare)
+
+SEARCH AND COUNT
+    s = "banana"
+    s.find("an")          # 1       first index, -1 if absent
+    s.rfind("an")         # 3       last index
+    s.index("an")         # 1       like find, but ValueError if absent
+    s.rindex("an")        # 3
+    s.find("z")           # -1
+    s.find("a", 2)        # 3       find(sub, start, end)
+    s.count("a")          # 3
+    s.count("ana")        # 1       non-overlapping
+    s.count("")           # 7       len + 1
+    s.startswith("ba")    # True    a tuple works: startswith(("a", "b"))
+    s.endswith("na")      # True
+
+TESTS (return bool; False for an empty string)
+    "abc".isalpha()       # True    letters only
+    "123".isdigit()       # True    digits
+    "123".isdecimal()     # True    strictest: decimal digits
+    "½".isnumeric()       # True    includes fractions, roman numerals
+    "²".isdigit()         # True    but "²".isdecimal() is False
+    "ab12".isalnum()      # True    letters or digits
+    "  \t".isspace()      # True
+    "ABC".isupper()       # True    at least one cased char, all upper
+    "abc".islower()       # True
+    "Hello World".istitle()   # True
+    "_x1".isidentifier()  # True    valid variable name
+    "abc".isascii()       # True
+    "-5".isdigit()        # False   sign and dot are not digits
+    "3.5".isdigit()       # False
+    "".isalpha()          # False
+
+STRIP / REPLACE
+    "  hi  ".strip()          # 'hi'      both ends
+    "  hi  ".lstrip()         # 'hi  '
+    "  hi  ".rstrip()         # '  hi'
+    "xxhixx".strip("x")       # 'hi'      argument is a SET of characters
+    "abcba".strip("ab")       # 'c'
+    "hello".replace("l", "L")       # 'heLLo'
+    "hello".replace("l", "L", 1)    # 'heLlo'   replace only the first
+    "test_file".removeprefix("test_")   # 'file'   (3.9+)
+    "file.py".removesuffix(".py")       # 'file'   (3.9+)
+    "a-b".translate(str.maketrans("-", "_"))        # 'a_b'
+    "education".translate(str.maketrans("", "", "aeiou"))   # 'dctn'
+
+SPLIT AND JOIN
+    "a,b,,c".split(",")        # ['a', 'b', '', 'c']
+    "a b  c".split()           # ['a', 'b', 'c']   any whitespace, no empties
+    "a,b,c".split(",", 1)      # ['a', 'b,c']      maxsplit
+    "a,b,c".rsplit(",", 1)     # ['a,b', 'c']
+    "".split()                 # []
+    "".split(",")              # ['']
+    "a\nb\n".splitlines()      # ['a', 'b']
+    "a=b=c".partition("=")     # ('a', '=', 'b=c')   always a 3-tuple
+    "a=b=c".rpartition("=")    # ('a=b', '=', 'c')
+    "abc".partition("x")       # ('abc', '', '')
+    "-".join(["a", "b", "c"])  # 'a-b-c'
+    "".join(["a", "b"])        # 'ab'
+    ",".join([1, 2])           # TypeError: items must be str
+    ",".join(map(str, [1, 2])) # '1,2'
+    "abc".split("")            # ValueError: empty separator
+
+ALIGN AND PAD
+    "Hi".center(6, "*")        # '**Hi**'
+    "Hi".ljust(5, ".")         # 'Hi...'
+    "Hi".rjust(5, ".")         # '...Hi'
+    "42".zfill(5)              # '00042'
+    "-42".zfill(5)             # '-0042'
+    "a\tb".expandtabs(4)       # 'a   b'
+
+ENCODING AND FORMATTING
+    "é".encode("utf-8")        # b'\xc3\xa9'
+    b"\xc3\xa9".decode("utf-8")# 'é'
+    "{} is {}".format("x", 5)  # 'x is 5'
+    f"{3.14159:.2f}"           # '3.14'       (see the I/O notes)
+
+7. COMMON STRING PROGRAMS
+------------------------------------------------------------------------------
+    # reverse
+    s[::-1]
+    # palindrome (ignore case)
+    t = s.lower(); t == t[::-1]
+    # palindrome ignoring non-letters
+    t = [c.lower() for c in s if c.isalnum()]; t == t[::-1]
+    # count vowels
+    sum(1 for c in s.lower() if c in "aeiou")
+    # anagram check
+    sorted("listen") == sorted("silent")                 # True
+    # character frequency
+    from collections import Counter
+    Counter("banana")            # Counter({'a': 3, 'n': 2, 'b': 1})
+    # remove duplicate characters, keep order
+    "".join(dict.fromkeys("banana"))                     # 'ban'
+    # capitalise every word
+    " ".join(w.capitalize() for w in "hi there".split()) # 'Hi There'
+    # count words
+    len("the quick  fox".split())                         # 3
+    # longest word
+    max("the quick brown".split(), key=len)              # 'quick'
+    # first non-repeating character
+    c = Counter("swiss")
+    next((ch for ch in "swiss" if c[ch] == 1), None)     # 'w'
+    # string compression
+    from itertools import groupby
+    "".join(f"{k}{len(list(g))}" for k, g in groupby("aaabbc"))   # 'a3b2c1'
+    # rotation check
+    len(a) == len(b) and b in a + a      # "waterbottle", "erbottlewat": True
+    # longest common prefix
+    import os; os.path.commonprefix(["flower", "flow", "flight"])   # 'fl'
+    # Caesar cipher (shift k)
+    def caesar(s, k):
+        out = []
+        for ch in s:
+            if ch.isalpha():
+                base = ord("A") if ch.isupper() else ord("a")
+                out.append(chr((ord(ch) - base + k) % 26 + base))
+            else:
+                out.append(ch)
+        return "".join(out)
+    caesar("abc xyz", 3)         # 'def abc'
+    # swap case, title case, strip punctuation
+    import string
+    s.translate(str.maketrans("", "", string.punctuation))
+    # digits sum
+    sum(int(c) for c in "12345" if c.isdigit())          # 15
+
+8. STRING GOTCHAS AND FACTS
+------------------------------------------------------------------------------
+    - Immutable: use the return value of every method.
+    - Building a string with s += x inside a big loop is slow (copies);
+      collect pieces in a list and "".join(parts).
+    - strip("ab") removes any of the characters a and b, not the word "ab".
+    - split() (no argument) and split(" ") differ: "a  b".split(" ") gives
+      ['a', '', 'b'].
+    - isdigit() is False for "-5" and "3.5"; use try / int() to validate.
+    - Compare case-insensitively with casefold() (or lower()).
+    - Slicing is forgiving; indexing is not.
+    - len() counts code points: "e\u0301" (e + accent) has length 2 while
+      looking like one character. unicodedata.normalize fixes this.
+    - bytes != str: encode()/decode() are needed to convert.
+    - Strings hold characters, so list("12 34") splits into single chars.
+    - "%s" % x, format() and f-strings convert via str().
+    - Multiplying nested structures does not copy; strings are safe since they
+      are immutable.
+    - find returns -1 (truthy!): write  if s.find(x) != -1  or  x in s.
+    - Raw string cannot end with an odd number of backslashes.
+    - Complexity: len O(1), index O(1), slice O(k), concatenate O(n + m),
+      in O(n*m) worst, split / join / replace O(n).
+
+
+==============================================================================
+                              B. LISTS
+==============================================================================
+
+9. WHAT IS A LIST?
+------------------------------------------------------------------------------
+An ordered, MUTABLE collection that allows duplicates and mixed types.
+Implemented as a dynamic array: fast indexing, fast append at the end.
+
+Creation:
+    a = [1, 2, 3]
+    b = []                           # or list()
+    c = [1, "a", 3.5, True, None, [1, 2]]       # mixed and nested
+    d = list("abc")                  # ['a', 'b', 'c']
+    e = list(range(5))               # [0, 1, 2, 3, 4]
+    f = [0] * 5                      # [0, 0, 0, 0, 0]
+    g = [x * x for x in range(5)]    # list comprehension
+    h = "a b c".split()              # ['a', 'b', 'c']
+    i = list(map(int, "1 2 3".split()))      # [1, 2, 3]
+    j = [[0] * 3 for _ in range(2)]  # 2 x 3 grid, independent rows
+    k = [None] * 4
+
+10. INDEXING, SLICING AND EDITING
+------------------------------------------------------------------------------
+    a = [10, 20, 30, 40, 50]
+    a[0], a[-1]            # 10 50
+    a[1:3]                 # [20, 30]
+    a[::2]                 # [10, 30, 50]
+    a[::-1]                # [50, 40, 30, 20, 10]   reversed COPY
+    a[10]                  # IndexError
+    a[10:]                 # []      slices never fail
+    a[:]                   # shallow copy
+    a[-2:]                 # [40, 50]
+
+Assignment:
+    a[0] = 99                       # replace one item
+    a[1:3] = [7, 8, 9]              # slice assignment (size may change)
+    a[1:3] = []                     # deletes the slice
+    a[2:2] = ["x"]                  # inserts without removing
+    a[::2] = [0, 0, 0]              # extended slice: sizes MUST match,
+                                    # else ValueError
+    del a[0]                        # delete by index
+    del a[1:3]                      # delete a slice
+    del a[::2]                      # delete every second item
+    del a                           # delete the name
+
+2D lists:
+    m = [[1, 2, 3], [4, 5, 6]]
+    m[1][2]                         # 6
+    len(m), len(m[0])               # rows, columns
+    [row[0] for row in m]           # first column [1, 4]
+    list(zip(*m))                   # transpose [(1, 4), (2, 5), (3, 6)]
+    [x for row in m for x in row]   # flatten
+
+11. LIST METHODS
+------------------------------------------------------------------------------
+  Method              | Effect                                   | Returns
+  --------------------|------------------------------------------|---------
+  append(x)           | add x at the end                         | None
+  extend(iterable)    | add every item of the iterable           | None
+  insert(i, x)        | insert x before index i                  | None
+  remove(x)           | delete first x (ValueError if absent)    | None
+  pop([i])            | delete & return item (default last)      | the item
+  clear()             | remove everything                        | None
+  index(x[, s[, e]])  | position of first x (ValueError)         | int
+  count(x)            | number of x                              | int
+  sort(key=, reverse=)| sort IN PLACE (stable)                   | None
+  reverse()           | reverse in place                         | None
+  copy()              | shallow copy                             | new list
+
+    a = [3, 1, 2]
+    a.append(4)              # [3, 1, 2, 4]
+    a.extend([5, 6])         # [3, 1, 2, 4, 5, 6]
+    a.append([7, 8])         # nested list added as ONE item
+    a.insert(0, 9)           # [9, 3, 1, ...]
+    a.insert(100, "e")       # index past the end appends
+    a.remove(1)              # removes the first 1
+    a.pop()                  # removes and returns the last
+    a.pop(0)                 # removes the first (O(n))
+    [].pop()                 # IndexError: pop from empty list
+    [1, 2].remove(5)         # ValueError
+    [1, 2, 1].index(1)       # 0
+    [1, 2, 1].count(1)       # 2
+
+append vs extend vs insert vs +:
+    [1].append([2, 3])       # [1, [2, 3]]
+    [1].extend([2, 3])       # [1, 2, 3]
+    [1].extend("ab")         # [1, 'a', 'b']   any iterable
+    [1] + [2, 3]             # [1, 2, 3]       new list
+    [1].insert(0, [2])       # [[2], 1]
+
+remove vs pop vs del:
+    remove(x)  by VALUE (first match)
+    pop(i)     by INDEX, returns the item
+    del a[i]   by index or slice, returns nothing
+
+12. SORTING
+------------------------------------------------------------------------------
+    a = [3, 1, 2]
+    a.sort()                      # in place -> a = [1, 2, 3], returns None
+    a.sort(reverse=True)          # [3, 2, 1]
+    b = sorted(a)                 # NEW list; works on any iterable
+    sorted("cba")                 # ['a', 'b', 'c']
+    sorted({3, 1, 2})             # [1, 2, 3]
+    sorted({"b": 1, "a": 2})      # ['a', 'b']   (keys)
+
+key function (computed once per item):
+    words = ["pear", "fig", "banana"]
+    sorted(words, key=len)                    # ['fig', 'pear', 'banana']
+    sorted(words, key=str.lower)              # case-insensitive
+    sorted(words, key=lambda w: (len(w), w))  # by length, then alphabet
+    pairs = [("a", 3), ("b", 1), ("c", 3)]
+    sorted(pairs, key=lambda p: p[1])         # by number, stable
+    sorted(pairs, key=lambda p: (-p[1], p[0]))# number DESC, name ASC
+    sorted(pairs, key=lambda p: p[1], reverse=True)
+    from operator import itemgetter
+    sorted(pairs, key=itemgetter(1))
+
+Facts:
+    - Sorting is stable: equal keys keep their original order.
+    - Algorithm: Timsort, O(n log n) worst, O(n) on nearly sorted data.
+    - sort() returns None:  a = a.sort()  makes a None.
+    - Mixed types fail: sorted([1, "a"]) -> TypeError.
+    - list(reversed(a)) / a[::-1] reverse without sorting.
+    - heapq.nsmallest(k, a), heapq.nlargest(k, a) for the top k.
+
+13. OPERATIONS, COPYING AND ALIASING
+------------------------------------------------------------------------------
+    [1, 2] + [3]             # [1, 2, 3]
+    [1, 2] * 2               # [1, 2, 1, 2]
+    3 in [1, 2, 3]           # True        O(n)
+    [1, 2] == [1, 2]         # True
+    [1, 2] < [1, 3]          # True        lexicographic
+    [1, 2] < [1, 2, 0]       # True        shorter prefix is smaller
+    len(a), min(a), max(a), sum(a)
+    any([0, 1]), all([1, 0]) # True False
+    a, b, c = [1, 2, 3]      # unpacking
+    first, *rest = [1, 2, 3] # first=1, rest=[2, 3]
+    a, *mid, z = [1, 2, 3, 4]# mid=[2, 3]
+    a[i], a[j] = a[j], a[i]  # swap items
+
+Aliasing (assignment never copies):
+    a = [1, 2]
+    b = a                    # same object
+    b.append(3); print(a)    # [1, 2, 3]
+    a is b                   # True
+
+Shallow copies (new outer list, shared inner objects):
+    c = a[:]    c = list(a)    c = a.copy()    c = copy.copy(a)
+    m = [[1], [2]]
+    n = m.copy()
+    n[0].append(9)           # m is now [[1, 9], [2]]   (shared inner list)
+
+Deep copy (everything copied recursively):
+    import copy
+    n = copy.deepcopy(m)     # independent
+
++= vs +:
+    a = [1]; b = a
+    a += [2]                 # in place (extend) -> b sees [1, 2]
+    a = a + [3]              # new list -> b stays [1, 2]
+
+14. LIST COMPREHENSIONS AND FUNCTIONAL TOOLS
+------------------------------------------------------------------------------
+    [x * 2 for x in range(5)]                  # [0, 2, 4, 6, 8]
+    [x for x in nums if x > 0]                 # filter
+    [x if x > 0 else 0 for x in nums]          # transform with ternary
+    [(i, j) for i in range(2) for j in range(2)]
+    [[i * j for j in range(1, 4)] for i in range(1, 4)]
+    list(map(str, [1, 2]))                     # ['1', '2']
+    list(filter(None, [0, 1, "", "a"]))        # [1, 'a']  drop falsy items
+    list(zip([1, 2], "ab"))                    # [(1, 'a'), (2, 'b')]
+    list(enumerate("ab"))                      # [(0, 'a'), (1, 'b')]
+    from functools import reduce
+    reduce(lambda x, y: x * y, [1, 2, 3, 4])   # 24
+    from itertools import accumulate
+    list(accumulate([1, 2, 3, 4]))             # [1, 3, 6, 10] prefix sums
+
+15. LISTS AS STACK, QUEUE AND SORTED STORE
+------------------------------------------------------------------------------
+Stack (LIFO) with a list - both operations O(1):
+    st = []
+    st.append(1); st.append(2)
+    st.pop()                 # 2
+    st[-1]                   # peek
+    if not st: ...           # empty check
+
+Queue (FIFO): list.pop(0) is O(n); use collections.deque:
+    from collections import deque
+    q = deque([1, 2, 3])
+    q.append(4)              # right end
+    q.appendleft(0)
+    q.popleft()              # O(1)
+    q.rotate(1)
+    deque(maxlen=3)          # bounded buffer
+
+Sorted list with bisect (binary search, O(log n) search, O(n) insert):
+    import bisect
+    a = [1, 3, 5, 7]
+    bisect.bisect_left(a, 5)     # 2
+    bisect.bisect_right(a, 5)    # 3
+    bisect.insort(a, 4)          # a = [1, 3, 4, 5, 7]
+
+Heap (priority queue) with heapq (min-heap):
+    import heapq
+    h = []
+    heapq.heappush(h, 5); heapq.heappush(h, 1)
+    heapq.heappop(h)             # 1  (smallest)
+    heapq.heapify(lst)           # turn a list into a heap in O(n)
+    heapq.nsmallest(2, [5, 1, 4, 2])   # [1, 2]
+    heapq.nlargest(2, [5, 1, 4, 2])    # [5, 4]
+    For a max-heap push negated values.
+
+16. COMMON LIST PROGRAMS
+------------------------------------------------------------------------------
+    sum(a) / len(a)                               # average
+    max(a), min(a)                                # extremes
+    sorted(set(a))[-2]                            # 2nd largest (distinct)
+    a[::-1]    or    a.reverse()                  # reverse
+    a == a[::-1]                                  # palindrome list
+    list(dict.fromkeys(a))                        # dedupe, keep order
+    a[k:] + a[:k]                                 # rotate left by k
+    a[-k:] + a[:-k]                               # rotate right by k (k < n)
+    [x for x in a if a.count(x) == 1]             # unique items (O(n^2))
+    Counter(a).most_common(1)                     # most frequent
+    sum(a[:k])                                    # sum of first k
+    [i for i, x in enumerate(a) if x == t]        # all positions of t
+    list(set(a) & set(b))                         # common items
+    [x for x in a if x not in b]                  # in a but not b
+    [a[i:i + k] for i in range(0, len(a), k)]     # chunks of size k
+    list(zip(*m))                                 # transpose
+    # missing number in 1..n
+    n = len(a) + 1; n * (n + 1) // 2 - sum(a)
+    # two-sum with a dict
+    seen = {}
+    for i, x in enumerate(a):
+        if target - x in seen:
+            print(seen[target - x], i); break
+        seen[x] = i
+    # move zeros to the end
+    a = [x for x in a if x != 0] + [0] * a.count(0)
+
+17. LIST GOTCHAS
+------------------------------------------------------------------------------
+ 1. Repetition shares inner lists:
+        m = [[0] * 3] * 3            # three names for ONE row
+        m[0][0] = 1                  # all rows change
+        m = [[0] * 3 for _ in range(3)]      # correct
+ 2. a.sort(), a.append(), a.reverse() return None:  x = a.sort() -> None.
+ 3. Do not remove items while iterating the same list; iterate over a[:]
+    or build a new list.
+ 4. Mutable default argument is created once:
+        def f(x, lst=[]):
+            lst.append(x); return lst
+        f(1)     # [1]
+        f(2)     # [1, 2]   surprise! use lst=None then lst = [] inside
+ 5. remove() deletes only the FIRST match; use a comprehension for all.
+ 6. index() and remove() raise ValueError if the item is missing; pop()
+    and a[i] raise IndexError.
+ 7. Lists are unhashable: cannot be dict keys or set items; use tuple(a).
+ 8. copy() / slicing / list() are shallow.
+ 9. a = a + [x] creates a new list each time (O(n)); a.append(x) is O(1).
+10. sum(list_of_lists, []) flattens but is O(n^2); use itertools.chain.
+11. a.pop(0) and a.insert(0, x) are O(n); use deque for queues.
+12. Negative indexes count from the end; a[-0] is a[0].
+13. Sorting mixed types raises TypeError.
+14. "in" on a list is O(n); for many lookups use a set or dict.
+15. List of strings cannot be summed: sum(["a", "b"]) -> TypeError; use join.
+16. max([]) / min([]) raise ValueError unless default= is given.
+
+
+==============================================================================
+                             C. TUPLES
+==============================================================================
+
+18. WHAT IS A TUPLE?
+------------------------------------------------------------------------------
+An ordered, IMMUTABLE collection; allows duplicates and mixed types.
+Used for fixed records, multiple return values, dictionary keys.
+
+Creation:
+    t = (1, 2, 3)
+    t = 1, 2, 3              # parentheses are optional (tuple packing)
+    one = (5,)               # ONE item needs a trailing comma
+    not_a_tuple = (5)        # just the int 5
+    empty = ()               # or tuple()
+    tuple([1, 2])            # (1, 2)
+    tuple("abc")             # ('a', 'b', 'c')
+    tuple(x * x for x in range(3))   # (0, 1, 4)
+    type((1,)), type((1)), type(())  # tuple, int, tuple
+
+Access (same as list):
+    t = (10, 20, 30, 40)
+    t[0], t[-1]              # 10 40
+    t[1:3]                   # (20, 30)
+    t[::-1]                  # (40, 30, 20, 10)
+    t[9]                     # IndexError
+
+19. TUPLE OPERATIONS AND METHODS
+------------------------------------------------------------------------------
+Only two methods:
+    t.count(x)               # occurrences
+    t.index(x)               # first position (ValueError if absent)
+
+Operations:
+    (1, 2) + (3,)            # (1, 2, 3)     new tuple
+    (1, 2) * 2               # (1, 2, 1, 2)
+    2 in (1, 2)              # True
+    len(t), min(t), max(t), sum(t)
+    sorted(t)                # returns a LIST
+    tuple(sorted(t))         # sorted tuple
+    (1, 2) < (1, 3)          # True          lexicographic
+    (1, 2) == (1, 2)         # True
+    del t                    # whole tuple can be deleted, items cannot
+
+Immutability:
+    t[0] = 9                 # TypeError: 'tuple' object does not support
+                             # item assignment
+    t = t + (5,)             # makes a new tuple and rebinds t
+    Mutable items inside stay mutable:
+        t = ([1, 2], 3)
+        t[0].append(9)       # allowed -> ([1, 2, 9], 3)
+    Famous puzzle:
+        t = ([1],)
+        t[0] += [2]          # TypeError ... but t is now ([1, 2],)
+        (the list was extended in place, then rebinding t[0] failed)
+
+20. PACKING, UNPACKING AND USES
+------------------------------------------------------------------------------
+    a, b = (1, 2)            # unpacking
+    a, b = b, a              # swap (packs (b, a), then unpacks)
+    x, y, z = 1, 2, 3
+    first, *rest = (1, 2, 3)        # first=1, rest=[2, 3]  (a list)
+    a, (b, c) = 1, (2, 3)           # nested unpacking
+    _, y = (5, 6)                   # ignore a value
+    x, y = (1, 2, 3)                # count mismatch -> ValueError
+    def min_max(a):
+        return min(a), max(a)       # returns ONE tuple
+    lo, hi = min_max([3, 1, 2])     # 1 3
+    for i, ch in enumerate("ab"): ...
+    for k, v in d.items(): ...
+    divmod(7, 2)                    # (3, 1)
+
+Hashable if every item is hashable:
+    d = {(1, 2): "point"}           # tuple as dict key
+    {(0, 0), (1, 2)}                # tuples in a set
+    hash((1, 2))                    # works
+    hash(([1], 2))                  # TypeError: unhashable type: 'list'
+    Grid coordinates, (row, col) visited sets, memoisation keys.
+
+Named tuples (readable fields):
+    from collections import namedtuple
+    Point = namedtuple("Point", ["x", "y"])
+    p = Point(1, 2)
+    p.x, p[1]                       # 1 2
+    p._asdict()                     # {'x': 1, 'y': 2}
+    p._replace(x=5)                 # Point(x=5, y=2)  (new object)
+    from typing import NamedTuple   # class-based version with types
+
+tuple vs list:
+  Feature          | tuple               | list
+  -----------------|---------------------|--------------------------------
+  Mutable          | No                  | Yes
+  Syntax           | (1, 2) or 1, 2      | [1, 2]
+  Methods          | count, index        | many (append, sort, ...)
+  Speed / memory   | slightly faster &   | slower, over-allocates
+                   | smaller             |
+  Hashable         | yes (if items are)  | no
+  Use              | fixed records, keys | collections that change
+
+21. TUPLE GOTCHAS
+------------------------------------------------------------------------------
+    - (5) is an int; (5,) is a tuple. "a", is also a tuple.
+    - "Immutable" means the references cannot change, not the objects they
+      refer to.
+    - tuple + list -> TypeError: (1,) + [2].
+    - sorted(t) gives a list; t.sort() does not exist.
+    - Comparing tuples of different types may raise TypeError.
+    - Tuple unpacking needs matching counts (or a starred name).
+    - A function returning several values really returns one tuple.
+    - Tuple of one item printed: (5,).
+    - Parentheses matter in function calls: f((1, 2)) passes one tuple.
+
+
+==============================================================================
+                              D. SETS
+==============================================================================
+
+22. WHAT IS A SET?
+------------------------------------------------------------------------------
+A mutable, UNORDERED collection of UNIQUE, HASHABLE items. Built on a hash
+table: very fast membership test, add and delete (average O(1)).
+
+Creation:
+    s = {1, 2, 3}
+    s = set()                  # EMPTY set; {} makes an empty DICT
+    s = set([1, 1, 2, 3])      # {1, 2, 3}     duplicates removed
+    s = set("hello")           # {'h', 'e', 'l', 'o'}    order varies
+    s = {x % 3 for x in range(10)}    # set comprehension {0, 1, 2}
+    s = {(1, 2), (3, 4)}       # tuples are fine
+    {[1, 2]}                   # TypeError: unhashable type: 'list'
+    frozenset([1, 2])          # immutable, hashable set
+
+Properties:
+    - No indexing or slicing: s[0] -> TypeError.
+    - Order is not guaranteed (and string hashes change between runs).
+    - Items must be hashable (int, float, str, tuple of hashables, frozenset).
+    - {1, True, 1.0} -> {1}  (they are equal and share a hash).
+    - len(s), x in s, for x in s, min / max / sum / sorted(s) work.
+
+23. SET METHODS
+------------------------------------------------------------------------------
+    s = {1, 2, 3}
+    s.add(4)                   # add one item
+    s.update([5, 6], {7})      # add many (any iterables)
+    s.remove(1)                # KeyError if absent
+    s.discard(99)              # no error if absent
+    s.pop()                    # remove and return an ARBITRARY item;
+                               # KeyError on an empty set
+    s.clear()
+    s.copy()                   # shallow copy
+
+24. SET OPERATIONS (MATHEMATICAL)
+------------------------------------------------------------------------------
+    A = {1, 2, 3, 4}
+    B = {3, 4, 5}
+
+  Operation            | Operator | Method                  | Result
+  ---------------------|----------|-------------------------|-----------------
+  union                | A | B    | A.union(B)              | {1, 2, 3, 4, 5}
+  intersection         | A & B    | A.intersection(B)       | {3, 4}
+  difference           | A - B    | A.difference(B)         | {1, 2}
+  difference           | B - A    | B.difference(A)         | {5}
+  symmetric difference | A ^ B    | A.symmetric_difference(B)| {1, 2, 5}
+  subset               | A <= B   | A.issubset(B)           | False
+  proper subset        | A < B    | -                       | False
+  superset             | A >= B   | A.issuperset(B)         | False
+  disjoint             | -        | A.isdisjoint(B)         | False
+
+    {3, 4} <= A            # True
+    A <= A                 # True (a set is a subset of itself); A < A False
+    set() <= A             # True (empty set is a subset of every set)
+
+In-place versions (modify the left set):
+    A |= B     A.update(B)
+    A &= B     A.intersection_update(B)
+    A -= B     A.difference_update(B)
+    A ^= B     A.symmetric_difference_update(B)
+
+Operator vs method:
+    {1, 2} | {3}           # needs sets on BOTH sides
+    {1, 2} | [3]           # TypeError
+    {1, 2}.union([3])      # {1, 2, 3}   methods accept any iterable
+    A.union(B, C)          # several arguments allowed
+    Results of A | B etc. are new sets; A - B is NOT the same as B - A.
+
+25. FROZENSET
+------------------------------------------------------------------------------
+    fs = frozenset([1, 2, 3])
+    fs.add(4)                       # AttributeError (immutable)
+    fs | {5}                        # new frozenset; type of the LEFT operand
+    {frozenset([1]): "x"}           # valid dict key
+    {frozenset([1]), frozenset([2])}    # set of frozensets
+Use it for set-valued keys and as items inside sets.
+
+26. WHERE SETS ARE USED
+------------------------------------------------------------------------------
+    list(set(a))                    # remove duplicates (loses order)
+    list(dict.fromkeys(a))          # remove duplicates, keep order
+    len(set(a)) == len(a)           # all items distinct?
+    x in my_set                     # O(1) membership
+    set(a) & set(b)                 # common items
+    set(a) - set(b)                 # items only in a
+    set(a) ^ set(b)                 # in exactly one of them
+    # visited set in graph / BFS / DFS
+    visited = set(); visited.add(node); if node in visited: ...
+    # two-sum with a set
+    seen = set()
+    for x in a:
+        if target - x in seen: print("found")
+        seen.add(x)
+    # pangram check
+    set("abcdefghijklmnopqrstuvwxyz") <= set(s.lower())
+    # missing numbers
+    set(range(1, n + 1)) - set(a)
+    # unique characters
+    len(set("hello"))               # 4
+    # sorted unique
+    sorted(set(a))
+
+27. SET GOTCHAS AND COMPLEXITY
+------------------------------------------------------------------------------
+ 1. {} is an empty dict; use set().
+ 2. Items must be hashable: no lists, sets, dicts inside a set.
+ 3. Order is arbitrary; sort with sorted(s) when order matters.
+ 4. 1, 1.0 and True collapse into one item.
+ 5. Modifying a set while iterating raises
+    RuntimeError: Set changed size during iteration. Iterate over a copy.
+ 6. pop() removes an arbitrary item, not the "first" or "last".
+ 7. remove raises KeyError; discard does not.
+ 8. Operators need sets; methods accept any iterable.
+ 9. set("hello") splits into characters; set(["hello"]) keeps the word.
+10. Mutable objects must not be changed after they are used for hashing
+    (only possible for custom classes).
+11. Equality ignores order: {1, 2} == {2, 1} is True.
+
+  Operation              | Average | Worst
+  -----------------------|---------|--------
+  x in s, add, remove    | O(1)    | O(n)
+  union  A | B           | O(len A + len B)
+  intersection A & B     | O(min(len A, len B))
+  difference A - B       | O(len A)
+  iteration              | O(n)
+  Custom classes in sets need consistent __hash__ and __eq__.
+
+
+==============================================================================
+                          E. DICTIONARIES
+==============================================================================
+
+28. WHAT IS A DICTIONARY?
+------------------------------------------------------------------------------
+A mutable mapping of key : value pairs, implemented as a hash table.
+    - Keys are UNIQUE and HASHABLE (int, float, str, bool, tuple of
+      hashables, frozenset, None). Values can be anything.
+    - Keeps insertion order (guaranteed since 3.7). Not sorted.
+    - Lookup, insert, delete: average O(1).
+
+Creation:
+    d = {"name": "Sachin", "age": 25}
+    d = {}                                  # empty (NOT a set)
+    d = dict(name="Sachin", age=25)         # keys must be identifiers
+    d = dict([("a", 1), ("b", 2)])
+    d = dict(zip(["a", "b"], [1, 2]))
+    d = dict.fromkeys(["a", "b"], 0)        # {'a': 0, 'b': 0}
+    d = {k: k * k for k in range(4)}        # dict comprehension
+    d = {"a": {"b": 1}}                     # nested
+    d = dict(enumerate("ab"))               # {0: 'a', 1: 'b'}
+
+29. ACCESS, ADD, UPDATE, DELETE
+------------------------------------------------------------------------------
+    d = {"a": 1, "b": 2}
+Access:
+    d["a"]                    # 1
+    d["z"]                    # KeyError: 'z'
+    d.get("z")                # None
+    d.get("z", 0)             # 0
+    d.setdefault("z", 0)      # returns 0 AND inserts "z": 0 if missing
+    "a" in d                  # True (tests KEYS)    "z" not in d -> True
+Add / update:
+    d["c"] = 3                # add
+    d["a"] = 10               # update
+    d.update({"a": 1, "d": 4})    # merge, new values win
+    d.update(e=5)
+    d.update([("f", 6)])
+Delete:
+    del d["a"]                # KeyError if missing
+    d.pop("b")                # remove and return value
+    d.pop("zz", None)         # no error with a default
+    d.popitem()               # remove and return the LAST inserted pair
+    d.clear()
+Other:
+    len(d)    d.copy() (shallow)    copy.deepcopy(d)
+
+30. VIEWS AND ITERATION
+------------------------------------------------------------------------------
+    d = {"a": 1, "b": 2}
+    d.keys()                  # dict_keys(['a', 'b'])
+    d.values()                # dict_values([1, 2])
+    d.items()                 # dict_items([('a', 1), ('b', 2)])
+    list(d)                   # ['a', 'b']   keys
+    for k in d: ...
+    for v in d.values(): ...
+    for k, v in d.items(): ...
+    for i, (k, v) in enumerate(d.items()): ...
+    reversed(d)               # 3.8+: reverse insertion order of keys
+
+Views are LIVE: they reflect later changes to d.
+Keys and items views behave like sets:
+    d.keys() & other.keys()   # common keys
+    d.keys() - other.keys()   # keys only in d
+Views are not indexable: d.keys()[0] -> TypeError; use list(d)[0].
+
+Do not change the SIZE while iterating:
+    for k in d: d["new"] = 1        # RuntimeError
+    for k in list(d): del d[k]      # safe (iterate over a copy)
+Changing the value of an existing key during iteration is allowed.
+
+31. MERGING, SORTING, BUILDING
+------------------------------------------------------------------------------
+Merge:
+    {"a": 1, "b": 2} | {"b": 3}     # {'a': 1, 'b': 3}   (3.9+, right wins)
+    d1 |= d2                        # in place
+    {**d1, **d2}                    # works in older versions too
+    dict(d1, **d2)                  # string keys only
+
+Sort:
+    sorted(d)                              # sorted list of keys
+    sorted(d.items())                      # by key -> list of pairs
+    sorted(d.items(), key=lambda kv: kv[1])            # by value ascending
+    sorted(d.items(), key=lambda kv: kv[1], reverse=True)   # descending
+    dict(sorted(d.items()))                # dict sorted by key
+    max(d, key=d.get)                      # key with the largest value
+    min(d.values()), sum(d.values())
+
+Transform:
+    {v: k for k, v in d.items()}           # invert (values must be hashable)
+    {k: v for k, v in d.items() if v > 1}  # filter
+    {k: v * 2 for k, v in d.items()}       # map values
+    dict(zip(keys, values))                # two lists -> dict
+    list(d.items())                        # dict -> list of pairs
+
+Nested dictionaries:
+    data = {"a": {"b": 1}}
+    data["a"]["b"]                         # 1
+    data.get("x", {}).get("b")             # None, no KeyError
+
+32. DICTIONARY PATTERNS (collections)
+------------------------------------------------------------------------------
+Counting:
+    freq = {}
+    for ch in "banana":
+        freq[ch] = freq.get(ch, 0) + 1     # {'b': 1, 'a': 3, 'n': 2}
+
+    from collections import Counter, defaultdict, OrderedDict
+    c = Counter("banana")                  # Counter({'a': 3, 'n': 2, 'b': 1})
+    c["a"]                                 # 3  (missing key gives 0)
+    c.most_common(2)                       # [('a', 3), ('n', 2)]
+    c.update("aa"); c.subtract("a")
+    Counter("ab") + Counter("bc")          # Counter({'b': 2, 'a': 1, 'c': 1})
+
+defaultdict (missing keys get a default value):
+    dd = defaultdict(int)
+    dd["x"] += 1                           # no KeyError
+    groups = defaultdict(list)
+    for w in ["eat", "tea", "tan", "ate", "nat", "bat"]:
+        groups["".join(sorted(w))].append(w)
+    # {'aet': ['eat','tea','ate'], 'ant': ['tan','nat'], 'abt': ['bat']}
+    defaultdict(set), defaultdict(lambda: 0)
+
+Grouping without defaultdict:
+    g = {}
+    g.setdefault(key, []).append(item)
+
+OrderedDict (mostly historical; a normal dict keeps order):
+    od.move_to_end(k)      od.popitem(last=False)     # LRU cache pieces
+
+Other: ChainMap (layered lookups), types.MappingProxyType (read-only view).
+
+Frequency-based programs:
+    # first non-repeating character
+    c = Counter(s); next((ch for ch in s if c[ch] == 1), None)
+    # is anagram
+    Counter(a) == Counter(b)
+    # two-sum
+    seen = {}
+    for i, x in enumerate(a):
+        if target - x in seen: return seen[target - x], i
+        seen[x] = i
+    # merge dicts adding values
+    Counter(d1) + Counter(d2)
+    # word count
+    Counter(text.lower().split())
+    # group by length
+    for w in words: by_len.setdefault(len(w), []).append(w)
+
+33. DICTIONARY GOTCHAS AND COMPLEXITY
+------------------------------------------------------------------------------
+ 1. d[k] raises KeyError; use get(), in, setdefault or defaultdict.
+ 2. Keys must be hashable: {[1]: 2} -> TypeError: unhashable type: 'list'.
+ 3. Duplicate keys: the last value wins:  {"a": 1, "a": 2} -> {'a': 2}.
+ 4. 1, 1.0 and True are the SAME key:
+        {1: "a", True: "b", 1.0: "c"}      # {1: 'c'}  (first key kept)
+ 5. dict.fromkeys(keys, []) shares ONE list among all keys:
+        d = dict.fromkeys("ab", [])
+        d["a"].append(1)                   # {'a': [1], 'b': [1]}
+        d = {k: [] for k in "ab"}          # correct
+ 6. d.get(k, default) evaluates default EAGERLY (even when k exists).
+ 7. Do not add / remove keys while iterating (RuntimeError).
+ 8. "in" tests KEYS; use "v in d.values()" for values (O(n)).
+ 9. copy() is shallow: nested values are shared.
+10. d = {}  is a dict; set() is the empty set.
+11. dict(a=1) works only for valid identifier keys.
+12. d[k] += 1 on a missing key raises KeyError (use get or defaultdict).
+13. Insertion order is not sorted order.
+14. popitem() removes the LAST inserted item (LIFO); on an empty dict it
+    raises KeyError.
+15. Using a mutable object as a key is impossible; use tuple / frozenset.
+16. Equality ignores order: {"a": 1, "b": 2} == {"b": 2, "a": 1} is True.
+
+  Operation                 | Average | Worst
+  --------------------------|---------|--------
+  d[k], d[k] = v, del d[k]  | O(1)    | O(n)
+  k in d                    | O(1)    | O(n)
+  d.get(k)                  | O(1)    | O(n)
+  iteration, keys / values  | O(n)
+  copy                      | O(n)
+  v in d.values()           | O(n)
+
+
+==============================================================================
+                  F. COMPARING, CONVERTING AND CHOOSING
+==============================================================================
+
+34. CONVERSIONS
+------------------------------------------------------------------------------
+    list("abc")            # ['a', 'b', 'c']
+    tuple([1, 2])          # (1, 2)
+    set([1, 1, 2])         # {1, 2}
+    list({1, 2})           # [1, 2]       order not guaranteed
+    list({"a": 1})         # ['a']        keys
+    list({"a": 1}.items()) # [('a', 1)]
+    dict([("a", 1)])       # {'a': 1}
+    dict(zip(k, v))
+    "".join(["a", "b"])    # 'ab'
+    "a b".split()          # ['a', 'b']
+    str([1, 2])            # '[1, 2]'  (not the same as join)
+    set([[1]])             # TypeError (unhashable)
+    dict([1, 2])           # TypeError (needs pairs)
+    dict(["ab", "cd"])     # {'a': 'b', 'c': 'd'}   2-char strings are pairs
+
+35. SHALLOW VS DEEP COPY (ALL CONTAINERS)
+------------------------------------------------------------------------------
+    b = a                  alias: same object
+    b = a.copy() / a[:] / list(a) / dict(a) / set(a)    shallow copy
+    b = copy.deepcopy(a)   full independent copy
+Immutable objects (str, tuple of immutables, int) need no copying.
+
+36. THE collections, heapq, bisect AND itertools TOOLS
+------------------------------------------------------------------------------
+  Tool                  | Purpose
+  ----------------------|---------------------------------------------------
+  collections.deque     | O(1) append / pop at both ends (queue, sliding win)
+  collections.Counter   | frequency counting, most_common, multiset maths
+  collections.defaultdict| dict with default values (counting, grouping)
+  collections.OrderedDict| ordered dict with move_to_end (LRU caches)
+  collections.namedtuple| tuple with named fields
+  heapq                 | min-heap / priority queue
+  bisect                | binary search and sorted insertion in a list
+  itertools             | product, permutations, combinations, chain,
+                        | accumulate, groupby, islice, count, cycle
+  functools.lru_cache   | memoisation using a dict internally
+
+37. CHOOSING THE RIGHT STRUCTURE
+------------------------------------------------------------------------------
+    Text                                      -> str
+    Ordered, changing collection              -> list
+    Fixed record / dict key / return values   -> tuple
+    Unique items, fast membership, set maths  -> set
+    Lookup by key, counting, grouping         -> dict
+    Immutable set (as a key)                  -> frozenset
+    Queue / double-ended queue                -> collections.deque
+    Stack                                     -> list (append / pop)
+    Priority queue                            -> heapq
+    Sorted data with fast search              -> list + bisect
+    Frequency table                           -> Counter
+    Record with named fields                  -> namedtuple / dataclass
+
+    Need fast "is x present?"  -> convert the list to a set first:
+        lookup = set(big_list)      # O(n) once
+        x in lookup                 # O(1) every time
+
+38. QUICK COMPARISON OF METHODS
+------------------------------------------------------------------------------
+  Task                | str           | list         | set      | dict
+  --------------------|---------------|--------------|----------|-------------
+  add one             | s + "x"       | append       | add      | d[k] = v
+  add many            | s + t         | extend       | update   | update
+  remove              | replace       | remove / pop | discard  | pop / del
+  clear               | s = ""        | clear        | clear    | clear
+  find / test         | find / in     | index / in   | in       | in / get
+  count               | count         | count        | -        | Counter
+  sort                | sorted(s)     | sort/sorted  | sorted   | sorted(d)
+  copy                | immutable     | copy / [:]   | copy     | copy
+  length              | len           | len          | len      | len
+
+
+==============================================================================
+                    G. PITFALLS CHECKLIST (ALL FIVE)
+==============================================================================
+
+39. CHECKLIST
+------------------------------------------------------------------------------
+  1. Strings and tuples are immutable; every "change" makes a new object.
+  2. String methods return new strings: assign the result.
+  3. list methods sort / append / reverse / extend return None.
+  4. [[0] * n] * m shares rows; use a comprehension.
+  5. Assignment aliases; use copy / deepcopy for independent data.
+  6. (5) is an int; (5,) is a tuple. {} is a dict; set() is an empty set.
+  7. Sets and dict keys must be hashable.
+  8. Sets are unordered; dicts are insertion-ordered but not sorted.
+  9. 1, 1.0 and True are the same set item / dict key.
+ 10. d[k] raises KeyError; get() returns None.
+ 11. Do not change a list / set / dict size while iterating it.
+ 12. remove() takes a value; pop() takes an index; del takes index / slice.
+ 13. in is O(n) for list / str / tuple but O(1) for set / dict.
+ 14. sorted() returns a new list; sort() sorts in place.
+ 15. Sorting mixed types raises TypeError.
+ 16. Mutable default arguments persist between calls.
+ 17. dict.fromkeys(keys, []) shares one list.
+ 18. Use "".join(parts) instead of repeated s += x.
+ 19. Use deque instead of list.pop(0) for queues.
+ 20. Indexing raises IndexError; slicing never does.
+
+
+==============================================================================
+                  H. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+STRINGS
+Q1. What is the output?
+        s = "Python"; print(s[1:4], s[::-1], s[-3:], s[::2])
+A.  yth nohtyP hon Pto
+
+Q2. What is the output?   print("banana".count("ana"), "banana".find("na"),
+                                "banana".rfind("na"))
+A.  1 2 4   (count is non-overlapping; find = first, rfind = last index).
+
+Q3. What is the output?   print("a,b,,c".split(","), "a b  c".split())
+A.  ['a', 'b', '', 'c'] ['a', 'b', 'c']
+
+Q4. What is the output?   print("abcba".strip("ab"))
+A.  c   (strip removes any of the given characters from both ends).
+
+Q5. What happens?   s = "hi"; s[0] = "H"
+A.  TypeError: 'str' object does not support item assignment. Strings are
+    immutable; use s = "H" + s[1:].
+
+Q6. What is the output?   print(["ab" * 3, "ab" * 0, "ab" * -1])
+A.  ['ababab', '', '']
+
+Q7. What is the output?   print("-".join("abc"), "".join(["a", "b"]))
+A.  a-b-c ab
+
+Q8. What is the output?
+        print("python".capitalize(), "PyThOn".swapcase(), "a b".title())
+A.  Python pYtHoN A B
+
+Q9. What is the output?   print("a" in "abc", "" in "abc", "ac" in "abc")
+A.  True True False   (substring test: "ac" is not contiguous).
+
+Q10. Why is  s += x  in a long loop slow? What is the alternative?
+A.  Strings are immutable, so each concatenation may copy the whole string
+    (O(n^2) overall). Append to a list and use "".join(parts) at the end.
+
+Q11. How do you check whether a string is a palindrome ignoring case?
+A.  t = s.lower(); t == t[::-1]
+
+Q12. What is the difference between find() and index()?
+A.  Both return the first position. find returns -1 when absent; index raises
+    ValueError.
+
+Q13. Difference between isdigit, isdecimal and isnumeric?
+A.  isdecimal: only decimal digits (strictest). isdigit: also superscripts
+    such as "²". isnumeric: also fractions, roman numerals ("½"). None of
+    them accept "-5" or "3.5".
+
+LISTS
+Q14. What is the output?
+        a = [1, 2, 3]; b = a; b.append(4); c = a[:]; c.append(5); print(a)
+A.  [1, 2, 3, 4]   (b is an alias; c is a copy).
+
+Q15. What is the output?   print([1, 2, 3][5:], [1, 2, 3][-10:2])
+A.  [] [1, 2]   (out-of-range slice bounds are clipped; no error).
+
+Q16. What is the output?
+        a = [[0] * 2] * 2; a[0][0] = 1; print(a)
+A.  [[1, 0], [1, 0]]   (both rows are the same list).
+
+Q17. What is the output?   a = [3, 1, 2]; print(a.sort(), a)
+A.  None [1, 2, 3]   (sort works in place and returns None).
+
+Q18. What is the output?
+        a = [1]; b = a; a += [2]; print(b); a = a + [3]; print(b)
+A.  [1, 2]
+    [1, 2]     (+= extends in place, so b changes; a = a + [3] makes a new
+    list, so b does not).
+
+Q19. What is the output?   a = [1, 2, 3, 4, 5]; a[1:3] = [9]; print(a)
+A.  [1, 9, 4, 5]   (slice assignment may change the length).
+
+Q20. What is the output?   a = [1, 2, 3, 4]; del a[::2]; print(a)
+A.  [2, 4]
+
+Q21. Difference between append, extend and insert?
+A.  append adds ONE object at the end ([1].append([2]) -> [1, [2]]); extend
+    adds each item of an iterable ([1].extend([2]) -> [1, 2]); insert(i, x)
+    puts x at index i.
+
+Q22. Difference between remove, pop and del?
+A.  remove(x): by value, first match (ValueError if missing). pop(i): by
+    index, returns the item (IndexError if empty). del a[i] / a[i:j]: by
+    index or slice, returns nothing.
+
+Q23. Why is list.pop(0) slow and what replaces it?
+A.  Removing the first item shifts all the others: O(n). Use
+    collections.deque.popleft(), which is O(1).
+
+Q24. What is the output?
+        def f(x, lst=[]):
+            lst.append(x); return lst
+        print(f(1), f(2))
+A.  [1, 2] [1, 2]   (the default list is created once and shared; both
+    results are the same object). Use lst=None and create the list inside.
+
+Q25. What is the difference between sort() and sorted()?
+A.  sort() sorts a list in place and returns None (lists only). sorted()
+    accepts any iterable and returns a new list. Both are stable and use
+    Timsort, O(n log n).
+
+Q26. Shallow copy vs deep copy?
+A.  A shallow copy duplicates the outer container only; nested objects are
+    shared. copy.deepcopy duplicates everything recursively.
+
+TUPLES
+Q27. What is the output?   print(type((1)), type((1,)), type(()))
+A.  <class 'int'> <class 'tuple'> <class 'tuple'>
+
+Q28. What is the output?   t = (1, [2, 3]); t[1].append(4); print(t)
+A.  (1, [2, 3, 4])   (the tuple's references are fixed, but the list inside
+    is mutable).
+
+Q29. What happens?   t = ([1],); t[0] += [2]
+A.  TypeError ('tuple' object does not support item assignment), but the
+    inner list has already been extended, so t is ([1, 2],).
+
+Q30. What is the output?   a, *b, c = [1, 2, 3, 4, 5]; print(a, b, c)
+A.  1 [2, 3, 4] 5
+
+Q31. When can a tuple be a dictionary key?
+A.  When all its items are hashable. (1, 2) works; ([1], 2) raises
+    TypeError: unhashable type: 'list'.
+
+Q32. Why use tuples if lists exist?
+A.  Immutability (safe fixed data), hashability (dict keys, set items), lower
+    memory and slightly faster creation, and a clear signal that the data is
+    a fixed record.
+
+SETS
+Q33. What is the output?   print({1, True, 1.0}, len({1: "a", True: "b"}))
+A.  {1} 1   (1, True and 1.0 are equal with the same hash).
+
+Q34. What is the output?   print(type({}), type(set()))
+A.  <class 'dict'> <class 'set'>
+
+Q35. What is the output?
+        A = {1, 2, 3}; B = {3, 4}; print(A | B, A & B, A - B, A ^ B)
+A.  {1, 2, 3, 4} {3} {1, 2} {1, 2, 4}
+
+Q36. What is the difference between remove() and discard()?
+A.  remove raises KeyError if the item is absent; discard does not.
+
+Q37. What happens?   {1, 2} | [3]    and    {1, 2}.union([3])
+A.  The operator raises TypeError (both sides must be sets); the method works
+    and returns {1, 2, 3} because methods accept any iterable.
+
+Q38. Why can't a list be placed in a set? What can you do?
+A.  Set items must be hashable; lists are mutable, so unhashable
+    (TypeError). Convert to a tuple (or frozenset).
+
+Q39. How do you remove duplicates from a list and keep the order?
+A.  list(dict.fromkeys(lst)). list(set(lst)) loses the order.
+
+Q40. Why is  x in my_set  faster than  x in my_list?
+A.  A set is a hash table: lookup is average O(1). A list is scanned
+    item by item: O(n).
+
+DICTIONARIES
+Q41. What is the output?
+        d = {1: "a", True: "b", 1.0: "c"}; print(d)
+A.  {1: 'c'}   (one key; the first key object is kept, the value is
+    overwritten).
+
+Q42. What is the output?
+        d = dict.fromkeys(["a", "b"], []); d["a"].append(1); print(d)
+A.  {'a': [1], 'b': [1]}   (the same list is shared). Use
+    {k: [] for k in keys}.
+
+Q43. What is the difference between d[k] and d.get(k)?
+A.  d[k] raises KeyError if k is missing; get returns None (or the given
+    default).
+
+Q44. What is the output?   print({"a": 1, "b": 2} | {"b": 3})
+A.  {'a': 1, 'b': 3}   (Python 3.9+ merge; the right side wins).
+
+Q45. How do you sort a dictionary by value?
+A.  sorted(d.items(), key=lambda kv: kv[1]) gives a list of pairs;
+    dict(...) turns it back into a dict. Add reverse=True for descending.
+
+Q46. What happens?   d = {"a": 1}; for k in d: d["b"] = 2
+A.  RuntimeError: dictionary changed size during iteration. Iterate over
+    list(d) when you must change the keys.
+
+Q47. What is the output?   print(Counter("aabbc").most_common(1))
+A.  [('a', 2)]   (ties keep first-seen order).
+
+Q48. How do you group items by a key using a dictionary?
+A.  d = defaultdict(list); d[key].append(item)  or
+    d.setdefault(key, []).append(item).
+
+Q49. Is a dictionary ordered?
+A.  It keeps insertion order (guaranteed from Python 3.7), but it is not
+    sorted, and equality ignores order.
+
+Q50. Compare the time complexities of lookup in list, set and dict. Which
+     data types can be dictionary keys?
+A.  list: O(n); set: O(1) average; dict (by key): O(1) average. Keys must be
+    hashable: int, float, bool, str, tuple (of hashables), frozenset, None.
+    Not allowed: list, set, dict.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

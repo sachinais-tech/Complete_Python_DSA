@@ -1,0 +1,1213 @@
+==============================================================================
+             PYTHON LOOPS: for, while, NESTED LOOPS AND PATTERNS
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. WHAT IS A LOOP? TYPES OF LOOPS
+------------------------------------------------------------------------------
+A loop repeats a block of code. Python has two loop statements:
+
+  Loop   | Repeats                                  | Use when
+  -------|------------------------------------------|----------------------
+  for    | once per item of an iterable             | number of items known
+  while  | as long as a condition is truthy         | repeat until a state
+         |                                          | changes
+
+Related ideas covered here:
+    A. for loop        - iterables, range, enumerate, zip, for-else
+    B. while loop      - counters, sentinels, infinite loops, while-else
+    C. loop control    - break, continue, pass, else
+    D. nested loops    - loop inside a loop, counting, complexity
+    E. pattern problems- star, number, alphabet patterns using loops
+    F. classic programs, performance, pitfalls, interview questions
+
+Python has no do-while loop and no C-style  for (i = 0; i < n; i++).
+Comprehensions (list / set / dict / generator) are loops written as
+expressions.
+
+
+==============================================================================
+                          A. THE for LOOP
+==============================================================================
+
+2. SYNTAX AND ITERABLES
+------------------------------------------------------------------------------
+    for variable in iterable:
+        body                       # runs once per item
+    else:                          # optional, see section 8
+        statements
+
+A for loop works with ANY iterable (an object that can produce items one by
+one): list, tuple, str, dict, set, range, file, generator, map, zip ...
+
+    for x in [10, 20, 30]:    print(x)            # 10 20 30
+    for ch in "abc":          print(ch, end=" ")  # a b c
+    for x in (1, 2):          print(x)            # tuple
+    for x in {3, 1, 2}:       print(x)            # set: order not guaranteed
+    for k in {"a": 1, "b": 2}: print(k)           # dict gives KEYS: a b
+    for line in open("f.txt"): print(line, end="")# file gives lines
+
+Dictionaries:
+    d = {"a": 1, "b": 2}
+    for k in d:               ...     # keys
+    for k in d.keys():        ...     # keys
+    for v in d.values():      ...     # values
+    for k, v in d.items():    ...     # key-value pairs (tuple unpacking)
+    Insertion order is kept (3.7+).
+
+Unpacking in the loop header:
+    pairs = [(1, "a"), (2, "b")]
+    for num, ch in pairs:             print(num, ch)
+    for i, (num, ch) in enumerate(pairs): ...
+    for a, *rest in [(1, 2, 3), (4, 5, 6)]: ...      # a=1, rest=[2, 3]
+
+Facts:
+    - The loop variable is assigned on each pass and is NOT scoped to the
+      loop: it still exists afterwards, holding the LAST value.
+          for i in range(3): pass
+          print(i)                  # 2
+      If the iterable is empty the variable is never created (NameError).
+    - Reassigning the loop variable inside the body does not change the
+      iteration:
+          for i in range(3):
+              i = 10                # next pass i is 1 again
+    - Use _ for a value you do not need:   for _ in range(3): ...
+    - Empty iterable: the body never runs.
+    - Comprehension variables do NOT leak:  [i for i in range(3)]; i -> error
+
+3. range()
+------------------------------------------------------------------------------
+    range(stop)               0, 1, ..., stop-1
+    range(start, stop)        start, ..., stop-1
+    range(start, stop, step)  start, start+step, ... while before stop
+
+    list(range(5))            # [0, 1, 2, 3, 4]
+    list(range(2, 7))         # [2, 3, 4, 5, 6]
+    list(range(1, 10, 3))     # [1, 4, 7]
+    list(range(10, 0, -3))    # [10, 7, 4, 1]
+    list(range(5, 0, -1))     # [5, 4, 3, 2, 1]   countdown
+    list(range(0))            # []
+    list(range(5, 2))         # []   (step is +1 but start >= stop)
+    list(range(-3))           # []
+    list(range(-5, 0))        # [-5, -4, -3, -2, -1]
+
+Properties:
+    - stop is EXCLUDED.
+    - Integers only: range(2.5) -> TypeError.
+    - step == 0 -> ValueError: range() arg 3 must not be zero.
+    - Lazy: stores only start, stop, step (range(10**9) uses tiny memory).
+    - It is a sequence, not an iterator, so it can be reused:
+          r = range(3); list(r); list(r)       # [0, 1, 2] both times
+    - Supports len(r), r[0], r[-1], r[1:3], x in r (fast), r.index(x),
+      r.count(x), r.start, r.stop, r.step, reversed(r).
+    - len(range(0, 10, 3)) = 4  (0, 3, 6, 9)
+    - Count of items: max(0, ceil((stop - start) / step))
+    - Reverse indexes:  range(n - 1, -1, -1)   or   reversed(range(n))
+    - Float steps are not supported; use a comprehension:
+          [x / 10 for x in range(0, 5)]        # 0.0, 0.1 ... 0.4
+      or numpy.arange / while loop.
+
+4. enumerate, zip, reversed, sorted
+------------------------------------------------------------------------------
+enumerate(iterable, start=0) gives (index, item) pairs:
+    for i, ch in enumerate("abc"):         # (0,'a') (1,'b') (2,'c')
+        print(i, ch)
+    for i, ch in enumerate("abc", start=1):# starts counting at 1
+    list(enumerate("ab"))                  # [(0, 'a'), (1, 'b')]
+    Better than  for i in range(len(lst)): lst[i] ...
+
+zip(*iterables) walks several iterables together; stops at the SHORTEST:
+    names, ages = ["A", "B", "C"], [20, 21]
+    for n, a in zip(names, ages):          # (A,20) (B,21)
+    zip(names, ages, strict=True)          # 3.10+: ValueError on unequal
+    from itertools import zip_longest
+    zip_longest(names, ages, fillvalue=0)  # pads the shorter one
+    dict(zip(names, ages))                 # {'A': 20, 'B': 21}
+    list(zip(*[(1, "a"), (2, "b")]))       # unzip: [(1, 2), ('a', 'b')]
+
+reversed(seq): iterate backwards without copying:  for x in reversed(lst)
+sorted(iterable, key=None, reverse=False): iterate in order, original kept:
+    for x in sorted(lst, reverse=True): ...
+    for k in sorted(d, key=d.get): ...
+
+Other helpers (itertools): count(), cycle(), repeat(), islice(), chain(),
+product(), permutations(), combinations(), accumulate(), groupby().
+    from itertools import islice, count
+    for i in islice(count(10), 3): print(i)    # 10 11 12
+
+5. COMMON for-LOOP PATTERNS (ACCUMULATORS)
+------------------------------------------------------------------------------
+    total = 0                           # sum
+    for x in nums: total += x
+
+    count = 0                           # count matches
+    for x in nums:
+        if x % 2 == 0: count += 1
+
+    largest = nums[0]                   # maximum
+    for x in nums:
+        if x > largest: largest = x
+
+    product = 1                         # product / factorial
+    for i in range(1, n + 1): product *= i
+
+    result = []                         # build a new list
+    for x in nums:
+        if x > 0: result.append(x * x)
+
+    freq = {}                           # frequency count
+    for ch in "banana":
+        freq[ch] = freq.get(ch, 0) + 1  # {'b': 1, 'a': 3, 'n': 2}
+
+    found = False                       # search with a flag
+    for x in nums:
+        if x == target:
+            found = True
+            break
+
+    rev = ""                            # reverse a string
+    for ch in s: rev = ch + rev         # (s[::-1] is simpler)
+
+    for i in range(len(s) // 2):        # two-pointer style check
+        if s[i] != s[-1 - i]: ...
+
+Built-in shortcuts: sum(), min(), max(), len(), any(), all(), sorted().
+
+6. MODIFYING A COLLECTION WHILE ITERATING (DANGER)
+------------------------------------------------------------------------------
+    lst = [2, 4, 6, 1]
+    for x in lst:
+        if x % 2 == 0:
+            lst.remove(x)
+    print(lst)                  # [4, 1]   (4 was skipped!)
+
+The list iterator walks by index, so removing shifts the items. Safe options:
+    for x in lst[:]:                      # iterate over a COPY
+    lst = [x for x in lst if x % 2]       # build a new list (best)
+    for i in range(len(lst) - 1, -1, -1): # go backwards and delete by index
+        if lst[i] % 2 == 0: del lst[i]
+
+dict / set: changing their SIZE while iterating raises
+    RuntimeError: dictionary changed size during iteration
+    for k in list(d): del d[k]            # iterate over a copy of the keys
+Changing existing values of a dict during iteration is allowed.
+
+7. THE ITERATION PROTOCOL (HOW for WORKS)
+------------------------------------------------------------------------------
+    iterable : has __iter__() -> returns an iterator   (list, str, range ...)
+    iterator : has __next__() and __iter__(); remembers its position
+
+    for x in obj: body
+    is roughly:
+        it = iter(obj)
+        while True:
+            try:
+                x = next(it)
+            except StopIteration:
+                break
+            body
+
+    it = iter([1, 2])
+    next(it)                  # 1
+    next(it)                  # 2
+    next(it)                  # StopIteration
+    next(it, "end")           # 'end' (default instead of the error)
+
+    - An iterator is single use; once exhausted it stays empty:
+          m = map(str, [1, 2]); list(m); list(m)     # ['1','2'], then []
+    - A list/range/str is an iterable, not an iterator.
+    - Generators (yield) and generator expressions are iterators:
+          g = (x * x for x in range(3)); next(g)    # 0
+    - Sentinel form:  iter(callable, sentinel)
+          for line in iter(input, "quit"): print(line)    # stops at "quit"
+
+8. for - else
+------------------------------------------------------------------------------
+The else block runs when the loop ends NORMALLY (not through break).
+
+    for x in nums:
+        if x == target:
+            print("found")
+            break
+    else:
+        print("not found")                # no break happened
+
+    # prime check
+    n = 29
+    for d in range(2, int(n ** 0.5) + 1):
+        if n % d == 0:
+            print("composite")
+            break
+    else:
+        print("prime")                    # prime
+
+    for i in range(3):
+        pass
+    else:
+        print("done")                     # runs (no break)
+
+    - else also runs when the iterable is empty.
+    - It does NOT run after break, nor if the loop is left by return / raise.
+    - Think of it as "no-break". The same rule applies to while-else.
+
+9. COMPREHENSIONS (LOOPS AS EXPRESSIONS)
+------------------------------------------------------------------------------
+    [x * x for x in range(5)]                    # [0, 1, 4, 9, 16]
+    [x for x in range(10) if x % 2 == 0]         # [0, 2, 4, 6, 8]
+    [x if x > 0 else 0 for x in [-1, 2, -3]]     # [0, 2, 0]  (ternary first)
+    {x % 3 for x in range(10)}                   # {0, 1, 2}
+    {c: ord(c) for c in "ab"}                    # {'a': 97, 'b': 98}
+    sum(x * x for x in range(4))                 # 14  (generator expression)
+    [(i, j) for i in range(2) for j in range(2)] # nested: outer loop first
+    [[0] * 3 for _ in range(2)]                  # [[0, 0, 0], [0, 0, 0]]
+    [c for c in "a1b2" if c.isdigit()]           # ['1', '2']
+    [y for row in [[1, 2], [3]] for y in row]    # flatten: [1, 2, 3]
+
+    - A comprehension is clearer and usually faster than append in a loop.
+    - Use a plain loop when the body is long or has side effects.
+    - Late-binding trap with closures made in a loop:
+          fs = [lambda: i for i in range(3)]
+          [f() for f in fs]                       # [2, 2, 2]
+          fs = [lambda i=i: i for i in range(3)]  # bind the value now
+          [f() for f in fs]                       # [0, 1, 2]
+
+
+==============================================================================
+                         B. THE while LOOP
+==============================================================================
+
+10. SYNTAX AND FLOW
+------------------------------------------------------------------------------
+    while condition:
+        body                       # must change something that affects the
+    else:                          # condition, or the loop never ends
+        statements                 # runs if the loop ends without break
+
+Flow: test condition -> True: run body, test again -> False: leave the loop.
+The body may run zero times (condition false at the start).
+
+    i = 1
+    while i <= 5:
+        print(i, end=" ")          # 1 2 3 4 5
+        i += 1                     # update (do not forget!)
+
+Three parts of a counting while loop: INITIALISE, TEST, UPDATE.
+
+Conditions use truthiness:
+    while lst:                     # while the list is not empty
+        item = lst.pop()
+    while n:                       # while n != 0
+        n //= 10
+    while True:                    # infinite loop, leave with break
+    while 1:                       # same (True is slightly clearer)
+
+11. while LOOP PATTERNS
+------------------------------------------------------------------------------
+(a) Counter-controlled
+        i = 10
+        while i > 0:
+            print(i, end=" ")      # 10 9 8 ... 1
+            i -= 1
+
+(b) Sentinel-controlled / input validation
+        n = int(input("Enter a positive number: "))
+        while n <= 0:
+            n = int(input("Try again: "))
+
+        while True:
+            s = input("Command (q to quit): ")
+            if s == "q":
+                break
+            print("You typed", s)
+
+(c) Do-while emulation (body runs at least once)
+        while True:
+            n = int(input("Enter 1-10: "))
+            if 1 <= n <= 10:
+                break
+
+(d) Digit processing
+        n = 1234
+        total = 0
+        while n > 0:
+            total += n % 10        # last digit
+            n //= 10               # drop last digit
+        print(total)               # 10
+
+        rev = 0
+        n = 1234
+        while n > 0:
+            rev = rev * 10 + n % 10
+            n //= 10
+        print(rev)                 # 4321
+
+(e) Euclid's GCD
+        a, b = 48, 18
+        while b:
+            a, b = b, a % b
+        print(a)                   # 6
+
+(f) Decimal to binary
+        n, bits = 10, ""
+        while n > 0:
+            bits = str(n % 2) + bits
+            n //= 2
+        print(bits)                # 1010
+
+(g) Collatz sequence
+        n = 6
+        while n != 1:
+            print(n, end=" ")      # 6 3 10 5 16 8 4 2
+            n = n // 2 if n % 2 == 0 else 3 * n + 1
+        print(1)
+
+(h) Process until empty (stack / queue)
+        stack = [1, 2, 3]
+        while stack:
+            print(stack.pop())     # 3 2 1
+
+(i) Walrus operator (3.8+): read and test in one place
+        while (line := f.readline()):
+            process(line)
+        while (n := int(input())) != 0:
+            total += n
+
+(j) Convergence / approximation
+        x = 1.0
+        while abs(x * x - 2) > 1e-9:
+            x = (x + 2 / x) / 2    # Newton's method for sqrt(2)
+
+(k) Binary search
+        lo, hi = 0, len(a) - 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if a[mid] == t: break
+            elif a[mid] < t: lo = mid + 1
+            else: hi = mid - 1
+
+12. INFINITE LOOPS
+------------------------------------------------------------------------------
+Causes:
+    - forgetting the update:            while i < 5: print(i)
+    - update moves away from the goal:  x = 10; while x: x -= 3
+      (10, 7, 4, 1, -2 ... never exactly 0)
+    - continue placed BEFORE the update (the update is skipped):
+          i = 0
+          while i < 5:
+              if i == 2:
+                  continue              # i stays 2 forever
+              i += 1
+    - float counters: while x != 1.0: x += 0.1 (never exactly equal)
+    - wrong condition (> instead of <)
+
+Stop a runaway program with Ctrl+C (KeyboardInterrupt).
+Deliberate infinite loops: servers, game loops, event loops, retry loops,
+all with a break / return / exception as the exit.
+
+13. for vs while
+------------------------------------------------------------------------------
+  Feature              | for                        | while
+  ---------------------|----------------------------|------------------------
+  Loops over           | items of an iterable       | a condition
+  Count known upfront  | ideal                      | possible
+  Counter handling     | automatic                  | manual (init + update)
+  Risk of infinite loop| very low                   | higher
+  Typical use          | lists, strings, ranges     | input loops, searching,
+                       |                            | digit processing, algos
+  Reverse / step       | range(a, b, -1)            | i -= 1
+  Convert              | any for loop can become a while loop and vice versa
+
+    for i in range(1, 6):          i = 1
+        print(i)                   while i <= 5:
+                                       print(i)
+                                       i += 1        # same output: 1 2 3 4 5
+
+Prefer for when you iterate a known collection or range; use while when the
+number of repetitions depends on a changing condition.
+
+
+==============================================================================
+                         C. LOOP CONTROL STATEMENTS
+==============================================================================
+
+14. break, continue, pass, else
+------------------------------------------------------------------------------
+  Statement | Effect
+  ----------|----------------------------------------------------------------
+  break     | leave the INNERMOST loop immediately; skips the loop's else
+  continue  | skip the rest of this iteration and go to the next one
+  pass      | does nothing (placeholder for an empty block)
+  else      | runs after a loop that was not ended by break
+
+    for i in range(6):
+        if i == 2: continue            # skip 2
+        if i == 4: break               # stop at 4
+        print(i, end=" ")              # 0 1 3
+
+    for i in range(3):
+        pass                           # empty body is allowed with pass
+
+    - In a for loop, continue goes to the next item.
+    - In a while loop, continue jumps to the condition test: make sure the
+      update has already happened.
+    - break/continue outside a loop -> SyntaxError.
+    - They affect ONLY the loop they are written in.
+
+Leaving several nested loops at once:
+    (a) flag variable
+            found = False
+            for i in range(3):
+                for j in range(3):
+                    if i * j == 2:
+                        found = True
+                        break
+                if found: break
+    (b) put the loops in a function and return
+            def find():
+                for i in range(3):
+                    for j in range(3):
+                        if i * j == 2: return i, j
+    (c) for-else trick
+            for i in range(3):
+                for j in range(3):
+                    if i * j == 2: break
+                else:
+                    continue           # inner loop had no break
+                break                  # inner loop broke -> break outer
+    (d) raise and catch an exception
+    (e) flatten with itertools.product:
+            from itertools import product
+            for i, j in product(range(3), range(3)):
+                if i * j == 2: break
+
+
+==============================================================================
+                          D. NESTED LOOPS
+==============================================================================
+
+15. WHAT ARE NESTED LOOPS?
+------------------------------------------------------------------------------
+A loop inside the body of another loop. For EVERY iteration of the outer
+loop, the inner loop runs COMPLETELY.
+
+    for i in range(1, 4):          # outer: runs 3 times
+        for j in range(1, 3):      # inner: runs 2 times per outer pass
+            print(i, j)
+
+Output order:  (1,1) (1,2) (2,1) (2,2) (3,1) (3,2)
+
+Dry-run table:
+    i | j values | printed
+    --|----------|------------------
+    1 | 1, 2     | (1,1) (1,2)
+    2 | 1, 2     | (2,1) (2,2)
+    3 | 1, 2     | (3,1) (3,2)
+
+Total inner iterations = outer count * inner count = 3 * 2 = 6.
+
+Variations:
+    for ... : while ...:         while ...: for ...:         while: while:
+    Three or more levels are possible (counts multiply) but avoid them.
+
+Dependent (triangular) inner range:
+    for i in range(4):
+        for j in range(i):         # 0 + 1 + 2 + 3 = 6 iterations
+            ...
+    for i in range(n):
+        for j in range(i + 1, n):  # all pairs i < j: n(n-1)/2 iterations
+            ...
+
+Printing a row inside nested loops (the basis of patterns):
+    for i in range(3):             # rows
+        for j in range(4):         # columns
+            print("*", end="")     # stay on the same row
+        print()                    # new line after each row
+
+Same loop variable name in both loops is a bug:
+    for i in range(3):
+        for i in range(2):         # reuses i
+            pass
+        print(i)                   # 1 1 1  (inner loop overwrites i)
+    Each outer pass starts with the correct i again, but inside the body
+    after the inner loop, i is no longer the outer value.
+
+16. COMMON NESTED-LOOP PROGRAMS
+------------------------------------------------------------------------------
+(1) Multiplication tables 1 to 3
+        for i in range(1, 4):
+            for j in range(1, 6):
+                print(f"{i * j:3}", end="")
+            print()
+        #   1  2  3  4  5
+        #   2  4  6  8 10
+        #   3  6  9 12 15
+
+(2) Matrix traversal and sum
+        m = [[1, 2, 3], [4, 5, 6]]
+        total = 0
+        for row in m:
+            for x in row:
+                total += x
+        print(total)                           # 21
+        for i in range(len(m)):                # by index
+            for j in range(len(m[0])):
+                print(m[i][j], end=" ")
+
+(3) Transpose
+        t = [[m[i][j] for i in range(len(m))] for j in range(len(m[0]))]
+        # [[1, 4], [2, 5], [3, 6]]      same as  list(zip(*m))
+
+(4) Row and column sums
+        row_sums = [sum(r) for r in m]            # [6, 15]
+        col_sums = [sum(c) for c in zip(*m)]      # [5, 7, 9]
+
+(5) All pairs
+        for i in range(3):
+            for j in range(i + 1, 3):
+                print(i, j)          # (0,1) (0,2) (1,2)
+
+(6) Two-sum, brute force O(n^2)
+        for i in range(len(a)):
+            for j in range(i + 1, len(a)):
+                if a[i] + a[j] == target:
+                    print(i, j)
+
+(7) Duplicates, brute force
+        for i in range(len(a)):
+            for j in range(i + 1, len(a)):
+                if a[i] == a[j]: ...
+    Better: use a set or dict (O(n)).
+
+(8) Primes in a range
+        for n in range(2, 30):
+            for d in range(2, int(n ** 0.5) + 1):
+                if n % d == 0:
+                    break
+            else:
+                print(n, end=" ")   # 2 3 5 7 11 13 17 19 23 29
+
+(9) Bubble sort
+        for i in range(len(a) - 1):
+            for j in range(len(a) - 1 - i):
+                if a[j] > a[j + 1]:
+                    a[j], a[j + 1] = a[j + 1], a[j]
+
+(10) Pythagorean triples up to 20
+        for a in range(1, 21):
+            for b in range(a, 21):
+                c = (a * a + b * b) ** 0.5
+                if c == int(c) and c <= 20:
+                    print(a, b, int(c))    # 3 4 5, 5 12 13, 6 8 10, ...
+
+(11) Nested comprehension
+        [(i, j) for i in range(2) for j in range(2)]
+        # [(0, 0), (0, 1), (1, 0), (1, 1)]   outer loop is written first
+        [[i * j for j in range(1, 4)] for i in range(1, 4)]   # 3x3 table
+
+17. TIME COMPLEXITY OF LOOPS
+------------------------------------------------------------------------------
+  Loop shape                                         | Complexity
+  ---------------------------------------------------|---------------------
+  for i in range(n)                                  | O(n)
+  for i in range(n): for j in range(n)               | O(n^2)
+  for i in range(n): for j in range(i)               | O(n^2)  (n(n-1)/2)
+  for i in range(n): for j in range(m)               | O(n * m)
+  three nested loops over n                          | O(n^3)
+  i = 1; while i < n: i *= 2    (doubling)           | O(log n)
+  while n > 0: n //= 2          (halving)            | O(log n)
+  while n > 0: n //= 10         (digits)             | O(log10 n)
+  for i in range(n): j = 1; while j < n: j *= 2      | O(n log n)
+  two loops one AFTER the other (not nested)         | O(n + m)
+  binary search loop                                 | O(log n)
+  checking prime up to sqrt(n)                       | O(sqrt n)
+
+Rule: multiply the counts of NESTED loops, add the counts of SEQUENTIAL loops,
+and keep the largest term.
+
+
+==============================================================================
+                        E. PATTERN PROBLEMS
+==============================================================================
+
+18. THE METHOD
+------------------------------------------------------------------------------
+ 1. Count the rows -> outer loop (i).
+ 2. For row i find: leading spaces, number of symbols, which symbols.
+ 3. Express each as a formula of i and n.
+ 4. Inner loop (or string multiplication) prints one row; print() ends it.
+ 5. Dry run with n = 1, 2, 3.
+
+Key formulas for rows i = 1..n:
+    triangle stars = i           inverted = n - i + 1
+    leading spaces = n - i       pyramid stars = 2i - 1
+    inverted pyramid stars = 2(n - i) + 1       widest row = 2n - 1
+Print control:  print(x, end="") stays on the line; print() ends the row.
+Complexity is O(n^2) for every pattern here (the output has n^2 characters).
+(More patterns and a cheat sheet are in the decision-making notes.)
+
+19. STAR PATTERNS WITH for LOOPS (n = 4)
+------------------------------------------------------------------------------
+(1) Square                       (2) Right triangle
+    ****                             *
+    ****                             **
+    ****                             ***
+    ****                             ****
+    for i in range(n):               for i in range(1, n + 1):
+        for j in range(n):               for j in range(i):
+            print("*", end="")                print("*", end="")
+        print()                          print()
+    # short: print("*" * n)           # short: print("*" * i)
+
+(3) Inverted triangle            (4) Right-aligned triangle
+    ****                                *
+    ***                                **
+    **                                ***
+    *                                ****
+    for i in range(n, 0, -1):        for i in range(1, n + 1):
+        print("*" * i)                   print(" " * (n - i) + "*" * i)
+
+(5) Pyramid                      (6) Inverted pyramid
+       *                             *******
+      ***                             *****
+     *****                             ***
+    *******                             *
+    for i in range(1, n + 1):        for i in range(n, 0, -1):
+        print(" " * (n - i)              print(" " * (n - i)
+              + "*" * (2 * i - 1))              + "*" * (2 * i - 1))
+
+(7) Diamond (rows = 2n - 1)
+       *
+      ***
+     *****
+    *******
+     *****
+      ***
+       *
+    for i in range(1, n + 1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+    for i in range(n - 1, 0, -1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+
+(8) Hollow square (condition inside the inner loop)
+    ****
+    *  *
+    *  *
+    ****
+    for i in range(n):
+        for j in range(n):
+            if i == 0 or i == n - 1 or j == 0 or j == n - 1:
+                print("*", end="")
+            else:
+                print(" ", end="")
+        print()
+
+(9) Hollow pyramid
+       *
+      * *
+     *   *
+    *******
+    for i in range(1, n + 1):
+        print(" " * (n - i), end="")
+        for j in range(1, 2 * i):
+            if j == 1 or j == 2 * i - 1 or i == n:
+                print("*", end="")
+            else:
+                print(" ", end="")
+        print()
+
+(10) X pattern (n = 5)
+    *   *
+     * *
+      *
+     * *
+    *   *
+    for i in range(n):
+        for j in range(n):
+            print("*" if j == i or j == n - 1 - i else " ", end="")
+        print()
+
+(11) Identity matrix (n = 4)
+    1000
+    0100
+    0010
+    0001
+    for i in range(n):
+        for j in range(n):
+            print(1 if i == j else 0, end="")
+        print()
+
+(12) Checkerboard (n = 4)
+    * *
+     * *
+    * *
+     * *
+    for i in range(n):
+        for j in range(n):
+            print("*" if (i + j) % 2 == 0 else " ", end="")
+        print()
+
+20. NUMBER PATTERNS (n = 4)
+------------------------------------------------------------------------------
+(13) 1 to i                      (14) Row number repeated
+     1                                1
+     12                               22
+     123                              333
+     1234                             4444
+     for i in range(1, n + 1):        for i in range(1, n + 1):
+         for j in range(1, i + 1):        print(str(i) * i)
+             print(j, end="")
+         print()
+
+(15) Inverted counting down      (16) Space separated
+     4321                             1
+     321                              1 2
+     21                               1 2 3
+     1                                1 2 3 4
+     for i in range(n, 0, -1):        for i in range(1, n + 1):
+         print("".join(str(j)             print(*range(1, i + 1))
+               for j in range(i, 0, -1)))
+
+(17) Floyd's triangle (a counter that never resets)
+     1
+     2 3
+     4 5 6
+     7 8 9 10
+     num = 1
+     for i in range(1, n + 1):
+         for j in range(i):
+             print(num, end=" ")
+             num += 1
+         print()
+
+(18) Number pyramid
+        1
+       121
+      12321
+     1234321
+     for i in range(1, n + 1):
+         left = "".join(str(j) for j in range(1, i + 1))
+         right = "".join(str(j) for j in range(i - 1, 0, -1))
+         print(" " * (n - i) + left + right)
+
+(19) Alternating 1 0 triangle
+     1
+     01
+     101
+     0101
+     for i in range(1, n + 1):
+         for j in range(i):
+             print((i + j) % 2, end="")
+         print()
+
+(20) Pascal's triangle (n = 5), each value = sum of the two above
+         1
+        1 1
+       1 2 1
+      1 3 3 1
+     1 4 6 4 1
+     row = [1]
+     for i in range(n):
+         print(" " * (n - i - 1) + " ".join(map(str, row)))
+         row = [1] + [row[k] + row[k + 1] for k in range(len(row) - 1)] + [1]
+
+(21) Multiplication table of 5 (formatted)
+     for i in range(1, 6):
+         print(f"5 x {i:2} = {5 * i:3}")
+     # 5 x  1 =   5
+     # 5 x  2 =  10   ...
+
+21. ALPHABET PATTERNS (n = 4)
+------------------------------------------------------------------------------
+chr(65) is "A"; chr(65 + j) is the j-th letter (j from 0); ord("A") is 65.
+
+(22) A, AB, ABC, ABCD            (23) A, BB, CCC, DDDD
+     for i in range(1, n + 1):        for i in range(1, n + 1):
+         for j in range(i):               print(chr(64 + i) * i)
+             print(chr(65 + j), end="")
+         print()
+
+(24) Continuous letters          (25) Alphabet pyramid
+     A                                 A
+     BC                               ABA
+     DEF                             ABCBA
+     GHIJ                           ABCDCBA
+     k = 0                            for i in range(1, n + 1):
+     for i in range(1, n + 1):            left = "".join(chr(65 + j)
+         for _ in range(i):                   for j in range(i))
+             print(chr(65 + k),           right = "".join(chr(65 + j)
+                   end="")                      for j in range(i - 2, -1, -1))
+             k += 1                       print(" " * (n - i) + left + right)
+         print()
+
+22. PATTERNS WITH while LOOPS
+------------------------------------------------------------------------------
+Right triangle (n = 4) with nested while loops:
+    i = 1
+    while i <= n:
+        j = 1
+        while j <= i:
+            print("*", end="")
+            j += 1
+        print()
+        i += 1
+    # *  **  ***  ****  (one row each)
+
+Inverted triangle:
+    i = n
+    while i >= 1:
+        print("*" * i)
+        i -= 1
+
+Rules for while patterns:
+    - Reset the inner counter (j = 1) INSIDE the outer loop, else the inner
+      loop runs only on the first row.
+    - Update both counters; print() belongs to the outer loop body.
+    - Prefer for loops for patterns; while shows loop control explicitly.
+
+
+==============================================================================
+                  F. CLASSIC LOOP PROGRAMS
+==============================================================================
+
+23. PROGRAMS (with results)
+------------------------------------------------------------------------------
+(1) Sum of 1..n  (n = 100)
+        total = 0
+        for i in range(1, 101): total += i
+        print(total)                      # 5050   (formula n(n+1)/2)
+
+(2) Factorial of 5
+        f = 1
+        for i in range(2, 6): f *= i
+        print(f)                          # 120
+
+(3) First 8 Fibonacci numbers
+        a, b = 0, 1
+        for _ in range(8):
+            print(a, end=" ")             # 0 1 1 2 3 5 8 13
+            a, b = b, a + b
+
+(4) Prime check
+        import math
+        n = 29
+        if n < 2: print("not prime")
+        else:
+            for d in range(2, math.isqrt(n) + 1):
+                if n % d == 0:
+                    print("not prime"); break
+            else:
+                print("prime")            # prime
+
+(5) Count digits / reverse / palindrome
+        n = 121
+        original, rev = n, 0
+        while n > 0:
+            rev = rev * 10 + n % 10
+            n //= 10
+        print(rev == original)            # True (121 is a palindrome)
+
+(6) Armstrong number (153 = 1^3 + 5^3 + 3^3)
+        n = 153
+        digits = str(n)
+        print(sum(int(d) ** len(digits) for d in digits) == n)    # True
+
+(7) Perfect number (28 = 1 + 2 + 4 + 7 + 14)
+        n = 28
+        print(sum(d for d in range(1, n) if n % d == 0) == n)     # True
+
+(8) Power without **, and count vowels
+        r = 1
+        for _ in range(5): r *= 2        # 2 ** 5 = 32
+        sum(1 for c in "education" if c in "aeiou")               # 5
+
+(9) Second largest without sort
+        first = second = float("-inf")
+        for x in nums:
+            if x > first: first, second = x, first
+            elif first > x > second: second = x
+
+(10) Reverse a list in place
+        i, j = 0, len(a) - 1
+        while i < j:
+            a[i], a[j] = a[j], a[i]
+            i += 1; j -= 1
+
+(11) Frequency of characters
+        from collections import Counter
+        Counter("banana")        # Counter({'a': 3, 'n': 2, 'b': 1})
+
+24. LOOP PERFORMANCE TIPS
+------------------------------------------------------------------------------
+    - Prefer comprehensions and built-ins (sum, min, max, any, all, map);
+      they run in C and are faster than manual loops.
+    - Do not build a string with s += x in a big loop; collect in a list and
+      "".join(parts).
+    - Use a set / dict for membership instead of a list inside a loop:
+          x in lst  is O(n)     x in set  is O(1) on average
+    - Move work that does not change out of the loop (len(), constants).
+    - Code inside functions runs faster than at module level (local names).
+    - range is lazy; do not wrap it in list() unless you need a list.
+    - Avoid nested loops when a hash map, sorting or two pointers works.
+    - itertools (product, combinations, chain) replaces many nested loops.
+    - list.pop(0) and list.insert(0, x) are O(n); use collections.deque.
+    - For numeric work on huge data use numpy (vectorised, no Python loop).
+
+
+==============================================================================
+                G. PITFALLS AND CHECKLIST
+==============================================================================
+
+25. COMMON MISTAKES
+------------------------------------------------------------------------------
+  Symptom                                | Cause / fix
+  ---------------------------------------|---------------------------------
+  Last number missing                    | range(1, n) excludes n; use
+                                         | range(1, n + 1)
+  Off-by-one on lists                    | valid indexes are 0..len-1
+  IndexError in loop                     | range(len(a) + 1) or a[i+1] at
+                                         | the last index
+  Infinite while loop                    | no update / continue before the
+                                         | update / wrong condition
+  Pattern prints on one line             | missing print() after the
+                                         | inner loop
+  Pattern has extra blank lines          | print() inside the inner loop
+  Inner loop runs only once (while)      | counter not reset inside outer
+  Items skipped while removing           | do not modify the list being
+                                         | iterated; use a copy
+  RuntimeError: dictionary changed size  | iterate over list(d)
+  Loop variable "leaks" / wrong value    | it keeps the last value after
+                                         | the loop
+  Same name for outer and inner loop var | use different names (i, j)
+  Closure in loop returns the last value | bind with lambda i=i: ...
+  range(5.0) TypeError                   | use int(5.0)
+  zip drops items silently               | zip_longest or strict=True
+  Reusing an exhausted iterator          | recreate it or store as a list
+  else of a loop misunderstood           | runs only when NO break happened
+  break leaves only one level            | use a flag / function / for-else
+
+26. CHECKLIST
+------------------------------------------------------------------------------
+  1. stop in range is exclusive; range(n) gives 0..n-1.
+  2. Negative step needs start > stop:  range(5, 0, -1).
+  3. step = 0 is a ValueError; floats are not allowed in range.
+  4. A for loop variable survives the loop and holds the last value.
+  5. enumerate beats range(len(x)); zip walks lists in parallel.
+  6. while needs init, test and update.
+  7. continue in a while loop: update the counter first.
+  8. break/continue affect only the innermost loop.
+  9. Loop else runs when there was no break (also for an empty loop).
+ 10. Python has no do-while: use while True + break.
+ 11. Never remove items from a list while iterating it directly.
+ 12. Iterators are single-use; ranges and lists are reusable.
+ 13. Nested loop cost = product of counts; sequential loops add.
+ 14. Reset inner-loop counters for every outer pass.
+ 15. Pattern rows: outer loop = rows, inner loop = columns, print() after.
+ 16. Use string multiplication for simple patterns, conditions for hollow.
+ 17. Use comprehensions for simple transformations; plain loops for logic.
+ 18. Prefer built-ins (sum, max, any) over hand-written loops.
+
+
+==============================================================================
+                  H. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+Q1. What is the output?   print(list(range(2, 10, 3)))
+A.  [2, 5, 8]
+
+Q2. What is the output?   print(list(range(5, 0, -2)), list(range(5, 2)))
+A.  [5, 3, 1] []   (the second has the default step +1 and start >= stop).
+
+Q3. What is the output?
+        for i in range(3): pass
+        print(i)
+A.  2   (the loop variable keeps its last value).
+
+Q4. What is the output?
+        for i in range(5):
+            if i == 2: break
+        else:
+            print("A")
+        print("B")
+A.  B   (the else block is skipped because break ended the loop).
+
+Q5. What is the output?
+        for i in range(3):
+            if i == 5: break
+        else:
+            print("done")
+A.  done   (no break happened).
+
+Q6. What is the output?
+        for i in range(5):
+            if i == 2: continue
+            print(i, end=" ")
+A.  0 1 3 4
+
+Q7. What is the output?
+        lst = [2, 4, 6, 1]
+        for x in lst:
+            if x % 2 == 0: lst.remove(x)
+        print(lst)
+A.  [4, 1]   (the list shifts while iterating, so 4 is skipped). Iterate
+    over a copy lst[:] or use a comprehension.
+
+Q8. What happens?   d = {"a": 1}
+        for k in d: d["b"] = 2
+A.  RuntimeError: dictionary changed size during iteration.
+
+Q9. What is the output?   print(list(zip("abc", [1, 2])))
+A.  [('a', 1), ('b', 2)]   (stops at the shortest input).
+
+Q10. What is the output?   print(list(enumerate("ab", start=1)))
+A.  [(1, 'a'), (2, 'b')]
+
+Q11. How many times does the inner statement run?
+        for i in range(5):
+            for j in range(i):
+                count += 1
+A.  10   (0 + 1 + 2 + 3 + 4 = n(n-1)/2).
+
+Q12. What is the output?
+        for i in range(3):
+            for j in range(3):
+                if j == 1: break
+                print(i, j)
+A.  0 0
+    1 0
+    2 0     (break leaves only the inner loop).
+
+Q13. What is the output?
+        fs = [lambda: i for i in range(3)]
+        print([f() for f in fs])
+A.  [2, 2, 2]. The lambdas look up i when called (late binding), after the
+    loop ended. Use lambda i=i: i to get [0, 1, 2].
+
+Q14. What is the output?
+        it = iter([1, 2])
+        print(next(it), next(it), list(it))
+A.  1 2 []   (the iterator is exhausted; one more next(it) raises
+    StopIteration).
+
+Q15. What is the output?   r = range(3); print(list(r), list(r))
+A.  [0, 1, 2] [0, 1, 2]   (a range is reusable, unlike an iterator).
+
+Q16. What is the output?
+        for ch in "abc": print(ch, end="-")
+A.  a-b-c-
+
+Q17. What is the output?   print(sum(i for i in range(1, 101)))
+A.  5050
+
+Q18. What is the output?   print(sum([i * i for i in range(4)]))
+A.  14   (0 + 1 + 4 + 9).
+
+Q19. What is the difference between for and while?
+A.  for iterates over the items of an iterable and handles the counter
+    itself; while repeats as long as a condition holds, so you manage the
+    initialisation and update. Use for for known sequences, while for
+    condition-driven repetition.
+
+Q20. Does Python have a do-while loop? How do you emulate it?
+A.  No. Use  while True:  body ...  if not condition: break.
+
+Q21. What is the difference between break, continue and pass?
+A.  break leaves the innermost loop; continue skips to the next iteration;
+    pass does nothing (a placeholder).
+
+Q22. What is the else clause of a loop?
+A.  It runs when the loop finishes normally, i.e. without break (also when the
+    iterable is empty). It is skipped after break. Common use: search or
+    prime checks ("not found" case).
+
+Q23. What happens here?   x = 10
+        while x: x -= 3
+A.  Infinite loop. x goes 10, 7, 4, 1, -2, ... and never becomes exactly 0.
+    Stop it with Ctrl+C. Use  while x > 0.
+
+Q24. What is wrong?
+        i = 0
+        while i < 5:
+            if i == 2: continue
+            i += 1
+A.  Infinite loop: when i is 2, continue skips i += 1, so i stays 2.
+
+Q25. Why is enumerate preferred over range(len(lst))?
+A.  It gives index and item together, is more readable, and works with any
+    iterable (not only indexable sequences).
+
+Q26. What happens?   for i in range(10, 0): print(i)
+A.  Nothing prints; the default step is +1 and start >= stop, so the range is
+    empty. Use range(10, 0, -1) to count down.
+
+Q27. What happens?   range(0, 10, 0)   and   range(2.5)
+A.  ValueError: range() arg 3 must not be zero; TypeError: 'float' object
+    cannot be interpreted as an integer.
+
+Q28. What is len(range(0, 10, 3))?
+A.  4   (the values 0, 3, 6, 9).
+
+Q29. What is an iterable and an iterator?
+A.  An iterable can return an iterator through iter() (list, str, range,
+    dict). An iterator provides next() and raises StopIteration when
+    finished; it is single-use. A for loop calls iter() once then next()
+    repeatedly.
+
+Q30. What is the time complexity?
+        a)  i = 1
+            while i < n: i *= 2
+        b)  for i in range(n):
+                for j in range(i, n): ...
+        c)  for i in range(n):
+                j = 1
+                while j < n: j *= 2
+A.  a) O(log n)   b) O(n^2)   c) O(n log n)
+
+Q31. How do you exit from nested loops?
+A.  break only leaves the innermost loop. Use a flag checked in the outer
+    loop, put the loops in a function and return, use the for-else /
+    continue / break idiom, raise an exception, or flatten the loops with
+    itertools.product.
+
+Q32. Why shouldn't you modify a list while looping over it?
+A.  The iterator moves by index, so insertions / removals shift items and
+    some are skipped or repeated. Iterate over a copy, build a new list, or
+    loop backwards.
+
+Q33. What is the output?   n = 1234; s = 0
+        while n: s += n % 10; n //= 10
+        print(s)
+A.  10   (4 + 3 + 2 + 1).
+
+Q34. What is the output?   print(*[i for i in range(10) if i % 2], sep=",")
+A.  1,3,5,7,9
+
+Q35. What is the output?   print([x if x > 0 else 0 for x in [-1, 2, -3]])
+A.  [0, 2, 0]   (a ternary goes before the for; a filter goes after it).
+
+Q36. What is the output?   print([(i, j) for i in range(2) for j in range(2)])
+A.  [(0, 0), (0, 1), (1, 0), (1, 1)]   (the outer loop is written first).
+
+Q37. What is the output?
+        for i in range(3):
+            for i in range(2): pass
+        print(i)
+A.  1   (the inner loop reuses the name i and the last assignment is 1).
+
+Q38. In a pyramid of n rows, how many spaces and stars are in row i? How many
+     stars in total?
+A.  n - i spaces and 2i - 1 stars (rows 1..n); total stars = n^2.
+
+Q39. How do you print a pattern row on one line and then move to the next?
+A.  Inner loop uses print(x, end="") for each column; after it finishes, an
+    empty print() ends the row. Or build the row as a string and print once.
+
+Q40. What is the next row of Pascal's triangle after 1 3 3 1, and how do you
+     compute it?
+A.  1 4 6 4 1. Start and end with 1; each inside value is the sum of the two
+    values above it: row = [1] + [row[k] + row[k + 1] for k in
+    range(len(row) - 1)] + [1].
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

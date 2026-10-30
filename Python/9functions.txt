@@ -1,0 +1,1393 @@
+==============================================================================
+   PYTHON FUNCTIONS: CREATION, PARAMETERS, RETURN VALUES, LAMBDA, SCOPE,
+                         RECURSION - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+A function is a named, reusable block of code that runs when it is called.
+It may take inputs (parameters) and may give back an output (return value).
+
+Why use functions:
+    - Reuse code (DRY: Don't Repeat Yourself)
+    - Break a big problem into small, testable parts
+    - Hide details behind a name (abstraction)
+    - Make programs easier to read, debug and change
+
+Kinds of functions:
+    Built-in     : print, len, max, sorted, range, type ...
+    Library      : math.sqrt, random.randint, json.dumps ...
+    User-defined : created with def (or lambda)
+    Methods      : functions attached to objects / classes (s.upper())
+
+Topics here:
+    A. Function creation    B. Parameters      C. Return values
+    D. Lambda functions     E. Scope           F. Recursion
+    G. Pitfalls, checklist and interview questions
+
+
+==============================================================================
+                       A. FUNCTION CREATION
+==============================================================================
+
+2. DEFINING AND CALLING A FUNCTION
+------------------------------------------------------------------------------
+Syntax:
+    def function_name(parameters):
+        """Optional docstring."""
+        body statements
+        return value            # optional
+
+    def greet():
+        print("Hello!")
+
+    greet()                     # call -> Hello!
+    greet                       # no call: just the function object
+    type(greet)                 # <class 'function'>
+
+    def add(a, b):
+        """Return the sum of a and b."""
+        return a + b
+
+    result = add(3, 4)          # 7
+    print(add(1, 2) * 10)       # 30
+    print(add("x", "y"))        # xy   (works for anything that supports +)
+
+Rules:
+    - def, a name, parentheses, a colon, and an indented body.
+    - The body runs only when the function is CALLED, not when it is defined.
+    - A function must be defined (the def line executed) before it is called
+      at run time. Inside another function the order of definitions in the
+      file does not matter as long as both exist at call time.
+    - Names follow variable rules: snake_case, no keywords, no leading digit.
+    - An empty function needs pass (or ...):
+          def todo(): pass
+    - Defining a name twice keeps the LAST definition; Python has no
+      overloading (use default values, *args or functools.singledispatch).
+    - Calling with the wrong number of arguments raises TypeError.
+
+Docstring and introspection:
+    def area(r):
+        """Return the area of a circle of radius r."""
+        return 3.14159 * r * r
+
+    area.__doc__          # 'Return the area of a circle of radius r.'
+    help(area)            # formatted help text
+    area.__name__         # 'area'
+    area.__module__       # '__main__'
+    area.__defaults__     # None (tuple of default values if any)
+    area.__code__.co_argcount      # 1
+    callable(area)        # True
+    area.__annotations__  # {}
+
+Type hints (documentation only, NOT enforced at run time):
+    def add(a: int, b: int = 0) -> int:
+        return a + b
+    add.__annotations__   # {'a': int, 'b': int, 'return': int}
+    add("x", "y")         # still runs: 'xy'
+
+3. FUNCTIONS ARE FIRST-CLASS OBJECTS
+------------------------------------------------------------------------------
+A function is an ordinary object: it can be stored, passed and returned.
+
+    def square(x): return x * x
+
+    f = square                  # another name for the same function
+    f(4)                        # 16
+    funcs = [square, abs, str]  # store in a list
+    ops = {"sq": square}        # store in a dict
+    ops["sq"](5)                # 25
+
+    def apply(func, value):     # pass a function as an argument
+        return func(value)
+    apply(square, 6)            # 36
+    apply(len, "hello")         # 5
+
+    def make_adder(n):          # return a function
+        def add(x):
+            return x + n
+        return add
+    add5 = make_adder(5)
+    add5(10)                    # 15
+
+    square.note = "attribute"   # functions can even hold attributes
+
+Higher-order function: takes a function as input or returns one
+(map, filter, sorted(key=...), reduce, decorators).
+
+4. NESTED FUNCTIONS
+------------------------------------------------------------------------------
+    def outer():
+        def inner():            # visible only inside outer
+            return "in"
+        return inner()
+    outer()                     # 'in'
+    inner()                     # NameError
+
+Uses: helper functions, closures (section 32), decorators (section 5).
+
+5. DECORATORS (BRIEF)
+------------------------------------------------------------------------------
+A decorator is a function that takes a function and returns a new function.
+
+    import functools
+
+    def logged(func):
+        @functools.wraps(func)          # keeps func's name and docstring
+        def wrapper(*args, **kwargs):
+            print("calling", func.__name__)
+            result = func(*args, **kwargs)
+            print("done")
+            return result
+        return wrapper
+
+    @logged                             # same as:  add = logged(add)
+    def add(a, b):
+        return a + b
+
+    add(2, 3)        # prints "calling add", "done" and returns 5
+
+    - @decorator is just syntax for  f = decorator(f).
+    - Without functools.wraps, add.__name__ would be 'wrapper'.
+    - Decorators may take arguments (a function returning a decorator).
+    - Built-in ones: @staticmethod @classmethod @property
+      @functools.lru_cache @functools.wraps.
+
+6. main() AND PROGRAM STRUCTURE
+------------------------------------------------------------------------------
+    def main():
+        n = int(input())
+        print(solve(n))
+
+    if __name__ == "__main__":
+        main()
+
+Code in functions runs slightly faster than module-level code (local
+variable lookups) and avoids polluting the global namespace.
+
+
+==============================================================================
+                          B. PARAMETERS
+==============================================================================
+
+7. PARAMETERS vs ARGUMENTS
+------------------------------------------------------------------------------
+    def power(base, exp):       # base, exp = PARAMETERS (in the definition)
+        return base ** exp
+
+    power(2, 5)                 # 2, 5 = ARGUMENTS (in the call)
+
+Parameters are local names; arguments are the values bound to them.
+
+8. POSITIONAL AND KEYWORD ARGUMENTS
+------------------------------------------------------------------------------
+    def info(name, age):
+        print(name, age)
+
+    info("Amit", 25)            # positional: matched by position
+    info(age=25, name="Amit")   # keyword: matched by name, order is free
+    info("Amit", age=25)        # mix: positional FIRST, then keyword
+    info(age=25, "Amit")        # SyntaxError: positional after keyword
+
+Errors:
+    info("Amit")                # TypeError: info() missing 1 required
+                                # positional argument: 'age'
+    info("A", 1, 2)             # TypeError: takes 2 positional arguments but
+                                # 3 were given
+    info("A", name="B")         # TypeError: got multiple values for argument
+                                # 'name'
+    info("A", 1, city="X")      # TypeError: got an unexpected keyword
+                                # argument 'city'
+
+9. DEFAULT VALUES
+------------------------------------------------------------------------------
+    def greet(name, msg="Hello"):
+        return f"{msg}, {name}!"
+
+    greet("Amit")               # 'Hello, Amit!'
+    greet("Amit", "Hi")         # 'Hi, Amit!'
+    greet("Amit", msg="Yo")     # 'Yo, Amit!'
+
+Rules:
+    - Parameters with defaults must come AFTER those without:
+          def f(a, b=1, c): ...    # SyntaxError: non-default argument
+                                   # follows default argument
+    - A default is evaluated ONCE, when def runs, not on each call.
+    - A default can only use names that already exist at definition time
+      (not earlier parameters):  def f(a, b=a)  -> NameError.
+
+THE MUTABLE DEFAULT TRAP:
+    def add_item(x, items=[]):      # the list is created once
+        items.append(x)
+        return items
+
+    add_item(1)                     # [1]
+    add_item(2)                     # [1, 2]   surprise
+    add_item(3, [])                 # [3]      a fresh list was passed
+
+    Fix: use None as the sentinel:
+    def add_item(x, items=None):
+        if items is None:
+            items = []
+        items.append(x)
+        return items
+
+    Same trap for dict, set and objects like time.time() / datetime.now()
+    used as defaults (evaluated once at definition).
+    Immutable defaults (numbers, strings, None, tuples) are safe.
+
+10. *args - ANY NUMBER OF POSITIONAL ARGUMENTS
+------------------------------------------------------------------------------
+    def total(*args):
+        print(args)                 # a TUPLE
+        return sum(args)
+
+    total(1, 2, 3)                  # prints (1, 2, 3); returns 6
+    total()                         # prints (); returns 0
+
+    def show(first, *rest):
+        print(first, rest)
+    show(1, 2, 3)                   # 1 (2, 3)
+    show(1)                         # 1 ()
+
+    - The name args is a convention; the star is what matters.
+    - *args collects the extra positional arguments.
+    - Examples in the standard library: print(*objects), max(*args).
+
+11. **kwargs - ANY NUMBER OF KEYWORD ARGUMENTS
+------------------------------------------------------------------------------
+    def profile(**kwargs):
+        print(kwargs)               # a DICT
+        for k, v in kwargs.items():
+            print(k, "=", v)
+
+    profile(name="Amit", age=25)    # {'name': 'Amit', 'age': 25}
+    profile()                       # {}
+
+    def f(*args, **kwargs):
+        print(args, kwargs)
+    f(1, 2, a=3)                    # (1, 2) {'a': 3}
+
+    - **kwargs collects extra keyword arguments (names are strings).
+    - It must be the LAST parameter.
+    - Used to forward options: wrapper(*args, **kwargs) calls
+      func(*args, **kwargs).
+
+12. UNPACKING AT THE CALL
+------------------------------------------------------------------------------
+    def add3(a, b, c):
+        return a + b + c
+
+    nums = [1, 2, 3]
+    add3(*nums)                     # 6    * unpacks a list / tuple / iterable
+    d = {"a": 1, "b": 2, "c": 3}
+    add3(**d)                       # 6    ** unpacks a dict into keywords
+    add3(*[1, 2], **{"c": 3})       # 6
+    print(*[1, 2, 3], sep="-")      # 1-2-3
+
+    Merge with unpacking:   [*a, *b]    {**d1, **d2}    (*a, 5)
+
+13. KEYWORD-ONLY AND POSITIONAL-ONLY PARAMETERS
+------------------------------------------------------------------------------
+Parameters after a bare * or after *args are KEYWORD-ONLY:
+    def f(a, *, b):                 # b must be given by name
+        return a + b
+    f(1, b=2)                       # 3
+    f(1, 2)                         # TypeError: takes 1 positional argument
+                                    # but 2 were given
+
+Parameters before a / are POSITIONAL-ONLY (Python 3.8+):
+    def g(a, b, /):
+        return a - b
+    g(5, 3)                         # 2
+    g(a=5, b=3)                     # TypeError: some positional-only
+                                    # arguments passed as keyword arguments
+
+Complete parameter order:
+    def func(pos_only, /, normal, default=1, *args, kw_only, kw_default=2,
+             **kwargs):
+        ...
+    Order: positional-only, / , normal, defaults, *args, keyword-only,
+           **kwargs.
+
+Examples from built-ins:  sorted(iterable, /, *, key=None, reverse=False)
+                          so sorted(lst, key=len) is valid, sorted(lst, len)
+                          is not.
+
+14. HOW ARGUMENTS ARE PASSED (OBJECT REFERENCE)
+------------------------------------------------------------------------------
+Python passes "object references by assignment": the parameter becomes
+another name for the same object. It is neither pure pass-by-value nor
+pass-by-reference.
+
+Mutable object modified in place -> the caller SEES the change:
+    def add_one(lst):
+        lst.append(1)
+    a = [0]
+    add_one(a)
+    print(a)                        # [0, 1]
+
+Rebinding the parameter -> the caller is NOT affected:
+    def reset(lst):
+        lst = [9]                   # new local object
+    reset(a)
+    print(a)                        # [0, 1]
+
+Immutable arguments (int, str, tuple) cannot be changed in place:
+    def inc(x):
+        x += 1                      # rebinds the local x
+        return x
+    n = 5
+    inc(n)                          # 6
+    print(n)                        # 5
+
+To protect the caller's data: copy first (lst = lst[:] / list(lst) /
+copy.deepcopy) or return a new object.
+
+15. PARAMETER PATTERNS
+------------------------------------------------------------------------------
+    def average(*nums):
+        return sum(nums) / len(nums) if nums else 0
+
+    def connect(host, port=80, *, timeout=10, **options): ...
+    connect("a.com", 8080, timeout=5, debug=True)
+
+    def apply_all(func, *items):
+        return [func(i) for i in items]
+    apply_all(str.upper, "a", "b")          # ['A', 'B']
+
+    def pass_through(*args, **kwargs):
+        return target(*args, **kwargs)      # forward everything
+
+    def f(a, b=None):                       # optional argument pattern
+        if b is None: b = []
+
+Matching order used by Python at a call: positional arguments are matched
+first, then keywords; leftover positionals go to *args, leftover keywords to
+**kwargs; then defaults fill the gaps.
+
+
+==============================================================================
+                        C. RETURN VALUES
+==============================================================================
+
+16. THE return STATEMENT
+------------------------------------------------------------------------------
+return ends the function immediately and sends a value back to the caller.
+
+    def square(x):
+        return x * x
+    y = square(5)                   # 25
+
+    def f():
+        print("a")
+        return 1
+        print("b")                  # never runs (unreachable)
+    f()                             # prints a, returns 1
+
+Rules:
+    - A function WITHOUT return, or with a bare return, gives None.
+          def hello(): print("hi")
+          x = hello()               # prints hi; x is None
+    - return can appear several times (early exits).
+    - return outside a function is a SyntaxError.
+    - The returned value can be any object (number, list, function, ...).
+
+return vs print:
+  print("x") shows text on the screen; the function's value is still None.
+  return gives a value back to the CALLER so it can be stored or used:
+      def add(a, b): print(a + b)       # value lost
+      r = add(1, 2) + 1                 # prints 3, then TypeError (None + 1)
+      def add(a, b): return a + b
+      r = add(1, 2) + 1                 # 4
+
+17. RETURNING MULTIPLE VALUES
+------------------------------------------------------------------------------
+A function returns ONE object; several values are packed in a tuple.
+
+    def min_max(a):
+        return min(a), max(a)           # same as return (min(a), max(a))
+
+    result = min_max([3, 1, 4])         # (1, 4)
+    lo, hi = min_max([3, 1, 4])         # unpacking: lo=1, hi=4
+    type(result)                        # <class 'tuple'>
+
+    def stats(a):
+        return {"min": min(a), "max": max(a)}       # dict for named results
+    def parts(a):
+        return [a[0]], a[1:]                         # any combination
+
+    divmod(17, 5)                       # (3, 2)
+    q, r = divmod(17, 5)
+
+Unpacking count must match:  a, b, c = min_max(...)  -> ValueError.
+
+18. COMMON RETURN PATTERNS
+------------------------------------------------------------------------------
+Early return (guard clauses):
+    def safe_div(a, b):
+        if b == 0:
+            return None
+        return a / b
+
+Return a boolean directly:
+    def is_even(n):
+        return n % 2 == 0
+
+Return in a loop (stops at the first return):
+    def first_even(a):
+        for x in a:
+            if x % 2 == 0:
+                return x
+        return None                     # not found
+
+    def bug(n):
+        for i in range(n):
+            return i                    # returns 0 on the first pass!
+    bug(3)                              # 0     bug(0) -> None
+
+    def is_prime(n):
+        if n < 2: return False
+        for d in range(2, int(n ** 0.5) + 1):
+            if n % d == 0:
+                return False            # leave as soon as a divisor is found
+        return True                     # return AFTER the loop, not inside
+
+Return a function (closure):
+    def power_of(n):
+        return lambda x: x ** n
+    cube = power_of(3); cube(2)         # 8
+
+Return None on purpose, or raise an exception for errors:
+    def parse(s):
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
+Methods that return None (they modify in place): list.sort(), append(),
+extend(), reverse(), clear(), random.shuffle(). So  x = lst.sort()  gives
+None.
+
+return in try / finally: the finally value wins:
+    def f():
+        try:
+            return 1
+        finally:
+            return 2
+    f()                                 # 2
+
+19. GENERATORS: yield INSTEAD OF return
+------------------------------------------------------------------------------
+A function containing yield returns a GENERATOR (a lazy iterator) and
+produces values one at a time, remembering its state.
+
+    def count_up(n):
+        i = 1
+        while i <= n:
+            yield i
+            i += 1
+
+    g = count_up(3)
+    next(g)                     # 1
+    next(g)                     # 2
+    list(g)                     # [3]
+    next(g)                     # StopIteration
+    sum(count_up(4))            # 10
+    for x in count_up(3): ...   # 1 2 3
+
+    def fib():                  # infinite generator
+        a, b = 0, 1
+        while True:
+            yield a
+            a, b = b, a + b
+    from itertools import islice
+    list(islice(fib(), 8))      # [0, 1, 1, 2, 3, 5, 8, 13]
+
+    (x * x for x in range(5))   # generator expression
+    - Memory efficient: values are computed on demand.
+    - A generator is single-use.
+
+20. RETURN-VALUE GOTCHAS
+------------------------------------------------------------------------------
+    - Forgetting return gives None: print(add(1, 2)) shows None.
+    - Returning a mutable attribute hands out a live reference:
+          def get_items(self): return self.items      # caller can modify it
+      return a copy (self.items[:]) when needed.
+    - Inconsistent returns (a value on one path, nothing on another) make
+      callers fail with None errors; return the same kind of thing.
+    - return a, b is a tuple; return [a, b] is a list.
+    - Chaining: f(g(x)) uses g's return value as f's argument.
+    - A function with only print() statements is not "returning" its output.
+
+
+==============================================================================
+                       D. LAMBDA FUNCTIONS
+==============================================================================
+
+21. WHAT IS A LAMBDA?
+------------------------------------------------------------------------------
+A small ANONYMOUS function written as a single expression.
+
+    lambda parameters: expression
+
+    square = lambda x: x * x
+    square(5)                           # 25
+    add = lambda a, b: a + b
+    add(2, 3)                           # 5
+    (lambda x: x + 1)(10)               # 11    called immediately
+    lambda: "hi"                        # no parameters
+    lambda x, y=2: x * y                # default values allowed
+    lambda *args: sum(args)             # *args and **kwargs allowed
+    lambda x: x if x > 0 else 0         # conditional expression
+    lambda x: lambda y: x + y           # lambda returning a lambda
+    (lambda x: lambda y: x + y)(2)(3)   # 5   (currying)
+
+Facts:
+    - Body is ONE expression; its value is returned automatically (no
+      return keyword).
+    - No statements: no assignment, return, pass, if/for blocks, try, import.
+          lambda x: return x            # SyntaxError
+          lambda: y = 1                 # SyntaxError
+      (print(...) is an expression, so lambda x: print(x) is allowed.)
+    - Walrus works inside:  lambda x: (y := x + 1)
+    - type(lambda: 0) is function; its name is '<lambda>':
+          (lambda: 0).__name__          # '<lambda>'
+    - PEP 8 advises def instead of  name = lambda ...  (better tracebacks).
+
+lambda vs def:
+  Feature          | lambda                        | def
+  -----------------|-------------------------------|-------------------------
+  Name             | anonymous ('<lambda>')        | named
+  Body             | one expression                | any number of statements
+  return           | implicit                      | explicit
+  Docstring        | no                            | yes
+  Annotations      | no                            | yes
+  Use              | short throwaway functions     | everything else
+  Can be inline    | yes (as an argument)          | no
+
+22. WHERE LAMBDAS ARE USED
+------------------------------------------------------------------------------
+sorted / sort / min / max with key:
+    words = ["pear", "fig", "banana"]
+    sorted(words, key=lambda w: len(w))         # ['fig', 'pear', 'banana']
+    sorted(words, key=lambda w: (len(w), w))
+    pairs = [("a", 3), ("b", 1), ("c", 2)]
+    sorted(pairs, key=lambda p: p[1])           # by number
+    sorted(pairs, key=lambda p: -p[1])          # descending
+    max(pairs, key=lambda p: p[1])              # ('a', 3)
+    min(points, key=lambda p: p[0] ** 2 + p[1] ** 2)   # nearest to origin
+    d = {"x": 3, "y": 9}
+    max(d, key=lambda k: d[k])                  # 'y'   (or key=d.get)
+    sorted(d.items(), key=lambda kv: kv[1], reverse=True)
+
+map(function, iterable):
+    list(map(lambda x: x * x, [1, 2, 3]))       # [1, 4, 9]
+    list(map(lambda a, b: a + b, [1, 2], [10, 20]))     # [11, 22]
+
+filter(function, iterable):
+    list(filter(lambda x: x % 2 == 0, range(6)))        # [0, 2, 4]
+
+functools.reduce(function, iterable[, initial]):
+    from functools import reduce
+    reduce(lambda a, b: a + b, [1, 2, 3, 4])            # 10
+    reduce(lambda a, b: a * b, range(1, 6))             # 120
+    reduce(lambda a, b: a + b, [], 0)                   # 0 (initial value)
+
+Dispatch tables and callbacks:
+    ops = {"+": lambda a, b: a + b, "-": lambda a, b: a - b}
+    ops["+"](2, 3)                              # 5
+    button.on_click(lambda: print("clicked"))
+
+Comprehensions are usually clearer than map / filter with a lambda:
+    [x * x for x in nums]               [x for x in nums if x % 2 == 0]
+
+Alternatives to a trivial lambda:
+    from operator import itemgetter, attrgetter, add, mul
+    sorted(pairs, key=itemgetter(1))    # instead of lambda p: p[1]
+    from functools import partial
+    double = partial(mul, 2); double(5) # 10
+
+23. LAMBDA GOTCHAS
+------------------------------------------------------------------------------
+Late binding in loops (same as closures):
+    fs = [lambda: i for i in range(3)]
+    [f() for f in fs]                   # [2, 2, 2]
+    fs = [lambda i=i: i for i in range(3)]      # bind the value now
+    [f() for f in fs]                   # [0, 1, 2]
+
+    - A lambda is an expression: wrap it in parentheses when needed.
+    - Keep lambdas short; if it needs a comment, use def.
+    - map and filter return iterators (wrap with list()).
+    - lambda x: x if x else 0  parses as  lambda x: (x if x else 0).
+    - Cannot be pickled easily by name; use def for multiprocessing.
+
+
+==============================================================================
+                             E. SCOPE
+==============================================================================
+
+24. WHAT IS SCOPE?
+------------------------------------------------------------------------------
+Scope is the region of a program where a name is visible. Python decides it
+from where the name is ASSIGNED. Scopes are created by:
+    module (file), function, lambda, class, comprehension / generator.
+if / for / while / try / with blocks do NOT create a scope.
+
+25. THE LEGB RULE (NAME LOOKUP ORDER)
+------------------------------------------------------------------------------
+    L  Local        - inside the current function
+    E  Enclosing    - in any enclosing (outer) function
+    G  Global       - top level of the module
+    B  Built-in     - names like print, len, int, range
+
+Python searches L, then E, then G, then B and stops at the first match.
+If nothing matches: NameError.
+
+    x = "global"
+    def outer():
+        x = "enclosing"
+        def inner():
+            x = "local"
+            print(x)                # local
+        inner()
+        print(x)                    # enclosing
+    outer()
+    print(x)                        # global
+
+    def f():
+        print(len)                  # built-in scope: <built-in function len>
+
+26. LOCAL AND GLOBAL VARIABLES
+------------------------------------------------------------------------------
+    def f():
+        y = 10                      # local: exists only during the call
+        return y
+    f()
+    print(y)                        # NameError
+
+    count = 0                       # global
+    def show():
+        print(count)                # READING a global works
+    show()                          # 0
+
+Parameters are local variables. Loop variables inside a function are local.
+Loop variables at module level are global and survive the loop:
+    for i in range(3): pass
+    print(i)                        # 2
+
+Assignment makes a name LOCAL for the WHOLE function (decided at compile
+time):
+    count = 0
+    def inc():
+        count += 1                  # UnboundLocalError: cannot access local
+                                    # variable 'count' where it is not
+                                    # associated with a value
+    def g():
+        print(count)                # UnboundLocalError (assigned below)
+        count = 5
+
+Mutating a global object does not need the global keyword:
+    items = []
+    def add():
+        items.append(1)             # OK: no rebinding of the name
+    add(); print(items)             # [1]
+    def reset():
+        items = []                  # creates a NEW local list; global stays
+
+27. THE global KEYWORD
+------------------------------------------------------------------------------
+Declares that a name refers to the module-level variable, so assignment
+changes the global one.
+
+    count = 0
+    def inc():
+        global count
+        count += 1
+    inc(); inc()
+    print(count)                    # 2
+
+    - Declare it BEFORE the name is used in the function (else SyntaxError).
+    - global x = 5 is a SyntaxError; write global x then x = 5.
+    - global can create a new global from inside a function.
+    - Overusing globals makes code hard to test. Prefer parameters and
+      return values.
+    globals()                       # dict of the global names
+    locals()                        # dict of the local names
+
+28. THE nonlocal KEYWORD
+------------------------------------------------------------------------------
+Lets an inner function assign to a variable of the nearest ENCLOSING
+function (not global).
+
+    def outer():
+        n = 0
+        def inc():
+            nonlocal n
+            n += 1
+            return n
+        inc(); inc()
+        return n
+    outer()                         # 2
+
+    - The variable must already exist in an enclosing function; otherwise
+      SyntaxError: no binding for nonlocal 'n' found.
+    - nonlocal cannot refer to a global.
+
+  Keyword  | Refers to                            | Needs existing binding in
+  ---------|--------------------------------------|-----------------------
+  global   | module-level variable                | module (or creates it)
+  nonlocal | enclosing function's variable        | an outer function
+
+29. SHADOWING
+------------------------------------------------------------------------------
+A local name hides an outer name of the same name inside the function:
+    x = 1
+    def f():
+        x = 2                       # a different variable
+        return x
+    f(); print(x)                   # 1
+
+Shadowing built-ins is a common bug:
+    list = [1, 2]                   # now list("abc") fails:
+    list("abc")                     # TypeError: 'list' object is not callable
+    del list                        # removes the shadow; built-in is back
+    def f(max): return max(1, 2)    # the parameter hides max()
+Avoid names like list, dict, str, sum, max, min, input, id, type, all, any.
+
+30. SCOPE IN COMPREHENSIONS AND CLASSES
+------------------------------------------------------------------------------
+    [i for i in range(3)]
+    print(i)                        # NameError: comprehension variable does
+                                    # not leak (unlike a for loop)
+
+    class A:
+        x = 10
+        y = [x for _ in range(2)]   # NameError: class body names are not
+                                    # visible inside the comprehension
+    Class attributes are accessed as self.x / A.x, not as bare names inside
+    methods.
+
+    del x                           # removes a name; later use -> NameError
+
+31. LIFETIME VS SCOPE
+------------------------------------------------------------------------------
+    - Local variables are created at each call and discarded at return.
+    - Every call has its own local variables (important for recursion):
+          factorial(3) and factorial(2) each have their own n.
+    - Values live as long as something still refers to them (a closure can
+      keep an outer variable alive).
+
+32. CLOSURES
+------------------------------------------------------------------------------
+A closure is an inner function that remembers variables of its enclosing
+function even after that function has finished.
+
+    def make_multiplier(n):
+        def multiply(x):
+            return x * n            # n comes from the enclosing scope
+        return multiply
+
+    double = make_multiplier(2)
+    triple = make_multiplier(3)
+    double(5), triple(5)            # 10 15
+    double.__closure__[0].cell_contents     # 2
+
+Stateful closure with nonlocal:
+    def make_counter():
+        count = 0
+        def counter():
+            nonlocal count
+            count += 1
+            return count
+        return counter
+
+    c1 = make_counter()
+    c1(); c1()                      # 1, 2
+    c2 = make_counter()
+    c2()                            # 1   (independent state)
+
+Uses: function factories, callbacks, decorators, data hiding, memoisation.
+
+Late binding: closures look up the variable when CALLED, not when defined:
+    fs = []
+    for i in range(3):
+        fs.append(lambda: i)
+    [f() for f in fs]               # [2, 2, 2]
+    fs.append(lambda i=i: i)        # fix with a default argument
+
+33. SCOPE SUMMARY TABLE
+------------------------------------------------------------------------------
+  Situation                              | Result
+  ---------------------------------------|----------------------------------
+  Read a global in a function            | works (G)
+  Assign a global name in a function     | creates a NEW local variable
+  Assign with  global x                  | changes the global
+  Assign an enclosing var with nonlocal  | changes the enclosing variable
+  Mutate a global list / dict in place   | works without global
+  Use a name before it is assigned (local)| UnboundLocalError
+  Use an undefined name                  | NameError
+  Loop variable after a for loop         | still available
+  Comprehension variable after the loop  | NameError
+
+
+==============================================================================
+                          F. RECURSION
+==============================================================================
+
+34. WHAT IS RECURSION?
+------------------------------------------------------------------------------
+A function that calls ITSELF to solve a smaller version of the same problem.
+
+Every correct recursive function has:
+    1. BASE CASE       - a simple input answered directly (stops the calls)
+    2. RECURSIVE CASE  - reduces the problem and calls itself
+    3. PROGRESS        - each call moves closer to the base case
+
+    def factorial(n):
+        if n <= 1:                  # base case
+            return 1
+        return n * factorial(n - 1) # recursive case
+
+    factorial(5)                    # 120
+
+Tracing factorial(4) (the call stack grows, then unwinds):
+    factorial(4)
+      = 4 * factorial(3)
+            = 3 * factorial(2)
+                  = 2 * factorial(1)
+                        = 1            <- base case reached
+                  = 2 * 1 = 2
+            = 3 * 2 = 6
+      = 4 * 6 = 24
+Each pending call waits on the stack with its own n, then multiplies as the
+calls return.
+
+Order of work: code BEFORE the recursive call runs on the way down; code AFTER
+it runs on the way back up.
+    def down_up(n):
+        if n == 0: return
+        print("down", n)            # before: n, n-1, ... , 1
+        down_up(n - 1)
+        print("up", n)              # after:  1, 2, ... , n
+
+35. THE CALL STACK AND RECURSION LIMIT
+------------------------------------------------------------------------------
+    - Each call adds a frame (arguments, local variables, return address) to
+      the call stack; a frame is removed when the call returns.
+    - Space used = depth of recursion = O(depth).
+    - CPython limits the depth (default 1000):
+          import sys
+          sys.getrecursionlimit()       # 1000
+          sys.setrecursionlimit(5000)   # raise with care; too high can crash
+                                        # the interpreter (C stack overflow)
+    - Exceeding it: RecursionError: maximum recursion depth exceeded.
+    - Missing / unreachable base case -> infinite recursion -> RecursionError.
+    - Python does NOT optimise tail recursion, so a "tail-recursive" loop
+      still uses stack space. Convert deep recursion to a loop or an explicit
+      stack.
+
+    def forever(n):
+        return forever(n + 1)       # no base case -> RecursionError
+
+36. CLASSIC RECURSIVE FUNCTIONS
+------------------------------------------------------------------------------
+Sum of 1..n
+    def total(n):
+        return 0 if n == 0 else n + total(n - 1)
+    total(4)                        # 10
+
+Power, linear (O(n)) and fast (O(log n))
+    def power(x, n):                # n >= 0
+        if n == 0: return 1
+        return x * power(x, n - 1)
+
+    def fast_power(x, n):
+        if n == 0: return 1
+        half = fast_power(x, n // 2)
+        return half * half if n % 2 == 0 else half * half * x
+    fast_power(2, 10)               # 1024
+
+GCD (Euclid)
+    def gcd(a, b):
+        return a if b == 0 else gcd(b, a % b)
+    gcd(48, 18)                     # 6
+
+Sum of digits
+    def digit_sum(n):
+        return n if n < 10 else n % 10 + digit_sum(n // 10)
+    digit_sum(1234)                 # 10
+
+Reverse a string, palindrome check
+    def rev(s):
+        return s if len(s) <= 1 else rev(s[1:]) + s[0]
+    rev("abc")                      # 'cba'
+    def is_pal(s):
+        return True if len(s) < 2 else s[0] == s[-1] and is_pal(s[1:-1])
+    is_pal("level")                 # True
+
+Print 1..n and n..1
+    def up(n):
+        if n > 0:
+            up(n - 1)
+            print(n)                # prints 1 2 ... n
+    def down(n):
+        if n > 0:
+            print(n)
+            down(n - 1)             # prints n ... 2 1
+
+Sum of a list (use an index; slicing makes it O(n^2))
+    def lsum(a, i=0):
+        return 0 if i == len(a) else a[i] + lsum(a, i + 1)
+
+Count/binary representation
+    def to_binary(n):
+        return str(n) if n < 2 else to_binary(n // 2) + str(n % 2)
+    to_binary(10)                   # '1010'
+
+Binary search
+    def bsearch(a, t, lo, hi):
+        if lo > hi: return -1
+        mid = (lo + hi) // 2
+        if a[mid] == t: return mid
+        if a[mid] < t: return bsearch(a, t, mid + 1, hi)
+        return bsearch(a, t, lo, mid - 1)
+    bsearch([1, 3, 5, 7], 5, 0, 3)  # 2
+
+Flatten a nested list
+    def flatten(lst):
+        out = []
+        for x in lst:
+            if isinstance(x, list): out.extend(flatten(x))
+            else: out.append(x)
+        return out
+    flatten([1, [2, [3, 4]], 5])    # [1, 2, 3, 4, 5]
+
+Permutations of a string
+    def perms(s):
+        if len(s) <= 1: return [s]
+        res = []
+        for i, ch in enumerate(s):
+            for p in perms(s[:i] + s[i + 1:]):
+                res.append(ch + p)
+        return res
+    perms("abc")    # ['abc', 'acb', 'bac', 'bca', 'cab', 'cba']  (n! results)
+
+Subsets (power set)
+    def subsets(a):
+        if not a: return [[]]
+        rest = subsets(a[1:])
+        return rest + [[a[0]] + r for r in rest]
+    subsets([1, 2, 3])      # 8 subsets (2**n)
+
+Tower of Hanoi
+    def hanoi(n, src, dst, aux):
+        if n == 0: return
+        hanoi(n - 1, src, aux, dst)
+        print(f"Move disk {n} from {src} to {dst}")
+        hanoi(n - 1, aux, dst, src)
+    hanoi(2, "A", "C", "B")
+    # Move disk 1 from A to B
+    # Move disk 2 from A to C
+    # Move disk 1 from B to C       Moves needed: 2**n - 1 (n = 3 -> 7)
+
+Binary tree height
+    def height(node):
+        return 0 if node is None else 1 + max(height(node.left),
+                                              height(node.right))
+
+Mutual recursion
+    def is_even(n): return True if n == 0 else is_odd(n - 1)
+    def is_odd(n):  return False if n == 0 else is_even(n - 1)
+
+37. FIBONACCI AND OVERLAPPING SUBPROBLEMS
+------------------------------------------------------------------------------
+Naive recursion recomputes the same values:
+    def fib(n):
+        if n < 2: return n
+        return fib(n - 1) + fib(n - 2)
+
+    fib(10)                         # 55
+    Calls for fib(5): 15.  fib(30) makes about 2.7 million calls.
+    Time O(2^n) (about 1.618^n), space O(n) for the stack.
+
+Fix 1 - memoisation with a dictionary:
+    memo = {}
+    def fib(n):
+        if n < 2: return n
+        if n not in memo:
+            memo[n] = fib(n - 1) + fib(n - 2)
+        return memo[n]
+
+Fix 2 - functools cache:
+    from functools import lru_cache      # or functools.cache (3.9+)
+    @lru_cache(maxsize=None)
+    def fib(n):
+        return n if n < 2 else fib(n - 1) + fib(n - 2)
+    fib(50)                         # 12586269025
+    fib.cache_info()                # hits, misses, size
+
+Fix 3 - iteration, O(n) time, O(1) space:
+    a, b = 0, 1
+    for _ in range(n): a, b = b, a + b
+
+Memoisation = top-down dynamic programming. Arguments must be hashable.
+
+38. COMPLEXITY OF RECURSIVE ALGORITHMS
+------------------------------------------------------------------------------
+Write a recurrence for the work, then solve it:
+
+  Recurrence                    | Complexity | Example
+  ------------------------------|------------|--------------------------------
+  T(n) = T(n-1) + O(1)          | O(n)       | factorial, sum 1..n
+  T(n) = T(n-1) + O(n)          | O(n^2)     | recursion with slicing
+  T(n) = T(n/2) + O(1)          | O(log n)   | binary search, fast power
+  T(n) = 2T(n/2) + O(n)         | O(n log n) | merge sort
+  T(n) = 2T(n/2) + O(1)         | O(n)       | tree traversal
+  T(n) = 2T(n-1) + O(1)         | O(2^n)     | naive subsets, Hanoi
+  T(n) = T(n-1) + T(n-2) + O(1) | O(2^n)     | naive Fibonacci
+  n branches of T(n-1)          | O(n!)      | permutations
+
+Space = maximum depth of the stack (plus any extra data).
+    factorial: O(n)   binary search: O(log n)   fast power: O(log n)
+
+39. RECURSION vs ITERATION
+------------------------------------------------------------------------------
+  Aspect            | Recursion                    | Iteration (loop)
+  ------------------|------------------------------|-------------------------
+  Idea              | function calls itself        | repeat with for / while
+  Termination       | base case                    | loop condition
+  Memory            | O(depth) stack frames        | usually O(1)
+  Speed             | slower (call overhead)       | faster
+  Limit             | recursion limit (1000)       | none
+  Best for          | trees, graphs, divide and    | simple counting, sums,
+                    | conquer, backtracking        | scanning sequences
+  Readability       | clean for self-similar       | clean for flat tasks
+                    | problems                     |
+
+Any recursion can be turned into a loop with an explicit stack:
+    def dfs(graph, start):
+        seen, stack = set(), [start]
+        while stack:
+            v = stack.pop()
+            if v in seen: continue
+            seen.add(v)
+            stack.extend(graph[v])
+        return seen
+
+40. BACKTRACKING TEMPLATE
+------------------------------------------------------------------------------
+Try a choice, recurse, then undo the choice.
+
+    def backtrack(path, choices):
+        if is_solution(path):
+            results.append(path[:])         # copy the current path
+            return
+        for c in choices:
+            if valid(path, c):
+                path.append(c)              # choose
+                backtrack(path, next_choices)
+                path.pop()                  # un-choose
+
+Used for permutations, subsets, N-Queens, Sudoku, word search, combinations.
+
+41. RECURSION CHECKLIST AND MISTAKES
+------------------------------------------------------------------------------
+ 1. Always write the base case first.
+ 2. Every recursive call must move toward the base case.
+ 3. Return the result of the recursive call (a missing return gives None).
+ 4. Watch the recursion limit (about 1000 frames by default).
+ 5. Overlapping subproblems -> add memoisation.
+ 6. Slicing in each call (s[1:], a[1:]) copies data: O(n^2) total; pass
+    indexes instead.
+ 7. Mutable defaults and shared lists in recursion: copy before storing
+    (results.append(path[:])).
+ 8. Use accumulators or return values; avoid global state.
+ 9. Trace small inputs by hand (n = 0, 1, 2, 3) to verify.
+10. Print with indentation to debug: print("  " * depth, n).
+11. Prefer a loop when a loop is just as clear.
+
+
+==============================================================================
+                G. PITFALLS AND CHECKLIST (FUNCTIONS)
+==============================================================================
+
+42. COMMON MISTAKES
+------------------------------------------------------------------------------
+  Symptom / error                         | Cause and fix
+  ----------------------------------------|---------------------------------
+  Function prints but value is None       | forgot return
+  TypeError: missing required argument    | too few arguments in the call
+  TypeError: takes N positional arguments | too many arguments
+  TypeError: unexpected keyword argument  | wrong parameter name
+  TypeError: multiple values for argument | positional and keyword for the
+                                          | same parameter
+  SyntaxError: non-default after default  | reorder parameters
+  SyntaxError: positional argument follows| put keyword arguments last
+  keyword argument                        |
+  Default list keeps growing              | mutable default; use None
+  UnboundLocalError                       | assigned a global name without
+                                          | the global keyword
+  NameError                               | defined later / out of scope /
+                                          | typo
+  'function' object is not subscriptable  | f[0] instead of f(0)
+  f without parentheses does nothing      | missing () in the call
+  RecursionError                          | no base case / too deep
+  Lambda in loop returns last value       | bind with lambda i=i: i
+  Result is None after list.sort()        | sort() returns None
+  Shadowed built-in (list, max, sum)      | rename the variable
+
+43. CHECKLIST
+------------------------------------------------------------------------------
+  1. def only defines; the body runs on a call. f is the object, f() calls.
+  2. No return means None.
+  3. return a, b returns ONE tuple.
+  4. Parameter order: positional-only, normal, defaults, *args,
+     keyword-only, **kwargs.
+  5. Defaults are evaluated once: never use [] or {} as a default.
+  6. *args is a tuple, **kwargs is a dict.
+  7. * and ** also UNPACK sequences and dicts at the call.
+  8. Mutating an argument is visible to the caller; rebinding is not.
+  9. LEGB: Local, Enclosing, Global, Built-in.
+ 10. Assigning inside a function makes the name local (use global/nonlocal).
+ 11. Reading a global needs no keyword; mutating a global object needs none.
+ 12. Blocks (if/for/while) do not create scope; functions and comprehensions
+     do.
+ 13. Closures remember variables, not values (late binding).
+ 14. lambda is a single expression; use def for anything bigger.
+ 15. Recursion needs a base case, progress, and attention to depth.
+ 16. Memoise overlapping subproblems (lru_cache).
+ 17. Python has no tail-call optimisation and no function overloading.
+ 18. Type hints are not enforced.
+
+
+==============================================================================
+                  H. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+Q1. Difference between a parameter and an argument?
+A.  A parameter is the variable name in the function definition; an argument
+    is the actual value passed in the call.
+
+Q2. What is the output?   def f(): pass
+                          print(f())
+A.  None   (a function without a return statement returns None).
+
+Q3. What is the output?
+        def f(a, b=2, *args, **kw): print(a, b, args, kw)
+        f(1, 2, 3, 4, x=5)
+A.  1 2 (3, 4) {'x': 5}
+
+Q4. What is the output?
+        def g(x, l=[]):
+            l.append(x); return l
+        print(g(1), g(2), g(3, []))
+A.  [1, 2] [1, 2] [3]
+    The default list is created once and shared, so the first two results are
+    the SAME list object. Use l=None and create the list inside.
+
+Q5. What is the output?
+        def change(lst):
+            lst.append(1)
+            lst = [9]
+            return lst
+        a = [0]; b = change(a); print(a, b)
+A.  [0, 1] [9]   (append mutated the caller's list; the rebinding did not).
+
+Q6. What happens?   def f(a, b=1, c): pass
+A.  SyntaxError: a parameter without a default follows one with a default.
+
+Q7. What happens?   def f(a, *, b): ...    f(1, 2)
+A.  TypeError: f() takes 1 positional argument but 2 were given. b is
+    keyword-only: f(1, b=2).
+
+Q8. What types are args and kwargs? How do you pass a list and a dict as
+    arguments?
+A.  args is a tuple, kwargs is a dict. f(*lst, **d) unpacks them at the call.
+
+Q9. What is the output?   def f(): return 1, 2
+                          print(type(f()), f())
+A.  <class 'tuple'> (1, 2)
+
+Q10. What is the output?   def f(): print("a")
+                           x = f(); print(x)
+A.  a
+    None
+
+Q11. What is the output?
+        def f():
+            try: return 1
+            finally: return 2
+        print(f())
+A.  2   (the return in finally overrides the earlier return).
+
+Q12. What is the output?
+        def f(n):
+            for i in range(n):
+                return i
+        print(f(3), f(0))
+A.  0 None   (the first return ends the function; for n = 0 the loop body
+    never runs and the function returns None).
+
+Q13. What is the difference between return and print?
+A.  print displays text and the function still returns None. return gives a
+    value back to the caller so it can be stored or used in expressions.
+
+Q14. What happens?
+        x = 10
+        def f():
+            x += 1
+        f()
+A.  UnboundLocalError. Assignment makes x local to f for the whole function,
+    so x += 1 reads an unassigned local. Fix: declare global x.
+
+Q15. What is the output?
+        x = 5
+        def f(): print(x)
+        def g(): print(x); x = 3
+        f(); g()
+A.  f() prints 5. g() raises UnboundLocalError because x is assigned inside g,
+    which makes it local, so print(x) runs before any assignment.
+
+Q16. What is the output?
+        x = "global"
+        def outer():
+            x = "enclosing"
+            def inner():
+                x = "local"; print(x)
+            inner(); print(x)
+        outer(); print(x)
+A.  local
+    enclosing
+    global
+
+Q17. Difference between global and nonlocal?
+A.  global binds a name to the module-level variable. nonlocal binds a name to
+    the nearest enclosing FUNCTION's variable. nonlocal needs an existing
+    binding in an outer function.
+
+Q18. What is the output?
+        items = []
+        def add(): items.append(1)
+        add(); print(items)
+A.  [1]   (mutating a global object needs no global keyword; only
+    rebinding the name does).
+
+Q19. What is a closure? What is the output?
+        def make():
+            n = 0
+            def inc():
+                nonlocal n
+                n += 1; return n
+            return inc
+        c = make(); print(c(), c(), make()())
+A.  A closure is an inner function that remembers variables of its enclosing
+    scope after that scope has finished. Output: 1 2 1 (each make() call has
+    its own n).
+
+Q20. What is the output?
+        fs = [lambda: i for i in range(3)]
+        print([f() for f in fs])
+A.  [2, 2, 2]. Late binding: i is looked up when the lambda is called. Use
+    lambda i=i: i to get [0, 1, 2].
+
+Q21. What is the output?   print((lambda x, y=2: x * y)(3))
+A.  6
+
+Q22. What is the output?   print(list(map(lambda x: x * x, range(4))))
+A.  [0, 1, 4, 9]
+
+Q23. What is the output?   print(list(filter(lambda x: x % 2, range(6))))
+A.  [1, 3, 5]   (x % 2 is truthy for odd numbers).
+
+Q24. What is the output?
+        print(sorted(["bb", "a", "ccc"], key=lambda s: -len(s)))
+A.  ['ccc', 'bb', 'a']
+
+Q25. What is the output?
+        from functools import reduce
+        print(reduce(lambda a, b: a * b, range(1, 6)))
+A.  120
+
+Q26. Difference between lambda and def?
+A.  lambda is an anonymous function limited to ONE expression whose value is
+    returned automatically; def can hold many statements, has a name,
+    docstring and annotations. Use lambda for short throwaway functions
+    (key=, map, filter), def for everything else.
+
+Q27. Can a lambda contain multiple statements or assignments?
+A.  No. Only a single expression. Use a conditional expression for choices;
+    use def for more. (print(x) is an expression, so it is allowed.)
+
+Q28. What is the output?
+        print(callable(len), callable(5), (lambda: 0).__name__)
+A.  True False <lambda>
+
+Q29. What does "functions are first-class objects" mean?
+A.  Functions can be assigned to variables, stored in data structures, passed
+    as arguments, returned from other functions, and have attributes, just
+    like any other object.
+
+Q30. What is a decorator?
+A.  A function that takes a function and returns a new (usually wrapped)
+    function. @dec above def f is the same as f = dec(f). Use
+    functools.wraps to keep the original name and docstring.
+
+Q31. Is Python pass-by-value or pass-by-reference?
+A.  Neither exactly: it is pass-by-object-reference (assignment). The
+    parameter refers to the same object as the argument, so in-place changes
+    to mutable objects are visible to the caller, while rebinding is not.
+
+Q32. What is the output?   def f(n): return 0 if n == 0 else n + f(n - 1)
+                           print(f(4))
+A.  10   (4 + 3 + 2 + 1 + 0).
+
+Q33. What are the parts of a recursive function? What if the base case is
+     missing?
+A.  Base case, recursive case, progress toward the base case. Without a base
+    case the calls never stop and Python raises RecursionError: maximum
+    recursion depth exceeded (default limit 1000, see sys.getrecursionlimit).
+
+Q34. Does Python optimise tail recursion?
+A.  No. Every call still uses a stack frame, so deep recursion needs a loop,
+    an explicit stack, or a higher limit (sys.setrecursionlimit, with care).
+
+Q35. Why is naive recursive Fibonacci slow? How do you fix it?
+A.  It recomputes the same subproblems: about 2^n calls (fib(5) makes 15
+    calls, fib(30) about 2.7 million). Fix with memoisation
+    (@functools.lru_cache or a dict), which makes it O(n), or use a loop.
+
+Q36. How many moves does the Tower of Hanoi need for n disks?
+A.  2^n - 1 (3 disks: 7, 4 disks: 15). The recursion: move n-1 disks to the
+    spare peg, move the largest disk, move n-1 disks on top of it.
+
+Q37. How does fast exponentiation work and what is its complexity?
+A.  x^n = (x^(n/2))^2 when n is even and x * (x^(n/2))^2 when odd, so the
+    problem halves each call: O(log n) time and stack depth. power(2, 10)
+    needs about 4 levels instead of 10.
+
+Q38. What is the output of show(3) for each version?
+        def show1(n):                    def show2(n):
+            if n > 0:                        if n > 0:
+                show1(n - 1)                     print(n)
+                print(n)                         show2(n - 1)
+A.  show1(3) prints 1 2 3 (printing after the recursive call, on the way
+    back up). show2(3) prints 3 2 1 (printing before the call, on the way
+    down).
+
+Q39. Recursion vs iteration: when do you choose which?
+A.  Recursion for self-similar structures (trees, graphs, divide and conquer,
+    backtracking, permutations); iteration for simple repetition because it is
+    faster and has no depth limit. Recursion uses O(depth) stack memory.
+
+Q40. What is the output?
+        def outer():
+            def inner(): return "in"
+            return inner
+        print(outer()())
+A.  in   (outer() returns the inner function; the second () calls it).
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

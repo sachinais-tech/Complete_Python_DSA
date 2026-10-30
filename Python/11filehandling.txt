@@ -1,0 +1,1247 @@
+==============================================================================
+          PYTHON FILE HANDLING: READING, WRITING, CSV AND JSON
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Variables vanish when a program ends. Files store data permanently on disk.
+File handling means opening a file, reading or writing it, and closing it.
+
+    A. File basics        - open(), modes, the file object, the with statement
+    B. Reading files      - read, readline, readlines, iteration, chunks
+    C. Writing files      - write, writelines, append, seek / tell
+    D. Paths and folders  - os, pathlib, shutil
+    E. CSV                - csv module: reader, writer, DictReader, DictWriter
+    F. JSON               - json module: dump, load, dumps, loads
+    G. Pitfalls, checklist and interview questions
+
+Life cycle of a file operation:
+    open the file  ->  read / write  ->  close the file
+    (with the "with" statement the closing is automatic)
+
+Kinds of files:
+    Text files   : characters (.txt, .csv, .json, .py, .html) - str in Python
+    Binary files : raw bytes (images, audio, .pdf, .zip, .pkl) - bytes
+
+Where data goes:
+    sys.stdin / sys.stdout / sys.stderr are file-like objects too, so the same
+    methods (read, readline, write) work on them.
+
+
+==============================================================================
+                         A. FILE BASICS
+==============================================================================
+
+2. open() AND THE FILE OBJECT
+------------------------------------------------------------------------------
+    open(file, mode="r", buffering=-1, encoding=None, errors=None,
+         newline=None, closefd=True, opener=None)
+
+    f = open("notes.txt", "r", encoding="utf-8")   # returns a file object
+    data = f.read()
+    f.close()                                      # always close it
+
+Common arguments:
+    file      path (str or Path); relative to the current working directory,
+              or absolute
+    mode      how to open it (table below)
+    encoding  text encoding, e.g. "utf-8" (text mode only)
+    newline   controls newline translation (use "" for csv)
+    errors    how to handle bad bytes: "strict" (default), "ignore",
+              "replace"
+
+The default encoding depends on the operating system (cp1252 on many Windows
+installs, UTF-8 on Linux/macOS). ALWAYS pass encoding="utf-8" for text files
+to get the same behaviour everywhere.
+
+3. FILE MODES
+------------------------------------------------------------------------------
+  Mode | Meaning                      | If file exists | If file missing
+  -----|------------------------------|----------------|-------------------
+  r    | read (default)               | opened         | FileNotFoundError
+  w    | write                        | ERASED (cut to | created
+       |                              | zero length)   |
+  a    | append (write at the end)    | kept, add to   | created
+       |                              | the end        |
+  x    | exclusive create             | FileExistsError| created
+  r+   | read and write               | kept, pointer  | FileNotFoundError
+       |                              | at the start   |
+  w+   | write and read               | ERASED         | created
+  a+   | append and read              | kept           | created
+  t    | text mode (default)          | combine: rt, wt, at
+  b    | binary mode                  | combine: rb, wb, ab, r+b
+
+    open("a.txt")            # same as "rt"
+    open("a.txt", "w")       # same as "wt"
+    open("img.png", "rb")    # binary read
+    open("log.txt", "a")     # append
+
+Notes:
+    - In append modes every write goes to the END, even after seek().
+    - w and w+ destroy the old content as soon as the file is opened.
+    - Use "x" to avoid overwriting an existing file by accident.
+    - Text mode works with str; binary mode works with bytes.
+
+4. THE with STATEMENT (RECOMMENDED)
+------------------------------------------------------------------------------
+with closes the file automatically when the block ends, even if an exception
+occurs (no need for f.close()).
+
+    with open("notes.txt", "r", encoding="utf-8") as f:
+        text = f.read()
+    # file is closed here
+    f.closed                       # True
+    f.read()                       # ValueError: I/O operation on closed file
+
+Without with (manual, safe form):
+    f = open("notes.txt", encoding="utf-8")
+    try:
+        text = f.read()
+    finally:
+        f.close()
+
+Several files at once:
+    with open("in.txt", encoding="utf-8") as src, \
+         open("out.txt", "w", encoding="utf-8") as dst:
+        dst.write(src.read())
+
+Why close a file: flushes buffered data to disk, frees the operating-system
+file handle, releases locks, and avoids hitting the open-file limit.
+
+5. FILE OBJECT ATTRIBUTES AND METHODS
+------------------------------------------------------------------------------
+    f.name            file name / path
+    f.mode            mode string
+    f.encoding        text encoding
+    f.closed          True when closed
+    f.readable()  f.writable()  f.seekable()
+    f.fileno()        OS file descriptor number
+    f.close()         close it
+    f.flush()         write the buffer to disk now
+    f.read([n])  f.readline()  f.readlines()      (reading)
+    f.write(s)   f.writelines(seq)                (writing)
+    f.seek(offset, whence)  f.tell()  f.truncate([size])   (position)
+
+A file object is also an ITERATOR over lines and a context manager.
+
+6. EXCEPTIONS IN FILE HANDLING
+------------------------------------------------------------------------------
+  Exception            | Raised when
+  ---------------------|--------------------------------------------------
+  FileNotFoundError    | file or folder does not exist (mode r)
+  FileExistsError      | mode x on an existing file; mkdir on existing dir
+  PermissionError      | no permission, or file locked / read-only
+  IsADirectoryError    | tried to open a directory as a file
+  NotADirectoryError   | a path component is not a directory
+  UnicodeDecodeError   | bytes cannot be decoded with the chosen encoding
+  UnicodeEncodeError   | text cannot be encoded
+  ValueError           | I/O on a closed file; bad mode string
+  io.UnsupportedOperation | read on a write-only file, etc.
+  OSError              | base class of the file-system errors above
+
+    try:
+        with open("data.txt", encoding="utf-8") as f:
+            print(f.read())
+    except FileNotFoundError:
+        print("File not found")
+    except PermissionError:
+        print("No permission")
+    except UnicodeDecodeError:
+        print("Wrong encoding")
+    except OSError as e:
+        print("OS error:", e)
+
+
+==============================================================================
+                         B. READING FILES
+==============================================================================
+
+7. read(), readline(), readlines()
+------------------------------------------------------------------------------
+Suppose data.txt contains the lines:    Hello\nWorld\nPython\n
+
+    with open("data.txt", encoding="utf-8") as f:
+        f.read()                  # 'Hello\nWorld\nPython\n'   whole file
+
+    f.read(5)                     # 'Hello'  first 5 characters
+    f.read(3)                     # '\nWo'   continues from the pointer
+    f.read()                      # the rest ('' at the end of the file)
+
+    f.readline()                  # 'Hello\n'   one line INCLUDING "\n"
+    f.readline()                  # 'World\n'
+    f.readline(3)                 # up to 3 characters of the next line
+    f.readline()                  # '' when the end is reached
+
+    f.readlines()                 # ['Hello\n', 'World\n', 'Python\n']
+    f.readlines(10)               # stop after about 10 characters (hint)
+
+  Method       | Returns              | End of file | Memory
+  -------------|----------------------|-------------|----------------------
+  read()       | one str (all)        | ''          | whole file in memory
+  read(n)      | up to n chars/bytes  | ''          | small
+  readline()   | next line (with \n)  | ''          | one line
+  readlines()  | list of all lines    | []          | whole file in memory
+  for line in f| one line at a time   | stops       | one line
+
+Remove the newline:   line.rstrip("\n")   or   line.strip()
+Lines without newline:  f.read().splitlines()
+
+The file POINTER moves forward as you read; a second f.read() returns ''.
+Rewind with f.seek(0).
+
+8. ITERATING OVER A FILE (BEST FOR LARGE FILES)
+------------------------------------------------------------------------------
+    with open("data.txt", encoding="utf-8") as f:
+        for line in f:                       # lazy: one line at a time
+            print(line.rstrip("\n"))
+
+    with open("data.txt", encoding="utf-8") as f:
+        for n, line in enumerate(f, start=1):    # with line numbers
+            print(n, line.rstrip())
+
+    lines = [ln.rstrip("\n") for ln in open(...)]       # list of clean lines
+    next(f)                                       # read one line manually
+    header = next(f); rows = list(f)              # header, then the rest
+
+Reading in fixed-size chunks (huge files, binary files):
+    with open("big.bin", "rb") as f:
+        while chunk := f.read(1024 * 1024):       # 1 MB at a time
+            process(chunk)
+
+    for chunk in iter(lambda: f.read(4096), ""): ...     # older style
+
+Last N lines using a bounded deque (reads once, keeps N lines):
+    from collections import deque
+    with open("log.txt", encoding="utf-8") as f:
+        last3 = deque(f, maxlen=3)
+
+9. COMMON READING PROGRAMS
+------------------------------------------------------------------------------
+Count lines, words and characters
+    with open("data.txt", encoding="utf-8") as f:
+        text = f.read()
+    lines = text.count("\n")                 # or len(text.splitlines())
+    words = len(text.split())
+    chars = len(text)
+
+Count lines without loading the file
+    with open("data.txt", encoding="utf-8") as f:
+        n = sum(1 for _ in f)
+
+Longest line / line containing a word (like grep)
+    with open("data.txt", encoding="utf-8") as f:
+        for n, line in enumerate(f, start=1):
+            if "error" in line.lower():
+                print(n, line.rstrip())
+
+Word frequency
+    from collections import Counter
+    with open("data.txt", encoding="utf-8") as f:
+        counts = Counter(f.read().lower().split())
+    counts.most_common(3)
+
+Read numbers from a file (one per line) and sum them
+    with open("nums.txt") as f:
+        total = sum(int(line) for line in f if line.strip())
+
+Read the first N lines
+    from itertools import islice
+    with open("data.txt") as f:
+        first5 = list(islice(f, 5))
+
+Read the whole file as a list of words
+    words = open("data.txt").read().split()      # (prefer with)
+
+Print the file in reverse line order
+    with open("data.txt") as f:
+        for line in reversed(f.readlines()):
+            print(line, end="")
+
+Binary read
+    with open("pic.png", "rb") as f:
+        header = f.read(8)                       # bytes object
+        header == b"\x89PNG\r\n\x1a\n"           # True for a PNG
+
+10. TEXT ENCODINGS AND NEWLINES
+------------------------------------------------------------------------------
+Encoding maps characters to bytes: UTF-8 (universal, recommended), ASCII,
+Latin-1, cp1252 (Windows), UTF-16.
+
+    open("a.txt", encoding="utf-8")
+    open("a.txt", encoding="utf-8-sig")        # strips a BOM (Excel files)
+    open("a.txt", encoding="latin-1")          # never fails (1 byte = 1 char)
+    open("a.txt", encoding="utf-8", errors="replace")  # bad bytes -> U+FFFD
+    open("a.txt", encoding="utf-8", errors="ignore")   # bad bytes dropped
+
+UnicodeDecodeError: 'utf-8' codec can't decode byte ... means the file is not
+UTF-8. Try the right encoding (cp1252, latin-1, utf-16) or errors="replace".
+Reading in binary and decoding yourself:  data.decode("utf-8").
+
+Universal newlines (newline=None, default):
+    - On READ, "\n", "\r" and "\r\n" are all translated to "\n".
+    - On WRITE, "\n" is translated to os.linesep ("\r\n" on Windows).
+    newline=""   : no translation (required for the csv module)
+    newline="\n" : write "\n" unchanged on every platform
+    So a text file written on Windows has "\r\n" on disk, but your program
+    always sees "\n".
+
+
+==============================================================================
+                         C. WRITING FILES
+==============================================================================
+
+11. write(), writelines(), print()
+------------------------------------------------------------------------------
+    with open("out.txt", "w", encoding="utf-8") as f:
+        f.write("Hello\n")                  # returns 6 (characters written)
+        f.write("World\n")
+        f.writelines(["a\n", "b\n"])        # a list / iterable of strings
+        print("via print", file=f)          # print adds the newline for you
+
+Result of out.txt:   Hello / World / a / b / via print
+
+Rules:
+    - write() accepts ONLY str (text mode) or bytes (binary mode):
+          f.write(5)              # TypeError: write() argument must be str,
+                                  # not int
+          f.write(str(5))         # fine
+    - write() and writelines() do NOT add newlines; add "\n" yourself.
+    - Output is buffered; data may reach the disk only on flush() / close().
+    - Mode "w" erases existing content immediately.
+
+Writing formatted data:
+    f.write(f"{name},{age}\n")
+    f.write(" ".join(map(str, nums)) + "\n")
+    f.writelines(f"{x}\n" for x in nums)
+    print(*nums, sep="\n", file=f)
+
+12. APPENDING AND UPDATING
+------------------------------------------------------------------------------
+Append (never erases):
+    with open("log.txt", "a", encoding="utf-8") as f:
+        f.write("new entry\n")
+
+Create only if absent:
+    try:
+        with open("config.txt", "x") as f:
+            f.write("default\n")
+    except FileExistsError:
+        print("already exists")
+
+Read-modify-write (the simple, safe way for small files):
+    with open("data.txt", encoding="utf-8") as f:
+        text = f.read()
+    text = text.replace("old", "new")
+    with open("data.txt", "w", encoding="utf-8") as f:
+        f.write(text)
+
+Update in place with r+ (the pointer decides where text lands):
+    with open("data.txt", "r+") as f:
+        f.seek(0)
+        f.write("HELLO")             # overwrites the first 5 characters
+        f.truncate(5)                # optional: cut the file to 5 characters
+
+Atomic safe save (avoid half-written files if the program crashes):
+    import os
+    with open("data.tmp", "w", encoding="utf-8") as f:
+        f.write(new_text)
+    os.replace("data.tmp", "data.txt")      # atomic rename over the old file
+
+13. THE FILE POINTER: seek() AND tell()
+------------------------------------------------------------------------------
+    f.tell()                  # current position (bytes from the start)
+    f.seek(offset, whence)    # move the pointer
+         whence = 0  from the start (default)
+         whence = 1  from the current position
+         whence = 2  from the end
+
+    with open("t.txt", "w+") as f:       # file contains: hello
+        f.write("hello")
+        f.seek(0)                         # back to the start
+        f.read(2)                         # 'he'
+        f.tell()                          # 2
+        f.seek(0)
+        f.read(1)                         # 'h'
+        f.seek(0, 2)                      # to the end
+        f.tell()                          # 5
+
+    - In TEXT mode only seek(0), seek(0, 2) and values returned by tell()
+      are reliable; nonzero relative seeks raise io.UnsupportedOperation.
+    - Use binary mode ("rb") for arbitrary seeks:  f.seek(-10, 2) reads the
+      last 10 bytes.
+    - In append mode writes always go to the end.
+    - After writing and before reading in a "+" mode, seek() first.
+
+14. COMMON WRITING PROGRAMS
+------------------------------------------------------------------------------
+Copy a text file
+    with open("a.txt", encoding="utf-8") as src, \
+         open("b.txt", "w", encoding="utf-8") as dst:
+        for line in src:
+            dst.write(line)
+    # or shutil.copyfile("a.txt", "b.txt")
+
+Copy a binary file in chunks
+    with open("a.bin", "rb") as s, open("b.bin", "wb") as d:
+        while chunk := s.read(1024 * 1024):
+            d.write(chunk)
+
+Merge two files
+    with open("all.txt", "w", encoding="utf-8") as out:
+        for name in ("a.txt", "b.txt"):
+            with open(name, encoding="utf-8") as f:
+                out.write(f.read())
+
+Write numbers 1 to 5, one per line
+    with open("nums.txt", "w") as f:
+        for i in range(1, 6):
+            f.write(f"{i}\n")
+
+Number the lines of a file
+    with open("a.txt") as s, open("numbered.txt", "w") as d:
+        for n, line in enumerate(s, start=1):
+            d.write(f"{n}: {line}")
+
+Remove blank lines
+    with open("a.txt") as s, open("clean.txt", "w") as d:
+        d.writelines(line for line in s if line.strip())
+
+Write a multiplication table
+    with open("table.txt", "w") as f:
+        for i in range(1, 11):
+            f.write(f"5 x {i} = {5 * i}\n")
+
+Save and load objects with pickle (Python-only binary format)
+    import pickle
+    with open("data.pkl", "wb") as f:
+        pickle.dump({"a": [1, 2]}, f)
+    with open("data.pkl", "rb") as f:
+        obj = pickle.load(f)
+    NEVER unpickle data from an untrusted source (it can run code).
+    Use json for data exchange.
+
+
+==============================================================================
+                    D. PATHS, FOLDERS AND FILE OPERATIONS
+==============================================================================
+
+15. PATHS
+------------------------------------------------------------------------------
+    "data.txt"                       relative to the current working directory
+    "C:\\Users\\me\\data.txt"        absolute (double the backslashes)
+    r"C:\Users\me\data.txt"          absolute, raw string
+    "C:/Users/me/data.txt"           forward slashes work on Windows too
+
+    import os
+    os.getcwd()                      # current working directory
+    os.chdir("folder")               # change it
+    os.path.join("a", "b", "c.txt")  # 'a/b/c.txt' (uses the OS separator)
+    os.path.exists(p)  os.path.isfile(p)  os.path.isdir(p)
+    os.path.basename(p)  os.path.dirname(p)  os.path.abspath(p)
+    os.path.splitext("a/b.txt")      # ('a/b', '.txt')
+    os.path.getsize(p)               # size in bytes
+    os.path.getmtime(p)              # last modified time (timestamp)
+
+A relative path depends on where the program is RUN, not where the script is
+saved. A common cause of FileNotFoundError. To anchor it to the script:
+    base = os.path.dirname(os.path.abspath(__file__))
+
+16. os MODULE: FILES AND FOLDERS
+------------------------------------------------------------------------------
+    os.listdir(".")                  # names in a folder
+    os.mkdir("new")                  # one folder (FileExistsError if present)
+    os.makedirs("a/b/c", exist_ok=True)      # nested folders
+    os.rename("old.txt", "new.txt")
+    os.replace("a.txt", "b.txt")     # rename, overwriting the target
+    os.remove("file.txt")            # delete a file (also os.unlink)
+    os.rmdir("empty_dir")            # delete an EMPTY folder
+    os.stat("a.txt").st_size         # file information
+    for root, dirs, files in os.walk("project"):     # walk a whole tree
+        for name in files:
+            print(os.path.join(root, name))
+    with os.scandir(".") as it:      # fast directory iteration
+        for entry in it:
+            print(entry.name, entry.is_file())
+
+17. pathlib.Path (MODERN, OBJECT-ORIENTED)
+------------------------------------------------------------------------------
+    from pathlib import Path
+
+    p = Path("data") / "notes.txt"         # / joins path parts
+    p.name              # 'notes.txt'      p.stem     # 'notes'
+    p.suffix            # '.txt'           p.parent   # Path('data')
+    p.with_suffix(".md")                   # Path('data/notes.md')
+    p.exists()  p.is_file()  p.is_dir()
+    p.resolve()                            # absolute path
+    Path.cwd()   Path.home()
+
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("hello\n", encoding="utf-8")      # create/overwrite
+    p.read_text(encoding="utf-8")                  # 'hello\n'
+    p.write_bytes(b"\x00\x01")    p.read_bytes()
+    with p.open("a", encoding="utf-8") as f:       # same as open(p, ...)
+        f.write("more\n")
+
+    p.stat().st_size                        # size in bytes
+    p.rename("new.txt")   p.unlink()   p.rmdir()   p.touch()
+    list(Path(".").iterdir())               # entries in a folder
+    list(Path(".").glob("*.txt"))           # pattern match
+    list(Path(".").rglob("*.py"))           # recursive search
+    sum(1 for _ in Path("a.txt").open())
+
+18. shutil AND tempfile
+------------------------------------------------------------------------------
+    import shutil
+    shutil.copy("a.txt", "b.txt")            # copy file (keeps permissions)
+    shutil.copy2("a.txt", "b.txt")           # also keeps timestamps
+    shutil.copyfile("a.txt", "b.txt")        # content only
+    shutil.copytree("src_dir", "dst_dir")    # copy a whole folder
+    shutil.move("a.txt", "folder/")          # move or rename
+    shutil.rmtree("folder")                  # delete a folder and contents
+    shutil.make_archive("backup", "zip", "folder")
+
+    import tempfile
+    with tempfile.NamedTemporaryFile("w+", suffix=".txt") as tmp:
+        tmp.write("temporary")
+    with tempfile.TemporaryDirectory() as d: ...   # deleted on exit
+
+Delete a file only if it exists:
+    from contextlib import suppress
+    with suppress(FileNotFoundError):
+        os.remove("x.txt")
+    Path("x.txt").unlink(missing_ok=True)            # 3.8+
+
+
+==============================================================================
+                              E. CSV
+==============================================================================
+
+19. WHAT IS CSV?
+------------------------------------------------------------------------------
+CSV (Comma-Separated Values) is a plain-text table: one record per line,
+fields separated by a delimiter (comma by default). The first line is often a
+header with the column names.
+
+    name,age,city
+    Amit,25,Delhi
+    Bina,30,"Mumbai, MH"
+
+Rules of the format:
+    - A field containing the delimiter, a quote or a newline is wrapped in
+      double quotes:  "Mumbai, MH"
+    - A double quote inside a quoted field is doubled:  "He said ""hi"""
+    - Splitting with line.split(",") breaks on quoted commas - ALWAYS use the
+      csv module.
+    - Everything in a CSV is text; numbers must be converted by you.
+    - Other delimiters: tab (.tsv), semicolon (common in Europe), pipe.
+
+    import csv
+
+20. READING CSV: csv.reader
+------------------------------------------------------------------------------
+Open with newline="" and an explicit encoding:
+
+    with open("people.csv", newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        for row in reader:                 # each row is a LIST of strings
+            print(row)
+    # ['name', 'age', 'city']
+    # ['Amit', '25', 'Delhi']
+    # ['Bina', '30', 'Mumbai, MH']
+
+    reader = csv.reader(f, delimiter=";")        # other delimiter
+    reader = csv.reader(f, delimiter="\t")       # tab separated
+    header = next(reader)                         # take the header row
+    rows = list(reader)                           # all remaining rows
+    reader.line_num                               # current line number
+    next(reader, None)                            # safe skip of a header
+
+Convert types yourself:
+    with open("people.csv", newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        next(reader)                              # skip header
+        ages = [int(row[1]) for row in reader]    # [25, 30]
+
+Parsing CSV text held in a string:
+    import io
+    list(csv.reader(io.StringIO("a,b\n1,2\n")))   # [['a','b'], ['1','2']]
+    list(csv.reader(["a,b", "1,2"]))              # any iterable of lines
+
+21. READING CSV AS DICTIONARIES: csv.DictReader
+------------------------------------------------------------------------------
+Uses the first row as keys; each following row becomes a dict.
+
+    with open("people.csv", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        reader.fieldnames                  # ['name', 'age', 'city']
+        for row in reader:
+            print(row["name"], row["age"])
+    # row is {'name': 'Amit', 'age': '25', 'city': 'Delhi'}
+
+    rows = list(csv.DictReader(f))                 # list of dicts
+    csv.DictReader(f, fieldnames=["a", "b"])       # file WITHOUT a header
+    csv.DictReader(f, delimiter=";")
+
+    - Rows with too few fields get None for the missing keys (restval).
+    - Extra fields are stored in a list under the key None (restkey).
+    - Access by name (row["age"]) is clearer than by position (row[1]).
+
+Typical analysis:
+    total = sum(int(r["age"]) for r in rows)
+    by_city = {}
+    for r in rows:
+        by_city.setdefault(r["city"], []).append(r["name"])
+    oldest = max(rows, key=lambda r: int(r["age"]))
+    sorted(rows, key=lambda r: r["name"])
+    [r for r in rows if int(r["age"]) > 26]
+
+22. WRITING CSV: csv.writer
+------------------------------------------------------------------------------
+    with open("out.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["name", "age", "city"])         # one row
+        writer.writerow(["Amit", 25, "Delhi"])           # numbers are fine
+        writer.writerows([["Bina", 30, "Mumbai, MH"],    # many rows
+                          ["Chen", 28, "Pune"]])
+
+Resulting file:
+    name,age,city
+    Amit,25,Delhi
+    Bina,30,"Mumbai, MH"
+    Chen,28,Pune
+
+Details:
+    - Values are converted with str(); None is written as an empty field.
+    - A comma, quote or newline inside a value makes the writer quote it
+      automatically: ["a", "b,c", 'd"e']  ->  a,"b,c","d""e"
+    - The default line terminator is "\r\n". That is why the file must be
+      opened with newline="": otherwise Windows turns it into "\r\r\n" and
+      you see a BLANK LINE after every row.
+    - Append rows with mode "a" (and newline=""); write the header only once.
+
+23. WRITING CSV FROM DICTIONARIES: csv.DictWriter
+------------------------------------------------------------------------------
+    rows = [{"name": "Amit", "age": 25}, {"name": "Bina", "age": 30}]
+    with open("out.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["name", "age"])
+        writer.writeheader()             # writes: name,age
+        writer.writerow(rows[0])
+        writer.writerows(rows[1:])
+
+    - fieldnames sets the column ORDER and is required.
+    - A dict with a key not in fieldnames raises
+      ValueError: dict contains fields not in fieldnames.
+      Use DictWriter(..., extrasaction="ignore") to skip extras.
+    - Missing keys are written as restval ("" by default).
+    - DictWriter does not write the header unless you call writeheader().
+
+24. FORMATTING OPTIONS AND DIALECTS
+------------------------------------------------------------------------------
+    csv.writer(f, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL,
+               lineterminator="\n", escapechar=None, doublequote=True)
+
+  quoting constant        | Effect
+  ------------------------|---------------------------------------------
+  csv.QUOTE_MINIMAL       | quote only fields that need it (default)
+  csv.QUOTE_ALL           | quote every field
+  csv.QUOTE_NONNUMERIC    | quote all non-numbers; the reader converts
+                          | unquoted fields to float
+  csv.QUOTE_NONE          | never quote (use escapechar for delimiters)
+
+    csv.writer(f, quoting=csv.QUOTE_ALL).writerow(["a", 1])   # "a","1"
+    csv.writer(f, delimiter="\t")                              # TSV
+    csv.reader(f, skipinitialspace=True)    # ignore spaces after delimiters
+
+Dialects (named bundles of options):
+    csv.excel (default)   csv.excel_tab   csv.unix_dialect
+    csv.register_dialect("pipes", delimiter="|", quoting=csv.QUOTE_NONE)
+    csv.reader(f, dialect="pipes")
+    csv.Sniffer().sniff(sample)             # guess the delimiter
+    csv.field_size_limit(10**7)             # allow very large fields
+
+Excel notes:
+    - Use encoding="utf-8-sig" when writing for Excel (adds a BOM so accents
+      display correctly) and when reading files exported by Excel.
+
+25. CSV PROGRAMS
+------------------------------------------------------------------------------
+Filter rows into a new file
+    with open("in.csv", newline="", encoding="utf-8") as src, \
+         open("adults.csv", "w", newline="", encoding="utf-8") as dst:
+        reader = csv.DictReader(src)
+        writer = csv.DictWriter(dst, fieldnames=reader.fieldnames)
+        writer.writeheader()
+        for row in reader:
+            if int(row["age"]) >= 18:
+                writer.writerow(row)
+
+Sort by a column and save
+    rows.sort(key=lambda r: int(r["age"]), reverse=True)
+
+Add a column
+    for r in rows: r["senior"] = int(r["age"]) >= 60
+    fields = reader.fieldnames + ["senior"]
+
+Count values of a column
+    from collections import Counter
+    Counter(r["city"] for r in rows)
+
+CSV to JSON
+    import json
+    with open("in.csv", newline="", encoding="utf-8") as f:
+        data = list(csv.DictReader(f))
+    with open("out.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+JSON to CSV (list of flat dicts)
+    with open("out.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=data[0].keys())
+        w.writeheader(); w.writerows(data)
+
+Transpose / column extraction
+    columns = list(zip(*rows))        # rows as lists -> columns
+    ages = [int(r[1]) for r in rows[1:]]
+
+Library alternative for big or messy tables: pandas
+    import pandas as pd
+    df = pd.read_csv("people.csv"); df.to_csv("out.csv", index=False)
+
+26. CSV GOTCHAS
+------------------------------------------------------------------------------
+ 1. Forgetting newline="" gives blank lines on Windows (and breaks quoted
+    newlines).
+ 2. All fields are strings: int(row["age"]) before arithmetic.
+ 3. Do not parse CSV with split(","): quoted commas break it.
+ 4. The header row is data for csv.reader; skip it with next(reader).
+ 5. DictWriter needs fieldnames and an explicit writeheader().
+ 6. Appending twice with writeheader() duplicates the header.
+ 7. A reader is an iterator: it can be consumed only once (use list()).
+ 8. Wrong delimiter gives one big field per row (check ";" or "\t").
+ 9. The file must stay open while the reader / writer is used.
+10. Encoding problems with Excel files: try utf-8-sig or cp1252.
+11. csv.reader skips nothing: empty lines come back as [].
+
+
+==============================================================================
+                              F. JSON
+==============================================================================
+
+27. WHAT IS JSON?
+------------------------------------------------------------------------------
+JSON (JavaScript Object Notation) is a lightweight text format for exchanging
+structured data (web APIs, configuration files, storage). It is language
+independent and human readable.
+
+    {
+      "name": "Amit",
+      "age": 25,
+      "married": false,
+      "scores": [90, 85.5],
+      "address": {"city": "Delhi", "pin": null}
+    }
+
+Syntax rules:
+    - Object  { "key": value, ... }      keys MUST be double-quoted strings
+    - Array   [ value, value, ... ]
+    - Values: string "..." , number, true, false, null, object, array
+    - Strings use DOUBLE quotes only; no single quotes
+    - No trailing commas, no comments, no undefined / NaN in strict JSON
+
+    import json
+
+28. PYTHON <-> JSON TYPE MAPPING
+------------------------------------------------------------------------------
+  Python (dumps)           | JSON        | JSON (loads)  | Python
+  -------------------------|-------------|---------------|------------------
+  dict                     | object      | object        | dict
+  list, tuple              | array       | array         | list
+  str                      | string      | string        | str
+  int, float               | number      | number (int)  | int
+                           |             | number (real) | float
+  True / False             | true/false  | true / false  | True / False
+  None                     | null        | null          | None
+
+Round-trip consequences:
+    - A tuple comes back as a list.
+    - Dictionary keys become STRINGS: {1: "a"} -> {"1": "a"}.
+    - set, bytes, datetime, Decimal, complex and custom objects are NOT
+      serialisable by default (TypeError).
+    - NaN / Infinity are written as NaN / Infinity (not valid strict JSON);
+      pass allow_nan=False to forbid them.
+
+29. dumps / dump / loads / load
+------------------------------------------------------------------------------
+  Function             | Direction                | Works with
+  ---------------------|--------------------------|--------------------------
+  json.dumps(obj)      | Python -> JSON string    | str   ("dump string")
+  json.dump(obj, f)    | Python -> JSON file      | file object
+  json.loads(s)        | JSON string -> Python    | str   ("load string")
+  json.load(f)         | JSON file -> Python      | file object
+
+    json.dumps({"a": 1, "b": [True, None]})   # '{"a": 1, "b": [true, null]}'
+    json.dumps([1, 2.5, "x"])                 # '[1, 2.5, "x"]'
+    json.dumps("hi")                          # '"hi"'
+    json.dumps(None)                          # 'null'
+    json.dumps({1: "a"})                      # '{"1": "a"}'
+    json.dumps((1, 2))                        # '[1, 2]'
+
+    json.loads('{"a": [1, 2.5, "x", null, true]}')
+    # {'a': [1, 2.5, 'x', None, True]}
+    json.loads("5")                           # 5
+    json.loads('"hi"')                        # 'hi'
+    json.loads("[1, 2]")                      # [1, 2]
+    json.loads(json.dumps({"t": (1, 2)}))     # {'t': [1, 2]}
+
+Files:
+    data = {"name": "Amit", "scores": [90, 85]}
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    with open("data.json", encoding="utf-8") as f:
+        loaded = json.load(f)            # a dict
+    loaded["scores"][0]                  # 90
+    loaded == data                       # True
+
+Mnemonic: the trailing "s" means "string" (dumps / loads work with strings).
+
+30. FORMATTING OPTIONS
+------------------------------------------------------------------------------
+    d = {"b": 1, "a": 2}
+    json.dumps(d)                          # '{"b": 1, "a": 2}'
+    json.dumps(d, sort_keys=True)          # '{"a": 2, "b": 1}'
+    json.dumps(d, separators=(",", ":"))   # '{"b":1,"a":2}'   compact
+    print(json.dumps({"name": "Amit", "age": 25}, indent=2))
+    # {
+    #   "name": "Amit",
+    #   "age": 25
+    # }
+    json.dumps(d, indent="\t")             # tab indentation
+    json.dumps("héllo")                    # '"h\\u00e9llo"'   (ensure_ascii)
+    json.dumps("héllo", ensure_ascii=False)    # '"héllo"'   keep Unicode
+    json.dumps(float("nan"))               # 'NaN'
+    json.dumps(float("nan"), allow_nan=False)  # ValueError
+
+  Option          | Meaning
+  ----------------|---------------------------------------------------------
+  indent          | pretty-print with this many spaces (or a string)
+  sort_keys       | order object keys alphabetically
+  separators      | (item_sep, key_sep); (",", ":") gives the smallest output
+  ensure_ascii    | True (default): escape non-ASCII as \uXXXX
+  default         | function called for objects JSON cannot serialise
+  cls             | custom JSONEncoder subclass
+  allow_nan       | allow NaN / Infinity (default True)
+  skipkeys        | skip keys that are not str/int/float/bool/None
+
+When writing files with Unicode, use ensure_ascii=False plus
+encoding="utf-8".
+
+31. CUSTOM TYPES: default AND object_hook
+------------------------------------------------------------------------------
+Unsupported object:
+    json.dumps({1, 2})
+    # TypeError: Object of type set is not JSON serializable
+
+Fix with default=function (returns something serialisable):
+    from datetime import datetime, date
+    from decimal import Decimal
+
+    def encode(obj):
+        if isinstance(obj, (set, frozenset)): return sorted(obj)
+        if isinstance(obj, (datetime, date)): return obj.isoformat()
+        if isinstance(obj, Decimal):          return str(obj)
+        if isinstance(obj, bytes):            return obj.decode("utf-8")
+        if hasattr(obj, "__dict__"):          return vars(obj)
+        raise TypeError(f"Cannot serialise {type(obj).__name__}")
+
+    json.dumps({"tags": {"b", "a"}, "when": datetime(2024, 1, 31)},
+               default=encode)
+    # '{"tags": ["a", "b"], "when": "2024-01-31T00:00:00"}'
+    json.dumps(data, default=str)           # quick: str() everything else
+
+Dataclasses:
+    from dataclasses import asdict
+    json.dumps(asdict(point))
+
+Custom encoder class:
+    class MyEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, set): return list(obj)
+            return super().default(obj)
+    json.dumps(data, cls=MyEncoder)
+
+Decoding into custom objects with object_hook (called for every dict):
+    from types import SimpleNamespace
+    obj = json.loads('{"name": "Amit", "address": {"city": "Delhi"}}',
+                     object_hook=lambda d: SimpleNamespace(**d))
+    obj.name                  # 'Amit'
+    obj.address.city          # 'Delhi'
+
+    json.loads(s, parse_float=Decimal)       # numbers as Decimal
+    json.loads(s, object_pairs_hook=OrderedDict)
+
+32. ERRORS WHEN PARSING JSON
+------------------------------------------------------------------------------
+Invalid JSON raises json.JSONDecodeError (a subclass of ValueError):
+
+    json.loads("{'a': 1}")
+    # JSONDecodeError: Expecting property name enclosed in double quotes:
+    #                  line 1 column 2 (char 1)       (single quotes)
+    json.loads('{"a": 1,}')      # trailing comma -> Expecting property name
+    json.loads("")               # Expecting value: line 1 column 1 (char 0)
+    json.loads("{'a'")           # invalid
+    json.loads("True")           # invalid (JSON uses true)
+    json.loads('{"a": NaN}')     # accepted by Python (non-standard)
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        print("Bad JSON:", e.msg, "line", e.lineno, "col", e.colno)
+
+Other errors:
+    TypeError    : Object of type X is not JSON serializable (dumps)
+    ValueError   : Circular reference detected (an object contains itself)
+    FileNotFoundError / UnicodeDecodeError when opening the file
+
+33. WORKING WITH JSON DATA
+------------------------------------------------------------------------------
+    text = '{"users": [{"name": "Amit", "age": 25}, {"name": "Bina"}]}'
+    data = json.loads(text)
+
+    data["users"][0]["name"]                       # 'Amit'
+    for u in data["users"]:
+        print(u["name"], u.get("age", "n/a"))      # Amit 25 / Bina n/a
+    names = [u["name"] for u in data["users"]]     # ['Amit', 'Bina']
+    data["users"].append({"name": "Chen", "age": 28})   # modify
+    data["users"][0]["age"] += 1
+    del data["users"][1]
+    "users" in data                                # True
+    data.get("missing", {}).get("x")               # None (no KeyError)
+
+Read - modify - write back (update a JSON file):
+    with open("data.json", encoding="utf-8") as f:
+        data = json.load(f)
+    data["count"] = data.get("count", 0) + 1
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+Load the file if present, else start empty:
+    try:
+        with open("db.json", encoding="utf-8") as f:
+            db = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        db = {}
+
+JSON Lines (one JSON value per line; good for logs and big data):
+    with open("events.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps({"id": 1}) + "\n")
+    with open("events.jsonl", encoding="utf-8") as f:
+        events = [json.loads(line) for line in f if line.strip()]
+    (read line by line, so the whole file never sits in memory)
+
+Deep copy of plain data (simple trick): json.loads(json.dumps(x))
+    (loses tuples, non-string keys and unsupported types; prefer
+    copy.deepcopy).
+
+Web APIs: response.json() in the requests library does json.loads for you.
+
+34. COMPARING FORMATS
+------------------------------------------------------------------------------
+  Feature       | JSON            | CSV            | pickle        | YAML/TOML
+  --------------|-----------------|----------------|---------------|---------
+  Structure     | nested, any     | flat table     | any Python    | nested
+  Readable      | yes             | yes            | no (binary)   | yes
+  Cross-language| yes             | yes            | Python only   | yes
+  Types         | few (6)         | text only      | almost all    | few
+  Safe to load  | yes             | yes            | NO (untrusted)| yes
+  Typical use   | APIs, configs   | spreadsheets   | caching       | configs
+
+Other: sqlite3 (embedded database), xml.etree, configparser (.ini), shelve.
+
+35. JSON GOTCHAS
+------------------------------------------------------------------------------
+ 1. dump / load work with FILES; dumps / loads work with STRINGS.
+ 2. JSON keys are always strings: int keys come back as str.
+ 3. Tuples become lists; sets / datetime / Decimal / bytes fail.
+ 4. JSON is not a Python dict literal: true / false / null, double quotes
+    only, no trailing commas, no comments.
+ 5. json.loads of a file path string fails; open the file and use json.load.
+ 6. Passing a file object to loads (or a str to load) is an error.
+ 7. Always set encoding="utf-8"; use ensure_ascii=False to keep accents.
+ 8. dumps(indent=...) changes only formatting, not meaning.
+ 9. Repeated keys in an object: the last value wins on loads.
+10. Large integers are exact in Python but may lose precision in other
+    languages (JavaScript uses doubles).
+11. Pickle is not JSON; never load untrusted pickles.
+
+
+==============================================================================
+                G. PITFALLS AND CHECKLIST (FILE HANDLING)
+==============================================================================
+
+36. COMMON MISTAKES
+------------------------------------------------------------------------------
+  Symptom                                | Cause and fix
+  ---------------------------------------|----------------------------------
+  FileNotFoundError                      | wrong name, or relative path from
+                                         | a different working directory;
+                                         | print(os.getcwd()), use Path /
+                                         | abspath
+  PermissionError                        | file open elsewhere, folder is
+                                         | read-only, or path is a directory
+  Old content disappeared                | opened with "w"; use "a" to add
+  Nothing appears in the file            | forgot close() / with; buffer not
+                                         | flushed
+  Second read() returns ''               | pointer at the end; seek(0)
+  TypeError: write() argument must be str| write(5); use str(5) or f-string
+  Lines run together                     | write() adds no newline
+  Extra blank line when printing lines   | line still has "\n"; use
+                                         | print(line, end="") or rstrip()
+  Blank rows in CSV on Windows           | missing newline=""
+  UnicodeDecodeError                     | wrong encoding; use encoding=...
+  Garbled accents                        | missing encoding="utf-8"
+  UnsupportedOperation: not readable     | opened with "w" and tried to read
+  JSONDecodeError                        | single quotes, trailing comma,
+                                         | empty file, not JSON
+  TypeError ... not JSON serializable    | set / datetime / object; use
+                                         | default=
+  C:\new\file.txt misread                | "\n" escape; use raw string or /
+  ValueError: I/O on closed file         | used the file after the with block
+
+37. CHECKLIST
+------------------------------------------------------------------------------
+  1. Always use  with open(...)  and pass encoding="utf-8".
+  2. Modes: r read, w write (erases), a append, x create, + both, b binary.
+  3. read() = whole file, readline() = one line, readlines() = list,
+     for line in f = lazy.
+  4. Lines keep their "\n"; write() / writelines() add none.
+  5. write() needs str (or bytes in binary mode) and returns the count.
+  6. The pointer moves as you read / write; seek(0) rewinds, tell() reports.
+  7. Iterate, or read in chunks, for large files.
+  8. Use pathlib / os.path.join instead of building paths by hand.
+  9. Handle FileNotFoundError, PermissionError and UnicodeDecodeError.
+ 10. csv: newline="", reader / writer / DictReader / DictWriter; values are
+     strings.
+ 11. json: dumps / loads = strings, dump / load = files; indent for display;
+     keys become strings; tuples become lists; default= for custom types.
+ 12. Never unpickle untrusted data.
+ 13. For safe saving write to a temporary file, then os.replace().
+
+
+==============================================================================
+                  H. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+FILES
+Q1. Explain the file modes r, w, a, x, r+, w+, a+.
+A.  r read (file must exist). w write: creates or ERASES. a append at the end,
+    creates if missing. x create, error if it exists. r+ read and write
+    without erasing. w+ write and read, erases. a+ append and read. Add b for
+    binary (rb, wb) and t for text (default).
+
+Q2. Why use the with statement?
+A.  It closes the file automatically when the block ends, even if an
+    exception occurs, so data is flushed and the handle is released. It
+    replaces try / finally with f.close().
+
+Q3. What is the output? File data.txt contains the two lines  a  and  b.
+        f = open("data.txt")
+        print(f.readline()); print(f.read()); print(repr(f.read()))
+A.  a
+    (blank line, because the line is 'a\n' and print adds another newline)
+    b
+    (the remaining text 'b\n', again with its newline)
+    ''
+    The pointer moved to the end, so the last read() returns an empty
+    string.
+
+Q4. Difference between read(), readline() and readlines()?
+A.  read() returns the whole content as one string (read(n) up to n chars).
+    readline() returns the next line including "\n" ('' at EOF). readlines()
+    returns a list of all lines with "\n". Iterating `for line in f` reads
+    lazily, one line at a time.
+
+Q5. How do you read a very large file?
+A.  Iterate over the file object (for line in f) or read fixed-size chunks
+    (while chunk := f.read(65536)). Avoid read() / readlines(), which load
+    the whole file into memory.
+
+Q6. What happens?   f = open("t.txt", "w"); f.write(5)
+A.  TypeError: write() argument must be str, not int. Convert with str(5).
+
+Q7. What is the difference between write() and writelines()?
+A.  write() writes one string; writelines() writes every string of an
+    iterable. Neither adds newline characters.
+
+Q8. What does open("a.txt", "w") do to an existing file?
+A.  It truncates the file to zero length immediately - old content is lost.
+    Use "a" to append or "x" to fail if the file exists.
+
+Q9. When do FileNotFoundError and FileExistsError occur?
+A.  FileNotFoundError: opening a missing file for reading (also a missing
+    folder in the path). FileExistsError: mode "x" on a file that already
+    exists (or os.mkdir on an existing folder).
+
+Q10. What is the output?
+        with open("t.txt", "w+") as f:
+            f.write("hello"); f.seek(0)
+            print(f.read(2), f.tell())
+A.  he 2   (read 2 characters; the pointer is at position 2).
+
+Q11. What are seek() and tell()?
+A.  tell() returns the current pointer position; seek(offset, whence) moves
+    it (whence 0 start, 1 current, 2 end). In text mode only seek(0),
+    seek(0, 2) and values from tell() are reliable; use binary mode for
+    arbitrary offsets.
+
+Q12. Text mode vs binary mode?
+A.  Text mode reads/writes str, decodes with an encoding and translates
+    newlines. Binary mode ("rb", "wb") reads/writes bytes with no decoding or
+    translation - needed for images, audio, PDFs, archives.
+
+Q13. Why specify encoding="utf-8"?
+A.  The default encoding depends on the platform (e.g. cp1252 on Windows).
+    Without it, accents or symbols may be garbled or raise
+    UnicodeDecodeError.
+
+Q14. What is the output?   print(open("t.txt").closed)
+     versus  with open("t.txt") as f: pass   print(f.closed)
+A.  False for a file still open; True after the with block.
+
+Q15. How do you check if a file exists, delete it, rename it, or list a
+     folder?
+A.  os.path.exists(p) / Path(p).exists(); os.remove(p) / Path(p).unlink();
+    os.rename(old, new) / Path.rename; os.listdir(d) / Path(d).iterdir().
+
+Q16. os.path vs pathlib?
+A.  os.path works on strings (os.path.join, exists, splitext). pathlib.Path
+    is object-oriented: p / "file.txt", p.read_text(), p.suffix, p.glob("*").
+    pathlib is the modern, more readable choice.
+
+Q17. How do you count the lines of a file without loading it?
+A.  with open(p) as f: n = sum(1 for _ in f)
+
+Q18. How do you get the last N lines of a file?
+A.  from collections import deque; with open(p) as f: deque(f, maxlen=N).
+
+Q19. How do you copy a file?
+A.  shutil.copyfile(src, dst), or read / write in chunks:
+    while chunk := s.read(65536): d.write(chunk) (use "rb" and "wb").
+
+Q20. How do you avoid corrupting a file if the program crashes while writing?
+A.  Write to a temporary file, then os.replace(tmp, target), which swaps it
+    in atomically.
+
+CSV
+Q21. Why do you open CSV files with newline=""?
+A.  The csv module handles line endings itself (it writes "\r\n"). Without
+    newline="", Windows translates them again, producing blank lines between
+    rows, and newlines inside quoted fields can be misread.
+
+Q22. csv.reader vs csv.DictReader?
+A.  reader yields each row as a list of strings (access by position).
+    DictReader uses the first row as keys and yields dicts (access by column
+    name, e.g. row["age"]).
+
+Q23. What is the type of every value read from a CSV?
+A.  str. Convert yourself: int(row["age"]), float(row["price"]).
+
+Q24. What does this write?
+        csv.writer(f).writerow(["a", "b,c", 'd"e'])
+A.  a,"b,c","d""e"   followed by a line terminator. Fields containing the
+    delimiter or quotes are quoted; embedded quotes are doubled.
+
+Q25. Why not parse CSV with line.split(",")?
+A.  Quoted fields may contain commas, quotes and newlines, e.g.
+    "Mumbai, MH". split(",") would break them; csv handles the format
+    correctly.
+
+Q26. How do you skip the header row with csv.reader?
+A.  next(reader) once before looping (or use DictReader, which consumes it).
+
+Q27. What are the required steps for DictWriter?
+A.  Give fieldnames, call writeheader() to write the header, then
+    writerow() / writerows() with dicts. Unknown keys raise ValueError unless
+    extrasaction="ignore".
+
+Q28. How do you read a semicolon- or tab-separated file?
+A.  csv.reader(f, delimiter=";") or delimiter="\t". For Excel exports with a
+    BOM use encoding="utf-8-sig".
+
+Q29. What do QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONNUMERIC and QUOTE_NONE mean?
+A.  Quote only when needed (default); quote every field; quote all non-numeric
+    fields (and make the reader convert unquoted fields to float); never
+    quote (use escapechar).
+
+JSON
+Q30. Difference between json.dump, dumps, load and loads?
+A.  dump(obj, f) writes JSON to a file; dumps(obj) returns a JSON string;
+    load(f) reads JSON from a file; loads(s) parses a JSON string. The "s"
+    stands for string.
+
+Q31. What is the output?
+        print(json.dumps({"a": (1, 2), 1: None, "b": True}))
+A.  {"a": [1, 2], "1": null, "b": true}
+    (tuple -> array, int key -> string, None -> null, True -> true).
+
+Q32. What is the output?
+        print(json.loads(json.dumps({"t": (1, 2), 5: "x"})))
+A.  {'t': [1, 2], '5': 'x'}   (the tuple became a list and the key became a
+    string).
+
+Q33. What happens?   json.loads("{'a': 1}")
+A.  json.JSONDecodeError (a ValueError): JSON requires DOUBLE quotes around
+    keys and strings.
+
+Q34. What happens?   json.dumps({1, 2})   and how do you fix it?
+A.  TypeError: Object of type set is not JSON serializable. Convert with
+    list(s) / sorted(s) or pass default=function (or a JSONEncoder
+    subclass) that handles sets, datetimes, Decimals and custom objects.
+
+Q35. Which Python types map to which JSON types?
+A.  dict -> object; list, tuple -> array; str -> string; int, float ->
+    number; True / False -> true / false; None -> null. On loading: object ->
+    dict, array -> list, true / false -> bool, null -> None.
+
+Q36. What do indent, sort_keys, separators and ensure_ascii do?
+A.  indent pretty-prints; sort_keys orders object keys; separators=(",", ":")
+    makes compact output; ensure_ascii=False keeps non-ASCII characters
+    instead of \uXXXX escapes.
+
+Q37. What is the output?
+        print(json.dumps("héllo"), json.dumps("héllo", ensure_ascii=False))
+A.  "h\u00e9llo" "héllo"
+
+Q38. JSON vs Python dictionary - how do they differ?
+A.  JSON is a text format: keys must be double-quoted strings, literals are
+    true / false / null, no trailing commas or comments, and only a few
+    value types. A dict is a Python object with any hashable keys and any
+    values.
+
+Q39. How do you convert a CSV file to JSON?
+A.  with open("in.csv", newline="", encoding="utf-8") as f:
+        data = list(csv.DictReader(f))
+    then json.dump(data, out_file, indent=2). (All values stay strings unless
+    you convert them.)
+
+Q40. JSON vs pickle?
+A.  JSON is text, cross-language, human readable and safe to parse but
+    supports few types. Pickle is a Python-only binary format that handles
+    almost any object but can execute arbitrary code when loading, so it must
+    never be used on untrusted data.
+
+Q41. How do you process a JSON file too big for memory?
+A.  Use JSON Lines (one object per line) and parse line by line with
+    json.loads, or a streaming parser such as ijson, instead of json.load of
+    the whole file.
+
+Q42. What is the output?
+        s = '{"users": [{"name": "A"}, {"name": "B", "age": 3}]}'
+        d = json.loads(s)
+        print([u.get("age", 0) for u in d["users"]])
+A.  [0, 3]   (use get() with a default for optional keys).
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

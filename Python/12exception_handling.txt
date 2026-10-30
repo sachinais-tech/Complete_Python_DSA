@@ -1,0 +1,1306 @@
+==============================================================================
+       PYTHON EXCEPTION HANDLING AND DEBUGGING: try/except, LOGGING AND
+                     DEBUGGING TECHNIQUES - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Real programs meet bad input, missing files, network failures and plain bugs.
+Exception handling lets a program react to errors instead of crashing.
+Logging records what happened. Debugging is finding and fixing the cause.
+
+    A. Errors and exceptions - kinds of errors, hierarchy, common exceptions
+    B. try / except          - try, except, else, finally, raise, custom
+                               exceptions, assert, patterns
+    C. Logging               - logging module, levels, handlers, formatting
+    D. Debugging techniques  - tracebacks, print, pdb, IDE, tests, tools
+    E. Pitfalls, checklist and interview questions
+
+Big picture:
+    raise  ->  exception travels UP the call stack  ->  caught by an
+    except block, or the program stops and prints a traceback.
+
+
+==============================================================================
+                      A. ERRORS AND EXCEPTIONS
+==============================================================================
+
+2. KINDS OF ERRORS
+------------------------------------------------------------------------------
+  Kind            | When found          | Example
+  ----------------|---------------------|----------------------------------
+  Syntax error    | before the program  | print("hi"      (missing bracket)
+                  | runs (parsing)      | if x = 5:       (= instead of ==)
+  Runtime error   | while running:      | 10 / 0, int("abc"), [][0]
+  (exception)     | an exception        |
+  Logical error   | never reported; the | average = a + b / 2  (wrong
+  (bug)           | result is WRONG     | precedence), off-by-one loops
+
+    - Syntax errors (SyntaxError, IndentationError, TabError) stop the file
+      from running at all; fix the code. They cannot be caught with try in
+      the same file (only when compiling text with eval / exec / import).
+    - Exceptions can be handled with try / except.
+    - Logical errors need testing and debugging.
+
+An EXCEPTION is an object that signals an error or unusual event. When it is
+raised and not handled, the program stops with a traceback.
+
+3. EXCEPTION HIERARCHY
+------------------------------------------------------------------------------
+All exceptions are classes that inherit from BaseException.
+
+    BaseException
+     +-- SystemExit                 raised by sys.exit()
+     +-- KeyboardInterrupt          Ctrl+C
+     +-- GeneratorExit
+     +-- BaseExceptionGroup
+     +-- Exception                  <- catch THIS family in normal code
+          +-- ArithmeticError
+          |    +-- ZeroDivisionError   +-- OverflowError
+          |    +-- FloatingPointError
+          +-- AssertionError
+          +-- AttributeError
+          +-- EOFError
+          +-- ImportError
+          |    +-- ModuleNotFoundError
+          +-- LookupError
+          |    +-- IndexError          +-- KeyError
+          +-- MemoryError
+          +-- NameError
+          |    +-- UnboundLocalError
+          +-- OSError  (IOError, EnvironmentError)
+          |    +-- FileNotFoundError   +-- FileExistsError
+          |    +-- PermissionError     +-- IsADirectoryError
+          |    +-- NotADirectoryError  +-- TimeoutError
+          |    +-- ConnectionError
+          +-- RuntimeError
+          |    +-- NotImplementedError +-- RecursionError
+          +-- StopIteration
+          +-- SyntaxError
+          |    +-- IndentationError
+          |         +-- TabError
+          +-- TypeError
+          +-- ValueError
+          |    +-- UnicodeError
+          |         +-- UnicodeDecodeError / UnicodeEncodeError
+          +-- Warning (DeprecationWarning, UserWarning, ...)
+          +-- ExceptionGroup
+
+Why it matters: an except clause catches the named class AND all its
+subclasses.
+    except LookupError   catches IndexError and KeyError
+    except ArithmeticError catches ZeroDivisionError and OverflowError
+    except OSError       catches FileNotFoundError, PermissionError, ...
+    except Exception     catches almost everything, but NOT
+                         KeyboardInterrupt, SystemExit, GeneratorExit.
+
+4. COMMON BUILT-IN EXCEPTIONS (WHAT CAUSES THEM)
+------------------------------------------------------------------------------
+  Exception          | Typical cause and message
+  -------------------|-----------------------------------------------------
+  ZeroDivisionError  | 1 / 0 ("division by zero"), 5 // 0, 5 % 0 (the wording
+                     | of the message varies with the operator)
+  ValueError         | right type, bad value: int("abc") -> "invalid literal
+                     | for int() with base 10: 'abc'"; math.sqrt(-1)
+  TypeError          | wrong type: "5" + 5 -> 'can only concatenate str (not
+                     | "int") to str'; len(5); f() missing argument
+  IndexError         | [1, 2][5]          "list index out of range"
+  KeyError           | {}["a"]            KeyError: 'a'
+  NameError          | print(x) with x undefined   "name 'x' is not defined"
+  UnboundLocalError  | local variable used before assignment
+  AttributeError     | "a".foo   "'str' object has no attribute 'foo'";
+                     | None.x    "'NoneType' object has no attribute 'x'"
+  ImportError /      | import nomodule   "No module named 'nomodule'"
+  ModuleNotFoundError|
+  FileNotFoundError  | open("x.txt")  "[Errno 2] No such file or directory"
+  PermissionError    | opening a protected file / a directory
+  StopIteration      | next() on an exhausted iterator
+  RecursionError     | recursion deeper than the limit (about 1000)
+  OverflowError      | 2.0 ** 1024  "(34, 'Numerical result out of range')"
+  MemoryError        | not enough memory
+  AssertionError     | assert condition is false
+  NotImplementedError| placeholder for methods subclasses must define
+  EOFError           | input() with no more data
+  KeyboardInterrupt  | user pressed Ctrl+C
+  SystemExit         | sys.exit()
+  RuntimeError       | generic; e.g. dictionary changed size during iteration
+  UnicodeDecodeError | bytes cannot be decoded (wrong encoding)
+  IndentationError   | bad indentation (SyntaxError subclass)
+
+Quick quiz:
+    int("x")  ValueError     [][0]  IndexError    {}["k"]  KeyError
+    None.x  AttributeError   5 + "5"  TypeError    1 / 0  ZeroDivisionError
+    undefined_name  NameError    import missing_mod  ModuleNotFoundError
+
+
+==============================================================================
+                       B. try / except
+==============================================================================
+
+5. BASIC SYNTAX
+------------------------------------------------------------------------------
+    try:
+        risky code
+    except SomeError:
+        handle it
+    except (ErrorA, ErrorB) as e:
+        handle either; e holds the exception object
+    except Exception as e:
+        handle everything else (last)
+    else:
+        runs ONLY if the try block raised no exception
+    finally:
+        ALWAYS runs (clean-up)
+
+    try:
+        result = 10 / 0
+    except ZeroDivisionError:
+        print("Cannot divide by zero")
+    # Cannot divide by zero  (the program continues)
+
+Flow:
+    1. Run the try block line by line.
+    2. If an exception occurs, the rest of the try block is SKIPPED and Python
+       looks for the first matching except (top to bottom).
+    3. If none matches, the exception propagates to the caller (and finally
+       still runs).
+    4. If no exception occurred, run else.
+    5. finally runs in every case.
+
+Rules:
+    - try needs at least one except or a finally.
+    - else needs an except before it; finally comes last.
+    - Only the FIRST matching except runs.
+    - Put specific exceptions BEFORE general ones; if a general class comes
+      first, the later specific handler can never run:
+          try: ...
+          except Exception: ...        # catches everything below too
+          except ValueError: ...       # never reached
+    - Keep the try block SMALL: only the statement that can fail.
+
+6. THE EXCEPTION OBJECT
+------------------------------------------------------------------------------
+    try:
+        int("abc")
+    except ValueError as e:
+        print(e)                     # invalid literal for int() with base 10:
+                                     # 'abc'
+        print(type(e).__name__)      # ValueError
+        print(repr(e))               # ValueError("invalid literal ...")
+        print(e.args)                # ("invalid literal ...",)
+    print(e)                         # NameError: e is deleted after the block
+                                     # (assign it to another name to keep it)
+
+Useful attributes:
+    e.args           tuple of arguments given to the exception
+    str(e)           the message
+    e.__traceback__  traceback object
+    e.__cause__      exception explicitly chained with "raise ... from"
+    e.__context__    exception being handled when this one was raised
+    e.add_note("text")   attach extra information (3.11+)
+    OSError: e.errno, e.strerror, e.filename
+    KeyError: str(e) shows the key WITH quotes ('a')
+    SyntaxError: e.lineno, e.offset, e.text
+
+7. CATCHING SEVERAL EXCEPTIONS
+------------------------------------------------------------------------------
+Separate handlers:
+    try:
+        n = int(input("n: "))
+        print(10 / n)
+    except ValueError:
+        print("Enter a number")
+    except ZeroDivisionError:
+        print("n must not be 0")
+
+One handler for several types (a TUPLE, not "or"):
+    except (ValueError, TypeError) as e:
+        print("Bad input:", e)
+    except ValueError or TypeError:        # WRONG: evaluates to ValueError
+
+Parent class catches children:
+    except LookupError: ...                # IndexError and KeyError
+    except OSError: ...                    # all file / network errors
+
+Nested try:
+    try:
+        try:
+            raise KeyError("k")
+        except ValueError:
+            print("inner")                 # no match
+    except KeyError:
+        print("outer")                     # outer
+An exception not handled by the inner try moves outward.
+
+8. else AND finally
+------------------------------------------------------------------------------
+else = "success" block. Put code there that should run only if try worked,
+so its own errors are not caught by the except above:
+
+    try:
+        f = open("data.txt")
+    except FileNotFoundError:
+        print("missing")
+    else:
+        print(f.read())               # only if open() succeeded
+        f.close()
+    finally:
+        print("done")                 # always
+
+finally = clean-up that MUST happen (close file, release lock, disconnect):
+    f = None
+    try:
+        f = open("data.txt")
+        data = f.read()
+    finally:
+        if f: f.close()               # runs on success, error, return, break
+
+Execution examples:
+    try:    print("A")
+    except: print("B")
+    else:   print("C")
+    finally:print("D")
+    # A C D          (no error)
+
+    try:    1 / 0
+    except ZeroDivisionError: print("B")
+    else:   print("C")
+    finally:print("D")
+    # B D            (error handled; else skipped)
+
+finally runs even when:
+    - the try block executes return, break or continue
+    - an exception is not caught (it still propagates after finally)
+    - sys.exit() raises SystemExit
+    It does NOT run if the process is killed (os._exit(), crash, power off).
+
+return and finally:
+    def f():
+        try:
+            return "try"
+        finally:
+            print("finally")          # runs BEFORE the function returns
+    f()                               # prints finally, returns 'try'
+
+    def g():
+        try:
+            return 1
+        finally:
+            return 2                  # overrides: g() returns 2
+    A return / break inside finally also hides an exception - avoid it.
+
+with vs finally: the with statement does the same clean-up more neatly:
+    with open("data.txt") as f:
+        data = f.read()
+
+9. raise
+------------------------------------------------------------------------------
+Raise an exception yourself:
+    raise ValueError("age must be positive")
+    raise ValueError                  # class: Python creates an instance
+    raise TypeError(f"expected int, got {type(x).__name__}")
+
+    def set_age(age):
+        if not isinstance(age, int):
+            raise TypeError("age must be an int")
+        if age < 0:
+            raise ValueError("age cannot be negative")
+        return age
+
+Re-raise inside except (bare raise keeps the original traceback):
+    try:
+        risky()
+    except OSError:
+        log_it()
+        raise                         # same exception continues upward
+    raise e                           # also works but adds a frame; prefer
+                                      # bare raise
+    raise                             # outside an except block:
+                                      # RuntimeError: No active exception
+
+Exception chaining:
+    try:
+        int("x")
+    except ValueError as e:
+        raise RuntimeError("config invalid") from e    # explicit cause
+    # traceback shows: "The above exception was the direct cause of the
+    # following exception"
+    # in the handler of the new exception: err.__cause__ is the ValueError
+
+    raise NewError from None          # hide the original context
+
+    Implicit chaining: raising a new exception inside an except block shows
+    "During handling of the above exception, another exception occurred".
+    The earlier one is in __context__.
+
+Raise NotImplementedError in a base-class method that subclasses override.
+
+10. CUSTOM EXCEPTIONS
+------------------------------------------------------------------------------
+Subclass Exception (not BaseException). Name them ...Error.
+
+    class AppError(Exception):
+        """Base class for errors of this application."""
+
+    class InsufficientFundsError(AppError):
+        def __init__(self, balance, needed):
+            super().__init__(f"Balance {balance} is less than {needed}")
+            self.balance = balance
+            self.needed = needed
+
+    class Account:
+        def __init__(self, balance): self.balance = balance
+        def withdraw(self, amt):
+            if amt > self.balance:
+                raise InsufficientFundsError(self.balance, amt)
+            self.balance -= amt
+
+    try:
+        Account(100).withdraw(500)
+    except InsufficientFundsError as e:
+        print(e)                           # Balance 100 is less than 500
+        print(e.needed - e.balance)        # 400
+    except AppError:
+        print("other app error")
+
+Guidelines:
+    - Build a small hierarchy: one base exception per library / application
+      so callers can catch it all with one except.
+    - Pass a clear message to super().__init__().
+    - Attach useful data as attributes.
+    - Reuse built-ins (ValueError, TypeError, KeyError) when they fit.
+    - A bare "class MyError(Exception): pass" is enough in many cases.
+
+11. assert
+------------------------------------------------------------------------------
+    assert condition, "message"
+    assert x > 0, "x must be positive"      # raises AssertionError if false
+
+    - Meant for checking assumptions (invariants) and for debugging / tests.
+    - Removed when Python runs with -O (optimised) - never rely on assert for
+      validating user input or security checks. Use if + raise.
+    - Do not put side effects in an assert expression.
+    - assert (x > 0, "msg") is a bug: a non-empty tuple is always true.
+
+12. EAFP vs LBYL
+------------------------------------------------------------------------------
+    LBYL - Look Before You Leap (check first):
+        if key in d:
+            value = d[key]
+        if os.path.exists(p):
+            open(p)
+
+    EAFP - Easier to Ask Forgiveness than Permission (try first):
+        try:
+            value = d[key]
+        except KeyError:
+            value = default
+
+    Python style prefers EAFP: it avoids race conditions (the file may vanish
+    between the check and the open) and is often faster when failure is rare.
+    Use LBYL when checking is cheap and failure is common (d.get(key, 0)).
+
+13. USEFUL PATTERNS
+------------------------------------------------------------------------------
+Validate input until correct:
+    while True:
+        try:
+            age = int(input("Age: "))
+            if age < 0:
+                raise ValueError("negative")
+            break
+        except ValueError:
+            print("Please enter a non-negative whole number")
+
+Skip bad items in a loop:
+    nums = []
+    for s in ["1", "x", "3"]:
+        try:
+            nums.append(int(s))
+        except ValueError:
+            continue                   # nums = [1, 3]
+
+Safe function returning a default:
+    def safe_div(a, b):
+        try:
+            return a / b
+        except ZeroDivisionError:
+            return None
+
+Retry with a limit:
+    for attempt in range(1, 4):
+        try:
+            data = fetch()
+            break
+        except ConnectionError:
+            if attempt == 3:
+                raise
+            time.sleep(attempt)
+
+Convert low-level errors into your own (exception translation):
+    try:
+        config = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ConfigError("bad config file") from e
+
+Ignore specific exceptions:
+    from contextlib import suppress
+    with suppress(FileNotFoundError):
+        os.remove("tmp.txt")
+
+Clean-up with several resources: use with, or contextlib.ExitStack.
+
+Top-level handler for a program:
+    def main(): ...
+    if __name__ == "__main__":
+        try:
+            main()
+        except KeyboardInterrupt:
+            print("Interrupted")
+        except Exception:
+            logging.exception("Fatal error")
+            sys.exit(1)
+
+Global hook for uncaught exceptions: sys.excepthook (threads: threading.
+excepthook). An uncaught exception ends the program with exit status 1.
+
+14. EXCEPTION GROUPS (3.11+, BRIEF)
+------------------------------------------------------------------------------
+Used by concurrency code (asyncio TaskGroup) to report several errors at once:
+
+    eg = ExceptionGroup("batch", [ValueError(1), TypeError("x")])
+    try:
+        raise eg
+    except* ValueError as g:
+        print("values:", g.exceptions)
+    except* TypeError as g:
+        print("types:", g.exceptions)
+
+except* handles the matching part of the group; each clause can run.
+
+15. WARNINGS
+------------------------------------------------------------------------------
+Warnings report something suspicious without stopping the program.
+
+    import warnings
+    warnings.warn("old function", DeprecationWarning, stacklevel=2)
+    warnings.simplefilter("ignore")            # silence
+    warnings.simplefilter("error")             # turn warnings into exceptions
+    python -W error script.py                  # same from the command line
+
+Categories: UserWarning, DeprecationWarning, FutureWarning, RuntimeWarning,
+SyntaxWarning.
+
+16. BEST PRACTICES
+------------------------------------------------------------------------------
+ 1. Catch the most specific exception you can handle.
+ 2. Avoid bare  except:  - it also catches KeyboardInterrupt and SystemExit,
+    so Ctrl+C stops working. If needed use  except Exception.
+ 3. Never silently swallow errors (except: pass). At least log them.
+ 4. Keep try blocks small; put success-only code in else.
+ 5. Use finally or with for clean-up.
+ 6. Re-raise with bare raise when you cannot really handle the error.
+ 7. Use "raise ... from e" to keep the cause when translating exceptions.
+ 8. Raise exceptions with clear messages (what happened, which value).
+ 9. Do not use exceptions for ordinary control flow when a simple if is
+    clearer and the "error" is common.
+10. Do not catch an exception only to print and continue as if nothing
+    happened if the program cannot work correctly afterwards.
+11. Use assert for internal checks only, not for user input.
+12. Log exceptions with logger.exception() so the traceback is saved.
+13. Write tests that check the error paths (pytest.raises).
+
+
+==============================================================================
+                            C. LOGGING
+==============================================================================
+
+17. WHY LOGGING AND NOT print()?
+------------------------------------------------------------------------------
+  Feature             | print()            | logging
+  --------------------|--------------------|-------------------------------
+  Severity levels     | none               | DEBUG ... CRITICAL
+  Turn on / off       | edit the code      | change level / configuration
+  Destination         | screen only        | screen, files, network, email
+  Timestamp / source  | manual             | built in (time, module, line)
+  Traceback saving    | manual             | logger.exception()
+  Production use      | no                 | yes
+  Per-module control  | no                 | yes (logger hierarchy)
+
+    import logging
+
+18. LOG LEVELS
+------------------------------------------------------------------------------
+  Level     | Value | Use for
+  ----------|-------|------------------------------------------------------
+  DEBUG     |  10   | detailed information for diagnosing problems
+  INFO      |  20   | normal events: "started", "user logged in"
+  WARNING   |  30   | something unexpected, program still works (DEFAULT
+            |       | threshold)
+  ERROR     |  40   | an operation failed
+  CRITICAL  |  50   | serious failure, the program may stop
+  (NOTSET   |   0   | inherit the level from the parent logger)
+
+Only messages at or above the configured level are shown. The default level
+is WARNING, so debug() and info() print nothing until you lower it.
+
+    logging.debug("details")        # not shown by default
+    logging.info("progress")        # not shown by default
+    logging.warning("careful")      # WARNING:root:careful
+    logging.error("failed")         # ERROR:root:failed
+    logging.critical("fatal")       # CRITICAL:root:fatal
+
+The default output goes to stderr in the format  LEVEL:logger_name:message.
+
+19. basicConfig() - QUICK SETUP
+------------------------------------------------------------------------------
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        filename="app.log",            # omit to log to the screen (stderr)
+        filemode="a",                  # "a" append (default) or "w" overwrite
+        encoding="utf-8",              # 3.9+
+    )
+    logging.info("Application started")
+    # app.log:  2024-05-01 10:15:00 - root - INFO - Application started
+
+    logging.basicConfig(level=logging.INFO,
+                        format="%(levelname)s:%(message)s")
+    logging.debug("d")                 # not shown
+    logging.info("i")                  # INFO:i
+
+Facts:
+    - basicConfig does NOTHING if the root logger already has handlers (for
+      example after an earlier logging call). Call it once, at the start, or
+      use force=True (3.8+) to reconfigure.
+    - Calling logging.info() before basicConfig() configures the root logger
+      with defaults, which makes the later basicConfig() ineffective.
+    - Parameters: level, format, datefmt, style, filename, filemode, stream,
+      handlers, force, encoding.
+
+Format fields:
+    %(asctime)s      time           %(levelname)s   INFO / ERROR ...
+    %(levelno)s      10, 20 ...     %(name)s        logger name
+    %(message)s      your text      %(filename)s    source file name
+    %(module)s       module name    %(funcName)s    function name
+    %(lineno)d       line number    %(pathname)s    full path
+    %(process)d      process id     %(thread)d      thread id
+    %(threadName)s   thread name
+
+20. LOGGERS, HANDLERS, FORMATTERS, FILTERS
+------------------------------------------------------------------------------
+A real application uses four cooperating parts:
+
+    Logger     - the object your code calls (logger.info("..."))
+    Handler    - sends records to a destination (screen, file, ...)
+    Formatter  - lays out the text of a record
+    Filter     - extra rules for which records pass
+
+    import logging
+
+    logger = logging.getLogger(__name__)      # one logger per module
+    logger.setLevel(logging.DEBUG)
+
+    console = logging.StreamHandler()          # stderr
+    console.setLevel(logging.INFO)
+
+    file_h = logging.FileHandler("app.log", encoding="utf-8")
+    file_h.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+    console.setFormatter(fmt)
+    file_h.setFormatter(fmt)
+
+    logger.addHandler(console)
+    logger.addHandler(file_h)
+
+    logger.debug("goes to the file only")      # DEBUG < console's INFO
+    logger.info("goes to both")
+
+Common handlers:
+    StreamHandler                  console (stderr / stdout)
+    FileHandler                    one file
+    RotatingFileHandler(f, maxBytes=1_000_000, backupCount=3)
+                                   starts a new file at a size limit
+    TimedRotatingFileHandler(f, when="midnight", backupCount=7)
+    NullHandler                    does nothing (for libraries)
+    SMTPHandler / HTTPHandler / SysLogHandler / QueueHandler
+
+    from logging.handlers import RotatingFileHandler
+
+Two level checks: a record must pass the LOGGER level first, then each
+HANDLER level.
+
+Logger hierarchy and propagation:
+    Names are dotted: "app", "app.db", "app.db.pool". A child sends its
+    records up to its parent's handlers (propagate=True).
+    logging.getLogger("app.db")      # child of "app"
+    logging.getLogger()              # root logger
+    logger.propagate = False         # stop passing records to ancestors
+    - Setting the level on "app" affects "app.db" if the child level is
+      NOTSET.
+    - Adding the same handler to a logger AND its parent prints each message
+      twice. Add handlers once, normally on the root logger.
+    - getLogger("x") always returns the SAME object for the same name.
+
+21. LOGGING EXCEPTIONS
+------------------------------------------------------------------------------
+    try:
+        1 / 0
+    except ZeroDivisionError:
+        logger.exception("Calculation failed")    # level ERROR + traceback
+        logger.error("Calculation failed", exc_info=True)   # same as above
+        logger.warning("recovered", exc_info=True)           # other levels
+
+    # ERROR:__main__:Calculation failed
+    # Traceback (most recent call last):
+    #   File "...", line 2, in <module>
+    # ZeroDivisionError: division by zero
+
+    - logger.exception() is for use INSIDE an except block.
+    - Logging e with str(e) loses the traceback; use exc_info=True.
+    - logger.critical("...", exc_info=True) for fatal ones before sys.exit.
+
+22. LAZY FORMATTING AND CONTEXT
+------------------------------------------------------------------------------
+    logger.info("User %s logged in from %s", name, ip)     # preferred
+    logger.info(f"User {name} logged in from {ip}")        # always builds the
+                                                           # string
+    - %-style arguments are formatted only if the message is actually
+      emitted, which saves time for disabled DEBUG calls.
+    if logger.isEnabledFor(logging.DEBUG): ...    guard very expensive work
+
+Extra context:
+    logger.info("order created", extra={"order_id": 42})   # use %(order_id)s
+    LoggerAdapter, contextvars, or structured (JSON) logging libraries for
+    larger systems.
+
+23. CONFIGURATION WITH dictConfig
+------------------------------------------------------------------------------
+    import logging.config
+
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "std": {"format":
+                    "%(asctime)s %(levelname)s %(name)s: %(message)s"}
+        },
+        "handlers": {
+            "console": {"class": "logging.StreamHandler",
+                        "formatter": "std", "level": "INFO"},
+            "file": {"class": "logging.handlers.RotatingFileHandler",
+                     "filename": "app.log", "maxBytes": 1000000,
+                     "backupCount": 3, "formatter": "std", "level": "DEBUG"},
+        },
+        "root": {"handlers": ["console", "file"], "level": "DEBUG"},
+    }
+    logging.config.dictConfig(LOGGING)
+
+Also: logging.config.fileConfig("logging.ini"). Configure logging ONCE, at
+the program's entry point.
+
+24. LOGGING BEST PRACTICES
+------------------------------------------------------------------------------
+ 1. In every module: logger = logging.getLogger(__name__).
+ 2. Libraries only create loggers (and may add a NullHandler); the
+    APPLICATION decides handlers, levels and formats.
+ 3. Pick the level honestly: DEBUG for diagnostics, INFO for milestones,
+    WARNING for odd but survivable, ERROR for failures, CRITICAL for fatal.
+ 4. Use logger.exception() in except blocks to keep tracebacks.
+ 5. Use %s arguments instead of f-strings in log calls.
+ 6. Never log passwords, tokens or personal data.
+ 7. Include identifiers (user id, request id) to follow one story.
+ 8. Rotate log files so they do not fill the disk.
+ 9. Do not call basicConfig in library code.
+10. Avoid heavy logging inside tight loops.
+11. Silence everything: logging.disable(logging.CRITICAL); restore with
+    logging.disable(logging.NOTSET).
+12. Send warnings.warn() output to logging with logging.captureWarnings(True).
+13. Use print() only for the real output of a program; logging for
+    diagnostics.
+
+
+==============================================================================
+                      D. DEBUGGING TECHNIQUES
+==============================================================================
+
+25. READING A TRACEBACK
+------------------------------------------------------------------------------
+    1  def average(nums):
+    2      return sum(nums) / len(nums)
+    3
+    4  def main():
+    5      data = []
+    6      print(average(data))
+    7
+    8  main()
+
+    Traceback (most recent call last):
+      File "app.py", line 8, in <module>
+        main()
+      File "app.py", line 6, in main
+        print(average(data))
+      File "app.py", line 2, in average
+        return sum(nums) / len(nums)
+    ZeroDivisionError: division by zero
+
+How to read it:
+    1. The LAST line is the exception type and message: start there.
+    2. The frame just above it is where the error happened (file, line,
+       function, source line).
+    3. Frames above that are the chain of calls that led there ("most recent
+       call last" - the outermost call is at the top).
+    4. Decide whether the bug is in the failing line or in the data that was
+       passed in from an earlier frame (here: main passed an empty list).
+    - Python 3.11+ marks the failing part of the line with ^^^^ and 3.10+
+      suggests fixes ("Did you mean ...?").
+    - For chained exceptions, read the FIRST (original) traceback too.
+
+Programmatic access:
+    import traceback, sys
+    traceback.print_exc()                # print the current traceback
+    text = traceback.format_exc()        # as a string (for logging)
+    traceback.print_stack()              # current call stack
+    exc_type, exc, tb = sys.exc_info()   # inside an except block
+
+26. PRINT DEBUGGING
+------------------------------------------------------------------------------
+The simplest tool: show values at key points.
+
+    print("DEBUG total =", total)
+    print(f"{total=}")                   # total=15 (variable name + value)
+    print(f"{x=!r} {type(x)=}")          # repr and type
+    print(f"{len(items)=}", file=sys.stderr)
+    print(repr(s))                       # reveals hidden spaces / newlines
+    print(list(gen))                     # careful: consumes a generator
+
+Tips:
+    - Label every print so you know which one produced the output.
+    - Print BEFORE the failing line to see the inputs.
+    - Print types: many bugs are str vs int confusion.
+    - Print inside loops with the loop index.
+    - Remove the prints afterwards - or use logging.debug instead.
+    - pprint.pprint(obj) for nested data.
+
+27. THE DEBUGGER pdb
+------------------------------------------------------------------------------
+Start it:
+    breakpoint()                         # Python 3.7+: drop-in breakpoint
+    import pdb; pdb.set_trace()          # older equivalent
+    python -m pdb script.py              # run under the debugger from line 1
+                                         # (an uncaught exception enters
+                                         # post-mortem mode)
+    pdb.pm()                             # post-mortem after a crash (REPL)
+    PYTHONBREAKPOINT=0 python script.py  # disable all breakpoint() calls
+
+Commands at the (Pdb) prompt:
+  Command        | Action
+  ---------------|------------------------------------------------------
+  h / help       | list commands
+  l / list       | show source around the current line (ll = whole function)
+  n / next       | run the current line (step OVER function calls)
+  s / step       | step INTO a called function
+  r / return     | run until the current function returns
+  c / continue   | run until the next breakpoint / end
+  unt / until N  | run until line N (or past a loop)
+  b N / b f:N    | set a breakpoint at line N (or file:line, or function)
+  b N, cond      | conditional breakpoint:  b 12, i == 5
+  tbreak         | one-time breakpoint
+  cl N           | clear breakpoint N       b (alone) lists breakpoints
+  p expr         | print the value of an expression
+  pp expr        | pretty-print
+  w / where      | show the call stack      u / d  move up / down a frame
+  a / args       | show arguments of the current function
+  !statement     | execute Python (also changes variables:  !x = 10)
+  display expr   | show an expression after every step
+  j N / jump     | jump to line N
+  q / quit       | leave the debugger
+
+Typical session:
+    def total(nums):
+        s = 0
+        for n in nums:
+            breakpoint()          # stops here each pass
+            s += n
+        return s
+    (Pdb) p n
+    (Pdb) p s
+    (Pdb) n
+    (Pdb) c
+
+Step OVER (n) vs step INTO (s) vs continue (c): n runs a whole call in one
+go; s enters the call; c runs to the next breakpoint.
+
+28. IDE DEBUGGERS (VS Code, PyCharm, Spyder)
+------------------------------------------------------------------------------
+Graphical debuggers give the same power as pdb with a click interface:
+    - Breakpoints: click the gutter next to a line number.
+    - Conditional breakpoints (stop only when x > 5) and hit counts.
+    - Logpoints: print a message without editing the code.
+    - Step Over (F10), Step Into (F11), Step Out (Shift+F11),
+      Continue (F5)  [VS Code shortcuts].
+    - Variables panel, Watch expressions, Call Stack panel.
+    - Debug Console: evaluate expressions and call functions while paused.
+    - "Raised exceptions" / "Uncaught exceptions" breakpoints stop exactly
+      where the error is thrown.
+    - Run and Debug configuration in VS Code: .vscode/launch.json.
+
+29. INSPECTING OBJECTS
+------------------------------------------------------------------------------
+    type(x)             class of x            isinstance(x, int)
+    repr(x)             exact representation  id(x)  identity
+    dir(x)              names of attributes and methods
+    vars(x) / x.__dict__    instance attributes
+    help(x)             documentation
+    len(x)  x.shape-like checks  sys.getsizeof(x)
+    callable(x)   hasattr(x, "name")   getattr(x, "name", default)
+    import inspect
+    inspect.getsource(func)    inspect.signature(func)    inspect.stack()
+    locals()   globals()       local / global names as dicts
+    python -i script.py        run, then keep the REPL to inspect variables
+
+30. A DEBUGGING WORKFLOW
+------------------------------------------------------------------------------
+ 1. REPRODUCE the problem reliably (exact input, steps, environment).
+ 2. READ the error message and traceback carefully.
+ 3. Make a MINIMAL example: remove everything unrelated until the bug
+    remains (often reveals the cause).
+ 4. FORM A HYPOTHESIS: "I think x is None at this line".
+ 5. TEST it: print, log, assert or step with a debugger.
+ 6. NARROW DOWN by bisecting: check the middle of the code path; is the
+    data already wrong there? Repeat in the bad half. (git bisect does this
+    over commits.)
+ 7. FIX the root cause, not the symptom.
+ 8. Add a TEST (regression test) so it never returns.
+ 9. Remove debugging prints; keep useful logging.
+ Also: take a break, explain the code aloud ("rubber duck"), compare with
+ a working version (git diff), search the exact error message.
+
+31. TESTING AS A DEBUGGING TOOL
+------------------------------------------------------------------------------
+assert statements:
+    assert average([2, 4]) == 3
+
+unittest (standard library):
+    import unittest
+    class TestMath(unittest.TestCase):
+        def test_div(self):
+            self.assertEqual(10 / 2, 5)
+            with self.assertRaises(ZeroDivisionError):
+                1 / 0
+    if __name__ == "__main__":
+        unittest.main()
+
+pytest (popular, simpler):
+    import pytest
+    def test_div():
+        assert 10 / 2 == 5
+        with pytest.raises(ZeroDivisionError):
+            1 / 0
+    def test_message():
+        with pytest.raises(ValueError, match="invalid literal"):
+            int("x")
+    # run:  pytest -q        pytest -x (stop at first failure)  pytest -k name
+
+doctest (tests inside docstrings):
+    def add(a, b):
+        """
+        >>> add(2, 3)
+        5
+        """
+        return a + b
+    # python -m doctest -v file.py
+
+Write tests for normal cases, edge cases (empty, zero, one item, very large)
+and error cases.
+
+32. TOOLS THAT FIND BUGS FOR YOU
+------------------------------------------------------------------------------
+  Tool / flag                | What it does
+  ---------------------------|---------------------------------------------
+  python -X dev script.py    | development mode: extra checks and warnings
+  python -W error            | turn warnings into errors
+  python -X faulthandler     | dump tracebacks on crashes / hangs
+  python -m trace --trace    | trace executed lines
+  python -m pdb              | debugger
+  linters: flake8, pylint,   | find unused variables, undefined names, style
+  ruff                       | problems without running the code
+  mypy / pyright             | static type checking of type hints
+  black / ruff format        | consistent formatting (fewer diff mistakes)
+  tracemalloc                | find memory leaks / big allocations
+  cProfile, timeit, py-spy   | find slow code (performance bugs)
+  git bisect, git diff       | find which change introduced the bug
+
+    import timeit
+    timeit.timeit("sum(range(100))", number=10000)
+    python -m cProfile -s cumtime script.py
+
+33. COMMON BUGS AND THEIR SIGNS
+------------------------------------------------------------------------------
+  Bug                              | Typical symptom / fix
+  ---------------------------------|----------------------------------------
+  Off-by-one (range, slicing)      | missing or extra item; check the bounds
+  = instead of ==                  | SyntaxError in if; or wrong logic
+  input() is a str                 | TypeError or "55" instead of 10
+  Integer vs float division        | / gives float, // floors
+  Mutable default argument         | list keeps growing between calls
+  Alias instead of copy            | changing one list changes another
+  Modifying a list while looping   | skipped items
+  Using an exhausted iterator      | second pass is empty
+  Shadowing a built-in (list, sum) | 'list' object is not callable
+  Missing return                   | function gives None
+  Wrong scope (assign in function) | UnboundLocalError
+  Late binding in lambdas/loops    | all closures see the last value
+  Float equality (0.1 + 0.2 == 0.3)| False; use math.isclose
+  Wrong indentation                | code in/out of the wrong block
+  Comparing with is                | use == for values
+  Wrong working directory / path   | FileNotFoundError
+  Encoding mismatch                | UnicodeDecodeError / garbled text
+  Catching too much (bare except)  | real bugs hidden
+  Stale .pyc / wrong interpreter   | "module not found" though installed
+  Name typo                        | NameError / AttributeError
+
+Debugging recursion: print the depth with indentation
+    def f(n, depth=0):
+        print("  " * depth, "f(", n, ")")
+        ...
+Debugging generators and iterators: take a few items with
+list(itertools.islice(gen, 5)) instead of consuming everything.
+
+
+==============================================================================
+                 E. PITFALLS AND CHECKLIST
+==============================================================================
+
+34. COMMON MISTAKES IN EXCEPTION HANDLING
+------------------------------------------------------------------------------
+  Mistake                              | Fix
+  -------------------------------------|----------------------------------
+  Bare  except:                        | except Exception: (or the specific
+                                       | type)
+  except: pass                         | handle it or at least log it
+  except ValueError or TypeError       | except (ValueError, TypeError)
+  General except before specific       | order from specific to general
+  Huge try block                       | wrap only the risky statement
+  Using e after the except block       | it is deleted; copy it first
+  Losing the traceback                 | use bare raise / raise ... from e /
+                                       | logger.exception
+  raise Exception("...") everywhere    | raise a precise type or custom one
+  Catching KeyboardInterrupt by       | use except Exception
+  accident
+  assert for input validation          | if + raise (assert vanishes with -O)
+  return in finally                    | hides exceptions; avoid
+  Not closing resources                | with / finally
+  Printing instead of logging          | logging with levels and handlers
+  Logging with str(e) only             | logger.exception / exc_info=True
+  f-string in every log call           | use %s arguments
+  basicConfig called twice             | only the first call counts (or
+                                       | force=True)
+  Duplicate log lines                  | handler added twice / propagation
+
+35. CHECKLIST
+------------------------------------------------------------------------------
+  1. Syntax errors are found before running; exceptions while running; logic
+     errors only by testing.
+  2. except catches the named class and its subclasses; order specific first.
+  3. else runs only on success; finally runs always.
+  4. Bare raise re-raises; raise ... from e chains; raise ... from None hides.
+  5. Custom exceptions subclass Exception.
+  6. Never swallow exceptions silently; avoid bare except.
+  7. Use with for clean-up; finally when with is not available.
+  8. assert is for debugging and invariants, not for validation.
+  9. Prefer EAFP, but use LBYL when checks are cheap and failure is common.
+ 10. Logging levels: DEBUG 10, INFO 20, WARNING 30, ERROR 40, CRITICAL 50;
+     default threshold WARNING.
+ 11. getLogger(__name__) in modules; configure handlers once at entry.
+ 12. logger.exception() inside except saves the traceback.
+ 13. Read tracebacks from the bottom up.
+ 14. Debug by reproducing, minimising, hypothesising, testing and bisecting.
+ 15. breakpoint() starts pdb: n next, s step, c continue, p print, q quit.
+ 16. Fix the cause, add a regression test.
+
+
+==============================================================================
+                  F. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+TRY / EXCEPT
+Q1. What is the output?
+        try:
+            print(1 / 0)
+        except ZeroDivisionError:
+            print("zero")
+        else:
+            print("ok")
+        finally:
+            print("done")
+A.  zero
+    done      (else is skipped because an exception occurred).
+
+Q2. What is the output?
+        try:
+            n = int("5")
+        except ValueError:
+            print("bad")
+        else:
+            print("else")
+        finally:
+            print("fin")
+A.  else
+    fin
+
+Q3. What is the output?
+        def f():
+            try:
+                return "try"
+            finally:
+                print("finally")
+        print(f())
+A.  finally
+    try        (finally runs before the function actually returns).
+
+Q4. What is the output?
+        def g():
+            try:
+                return 1
+            finally:
+                return 2
+        print(g())
+A.  2   (a return in finally overrides the earlier return; it would also
+    swallow an exception).
+
+Q5. Difference between else and finally in try?
+A.  else runs only when the try block raised NO exception (its own errors are
+    not caught by the preceding except). finally runs in every case - success,
+    handled error, unhandled error, return, break - and is used for clean-up.
+
+Q6. What is wrong here?
+        try: ...
+        except Exception: print("general")
+        except ValueError: print("value")
+A.  The ValueError handler is unreachable, because ValueError is a subclass
+    of Exception and the first matching clause wins. Put specific handlers
+    before general ones.
+
+Q7. Why is a bare  except:  bad practice?
+A.  It catches everything including KeyboardInterrupt and SystemExit (so
+    Ctrl+C and sys.exit() are ignored) and hides real bugs. Catch specific
+    exceptions, or at most Exception, and log what you catch.
+
+Q8. How do you catch several exception types in one clause?
+A.  Use a tuple: except (ValueError, TypeError) as e. "except ValueError or
+    TypeError" is wrong - the expression evaluates to ValueError only.
+
+Q9. Difference between  raise,  raise e  and  raise X from e ?
+A.  A bare raise inside except re-raises the current exception with its
+    original traceback. raise e re-raises it but adds the current frame.
+    raise X from e raises a new exception X and records e as its __cause__
+    ("direct cause" in the traceback); from None suppresses the earlier
+    context.
+
+Q10. What happens with a bare  raise  outside an except block?
+A.  RuntimeError: No active exception to reraise.
+
+Q11. How do you create a custom exception? Why?
+A.  class MyError(Exception): pass  (optionally with __init__ taking extra
+    data and calling super().__init__(message)). Custom exceptions give
+    precise, catchable error types for your application, often under one
+    base class.
+
+Q12. Is KeyboardInterrupt a subclass of Exception? Why does it matter?
+A.  No. It derives from BaseException (like SystemExit and GeneratorExit), so
+    except Exception does not catch it and Ctrl+C still stops the program.
+
+Q13. What is the output?
+        try:
+            [1][5]
+        except LookupError as e:
+            print(type(e).__name__)
+A.  IndexError   (LookupError is the parent of IndexError and KeyError, so it
+    catches it; the object is still an IndexError).
+
+Q14. What happens?
+        try:
+            int("x")
+        except ValueError as e:
+            pass
+        print(e)
+A.  NameError: name 'e' is not defined. The "as" name is deleted when the
+    except block ends.
+
+Q15. What is the output?
+        try:
+            try:
+                1 / 0
+            except ZeroDivisionError as e:
+                raise ValueError("bad") from e
+        except ValueError as err:
+            print(type(err.__cause__).__name__)
+A.  ZeroDivisionError   (explicit chaining stores the original in __cause__).
+
+Q16. What is the output?
+        for x in ["1", "a", "3"]:
+            try:
+                n = int(x)
+            except ValueError:
+                continue
+            print(n)
+A.  1
+    3
+
+Q17. What is the output?
+        try:
+            try:
+                raise KeyError
+            except ValueError:
+                print("inner")
+        except KeyError:
+            print("outer")
+A.  outer   (the inner try does not match, so the exception moves outward).
+
+Q18. assert vs raising an exception?
+A.  assert checks internal assumptions and raises AssertionError when false;
+    it is removed when Python runs with -O, so it must not validate user
+    input. Use if + raise ValueError/TypeError for real validation.
+
+Q19. What is EAFP vs LBYL? Which does Python prefer?
+A.  LBYL checks first (if key in d); EAFP tries and handles the failure
+    (try: d[key] except KeyError). Python prefers EAFP: it is race-free and
+    often faster when failures are rare.
+
+Q20. Does finally run when sys.exit() is called?
+A.  Yes. sys.exit() raises SystemExit, so finally blocks (and with exit
+    clean-up) run. It does not run for os._exit() or when the process is
+    killed.
+
+Q21. Can a SyntaxError be caught with try / except?
+A.  Not in the same file, because the file is rejected before running. It
+    can be caught when compiling code at run time: try: eval("1 +") except
+    SyntaxError.
+
+Q22. Which exception does each raise?
+        int("x")        [][0]        {}["k"]       None.x
+        5 + "5"         undefined    import nomod  open("no.txt")
+A.  ValueError, IndexError, KeyError, AttributeError, TypeError, NameError,
+    ModuleNotFoundError, FileNotFoundError.
+
+Q23. What is the difference between ValueError and TypeError?
+A.  TypeError: the argument has the wrong TYPE for the operation (len(5),
+    "a" + 1). ValueError: the type is right but the VALUE is unacceptable
+    (int("abc"), math.sqrt(-1)).
+
+Q24. What is a try-with-resources equivalent in Python?
+A.  The with statement (context managers). It calls __exit__ even when an
+    exception occurs, like try / finally.
+
+LOGGING
+Q25. What are the logging levels and the default threshold?
+A.  DEBUG 10, INFO 20, WARNING 30, ERROR 40, CRITICAL 50. The default level
+    is WARNING, so debug() and info() messages are not shown until you set
+    the level lower.
+
+Q26. What is the output?
+        logging.basicConfig(level=logging.INFO,
+                            format="%(levelname)s:%(message)s")
+        logging.debug("d"); logging.info("i")
+A.  INFO:i   (debug is below the INFO threshold).
+
+Q27. Why use logging instead of print?
+A.  Levels, easy on/off without editing code, output to files and other
+    destinations, timestamps and source information, tracebacks, per-module
+    control, and suitability for production.
+
+Q28. Why does a second logging.basicConfig() call seem to do nothing?
+A.  basicConfig only configures the root logger if it has no handlers yet.
+    Use force=True (3.8+) or configure once at start-up.
+
+Q29. What is the difference between logger.error and logger.exception?
+A.  exception() logs at ERROR level AND includes the current traceback; call
+    it inside an except block. error("...", exc_info=True) does the same.
+
+Q30. Why write  logger.info("User %s", name)  instead of an f-string?
+A.  The message is formatted only if it will actually be emitted, so disabled
+    levels cost almost nothing; it also lets handlers group identical message
+    templates.
+
+Q31. What is logging.getLogger(__name__) and the logger hierarchy?
+A.  It returns the (single) logger named after the module. Dotted names form
+    a tree ("app.db" is a child of "app"); records propagate to ancestor
+    handlers, and levels can be inherited. This allows per-module control.
+
+Q32. Logger level vs handler level?
+A.  A record must pass the logger's level first; then each handler applies
+    its own level. This allows DEBUG to a file but only INFO to the console.
+
+Q33. Why might every log line appear twice?
+A.  The same handler was added twice, or a handler was added to both a child
+    logger and an ancestor, so records propagate and print again. Add handlers
+    once or set propagate = False.
+
+Q34. How do you stop a log file growing forever?
+A.  RotatingFileHandler (maxBytes, backupCount) or TimedRotatingFileHandler
+    (when="midnight").
+
+DEBUGGING
+Q35. What are the three kinds of errors?
+A.  Syntax errors (found before running), runtime errors / exceptions (raised
+    while running) and logical errors (program runs but gives a wrong result).
+
+Q36. How do you read a traceback?
+A.  Start at the last line (exception type and message). The frame above it
+    is where it happened; earlier frames show the chain of calls. "Most
+    recent call last". Check the data that was passed in, not only the
+    failing line.
+
+Q37. What do the pdb commands n, s, c, p, l, b and q do?
+A.  n next line (step over), s step into a call, c continue to the next
+    breakpoint, p print an expression, l list source, b set a breakpoint, q
+    quit. breakpoint() starts the debugger at that line.
+
+Q38. What is the difference between step over, step into and continue?
+A.  Step over runs the current line completely (including called functions);
+    step into enters the called function; continue runs until the next
+    breakpoint or the end.
+
+Q39. How would you debug a program that gives a wrong answer without raising
+     an error?
+A.  Reproduce with a small input, print or log intermediate values, use a
+    debugger or asserts to find where data first becomes wrong (bisect the
+    code path), fix the cause, and add a test for that case.
+
+Q40. What is the output?
+        a = [1, 2, 3]
+        for x in a:
+            a.remove(x)
+        print(a)
+A.  [2]   (removing while iterating shifts items, so some are skipped; loop
+    over a copy a[:] instead).
+
+Q41. What is the output?   print(list(range(1, 5)), list(range(5, 1)))
+A.  [1, 2, 3, 4] []   (stop excluded; the default step +1 gives an empty
+    range). A typical off-by-one source.
+
+Q42. How do you test that a function raises an error?
+A.  pytest: with pytest.raises(ValueError): f(). unittest: with
+    self.assertRaises(ValueError): f().
+
+Q43. What is post-mortem debugging?
+A.  Inspecting the program state after a crash: run python -m pdb script.py
+    (it stops at the uncaught exception) or call pdb.pm() in the REPL, then
+    use p, w, u, d to examine variables and frames.
+
+Q44. Name tools that help find bugs without running the code, and ones for
+     performance.
+A.  Static: pylint, flake8, ruff, mypy. Runtime / performance: pdb, logging,
+    pytest, tracemalloc (memory), cProfile, timeit, py-spy (speed),
+    faulthandler (crashes and hangs).
+
+Q45. How do you print a variable's name and value quickly?
+A.  An f-string with = (3.8+): print(f"{total=}") prints total=15.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

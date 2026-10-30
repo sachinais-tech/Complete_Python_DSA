@@ -1,0 +1,1526 @@
+==============================================================================
+     PYTHON ADVANCED TOPICS: LIST COMPREHENSIONS, GENERATORS, ITERATORS,
+            DECORATORS, CONTEXT MANAGERS AND DATACLASSES - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+These six features make Python code short, lazy, reusable and safe.
+
+    A. List comprehensions  - build collections in one expression
+    B. Generators           - produce values lazily with yield
+    C. Iterators            - the protocol behind every for loop
+    D. Decorators           - wrap a function to add behaviour
+    E. Context managers     - guaranteed set-up and clean-up (with)
+    F. Dataclasses          - classes with auto-generated boilerplate
+    G. Pitfalls, checklist and interview questions
+
+How they connect:
+    iterable --iter()--> iterator --next()--> values
+    generator function / generator expression  =  an easy way to make an
+                                                  iterator
+    comprehension  =  loop written as an expression
+    decorator      =  function that takes and returns a function (closure)
+    context manager=  object with __enter__ and __exit__ (or @contextmanager,
+                      which is built from a generator)
+    dataclass      =  class decorator that writes __init__, __repr__, __eq__
+
+Prerequisites: functions, closures, loops, classes (basic).
+
+
+==============================================================================
+                     A. LIST COMPREHENSIONS
+==============================================================================
+
+2. SYNTAX
+------------------------------------------------------------------------------
+    [expression for item in iterable]
+    [expression for item in iterable if condition]
+    [expression1 if condition else expression2 for item in iterable]
+
+Equivalent loop:
+    result = []
+    for item in iterable:
+        if condition:
+            result.append(expression)
+
+    squares = [x * x for x in range(5)]            # [0, 1, 4, 9, 16]
+    evens   = [x for x in range(10) if x % 2 == 0] # [0, 2, 4, 6, 8]
+    upper   = [s.upper() for s in ["a", "b"]]      # ['A', 'B']
+    lengths = [len(w) for w in "the quick fox".split()]    # [3, 5, 3]
+    digits  = [int(c) for c in "1234"]             # [1, 2, 3, 4]
+    pairs   = [(x, x ** 2) for x in range(3)]      # [(0,0), (1,1), (2,4)]
+
+3. FILTER vs TRANSFORM (POSITION OF if)
+------------------------------------------------------------------------------
+    [x for x in nums if x > 0]               # if AFTER for  = FILTER
+    [x if x > 0 else 0 for x in nums]        # if/else BEFORE for = TRANSFORM
+
+    [x for x in range(5) if x % 2]           # [1, 3]
+    [x if x % 2 == 0 else -x for x in range(5)]      # [0, -1, 2, -3, 4]
+    [x for x in range(5) if x else 0]        # SyntaxError (else needs the
+                                             # ternary form in front)
+
+Multiple conditions:
+    [x for x in range(30) if x % 2 == 0 if x % 3 == 0]    # same as "and"
+    [x for x in range(30) if x % 2 == 0 and x % 3 == 0]   # [0, 6, 12, 18, 24]
+    [x for x in nums if x > 0 or x < -5]
+
+4. NESTED LOOPS (WRITE THEM IN THE SAME ORDER AS NESTED for)
+------------------------------------------------------------------------------
+    [(i, j) for i in range(2) for j in range(3)]
+    # [(0,0), (0,1), (0,2), (1,0), (1,1), (1,2)]     outer loop is first
+
+    # same as
+    for i in range(2):
+        for j in range(3):
+            out.append((i, j))
+
+    [x for row in [[1, 2], [3, 4]] for x in row]    # flatten: [1, 2, 3, 4]
+    [(a, b) for a in "ab" for b in "xy"]            # cartesian product
+    [(i, j) for i in range(3) for j in range(i)]    # dependent inner range
+    # [(1,0), (2,0), (2,1)]
+    [x for x in range(2, 30)
+       if all(x % d for d in range(2, int(x ** 0.5) + 1))]
+    # primes below 30: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+
+Nested comprehension (a comprehension inside a comprehension):
+    [[0] * 3 for _ in range(2)]                     # [[0,0,0], [0,0,0]]
+    [[i * j for j in range(1, 4)] for i in range(1, 4)]
+    # [[1,2,3], [2,4,6], [3,6,9]]
+    [[j for j in range(i)] for i in range(4)]
+    # [[], [0], [0, 1], [0, 1, 2]]
+    m = [[1, 2, 3], [4, 5, 6]]
+    [[row[c] for row in m] for c in range(3)]       # transpose
+    # [[1, 4], [2, 5], [3, 6]]
+    [[1 if i == j else 0 for j in range(3)] for i in range(3)]   # identity
+
+5. OTHER COMPREHENSIONS
+------------------------------------------------------------------------------
+Set comprehension (unique values):
+    {x % 3 for x in range(10)}                  # {0, 1, 2}
+    {len(w) for w in ["a", "bb", "cc"]}         # {1, 2}
+
+Dict comprehension:
+    {x: x * x for x in range(4)}                # {0:0, 1:1, 2:4, 3:9}
+    {k: v for k, v in zip("abc", [1, 2, 3])}    # {'a':1, 'b':2, 'c':3}
+    {v: k for k, v in d.items()}                # invert a dict
+    {k: v for k, v in d.items() if v > 1}       # filter a dict
+    {w: len(w) for w in ["pear", "fig"]}        # {'pear': 4, 'fig': 3}
+    {c: s.count(c) for c in set(s)}             # character counts
+    Duplicate keys: the LAST value wins.
+
+Generator expression (lazy, round brackets):
+    g = (x * x for x in range(5))
+    sum(x * x for x in range(5))                # 30  (no extra parentheses)
+    max(len(w) for w in words)
+    any(x > 3 for x in nums)       all(x > 0 for x in nums)
+    "".join(c for c in s if c.isalpha())
+
+Tuple "comprehension" does not exist: (x for x in ...) is a GENERATOR;
+use tuple(x for x in ...) to get a tuple.
+
+Summary:
+    [ ... ]            list              { ... } with k: v     dict
+    { ... }            set               ( ... )               generator
+
+6. MORE EXAMPLES
+------------------------------------------------------------------------------
+    [c for c in "hello" if c in "aeiou"]            # ['e', 'o']
+    [x for x in lst if x]                           # drop falsy items
+    [s.strip() for s in lines]                      # clean strings
+    [int(x) for x in input().split()]               # read numbers
+    [i for i, x in enumerate(a) if x == t]          # all positions
+    [a[i:i + k] for i in range(0, len(a), k)]       # chunks of size k
+    [x * y for x, y in zip(a, b)]                   # dot product terms
+    [max(row) for row in m]                         # row maxima
+    [sum(col) for col in zip(*m)]                   # column sums
+    [word for word in text.split() if len(word) > 3]
+    [n for n in range(1, 101) if n % 3 == 0 and n % 5 == 0]
+    ["Fizz" * (n % 3 == 0) + "Buzz" * (n % 5 == 0) or n for n in range(1, 16)]
+    [f(x) for x in data if (y := g(x)) > 0]         # walrus (3.8+)
+    {tuple(sorted(w)) for w in words}               # anagram classes
+
+Equivalents:
+    list(map(f, xs))               [f(x) for x in xs]
+    list(filter(p, xs))            [x for x in xs if p(x)]
+
+7. SCOPE, SPEED AND STYLE
+------------------------------------------------------------------------------
+Scope:
+    x = 10
+    [x for x in range(3)]
+    print(x)                       # 10   the loop variable does NOT leak
+    (unlike a for loop, whose variable survives)
+
+Performance:
+    - Usually faster than the equivalent for + append loop (no repeated
+      attribute lookup and method call).
+    - A list comprehension builds the WHOLE list in memory; a generator
+      expression does not.
+    - sum([x for x in big]) wastes memory; write sum(x for x in big).
+    - Time is O(n) for one loop, O(n*m) for nested.
+
+Style:
+    - Use a comprehension for a simple map / filter.
+    - Use a normal loop when the logic needs several statements, side
+      effects, try/except, or deep nesting (more than two for clauses).
+    - Do not use a comprehension only for side effects:
+          [print(x) for x in lst]        # builds a useless list of Nones
+          for x in lst: print(x)         # correct
+
+8. COMPREHENSION GOTCHAS
+------------------------------------------------------------------------------
+ 1. else belongs to a ternary placed BEFORE for, not after the filter.
+ 2. [[0] * n] * m shares rows; [[0] * n for _ in range(m)] makes new ones.
+ 3. Closures in a comprehension use late binding:
+        fs = [lambda: i for i in range(3)]       # all return 2
+        fs = [lambda i=i: i for i in range(3)]   # [0, 1, 2]
+ 4. A list comprehension is eager: huge ranges cost memory and time.
+ 5. Set / dict comprehensions need hashable items / keys.
+ 6. [*a for a in lists] is a SyntaxError; use nested for or itertools.chain.
+ 7. Variables inside do not leak, and names from a class body are not visible
+    inside a comprehension in that class.
+ 8. A comprehension is an expression: it cannot contain statements like
+    break, continue or assignment (except :=).
+
+
+==============================================================================
+                           B. GENERATORS
+==============================================================================
+
+9. WHAT IS A GENERATOR?
+------------------------------------------------------------------------------
+A generator produces values ONE AT A TIME, on demand, and remembers where it
+stopped. It is a special iterator created by:
+    1. a generator FUNCTION  - a def containing yield
+    2. a generator EXPRESSION - (expr for x in iterable)
+
+Benefits: lazy evaluation, low memory, can be infinite, ideal for pipelines
+and large files.
+
+    def count_up(n):
+        i = 1
+        while i <= n:
+            yield i                # pause here, hand back i
+            i += 1                 # resume here on the next request
+
+    g = count_up(3)                # nothing runs yet
+    type(g)                        # <class 'generator'>
+    next(g)                        # 1
+    next(g)                        # 2
+    next(g)                        # 3
+    next(g)                        # StopIteration
+    list(count_up(3))              # [1, 2, 3]
+    for x in count_up(3): ...      # for handles StopIteration
+
+Calling a generator function does NOT run its body; it returns a generator
+object. The body runs step by step as next() is called.
+
+10. EXECUTION FLOW
+------------------------------------------------------------------------------
+    def gen():
+        print("A")
+        yield 1
+        print("B")
+        yield 2
+        print("C")
+
+    g = gen()          # prints nothing
+    next(g)            # prints A, returns 1
+    next(g)            # prints B, returns 2
+    next(g)            # prints C, then raises StopIteration
+
+States (inspect.getgeneratorstate):
+    GEN_CREATED -> GEN_RUNNING -> GEN_SUSPENDED (at a yield) -> GEN_CLOSED
+
+yield vs return:
+  Feature          | return                    | yield
+  -----------------|---------------------------|-----------------------------
+  Effect           | ends the function         | pauses; function can resume
+  Values           | one value                 | many values over time
+  Local state      | discarded                 | kept between calls
+  Function result  | the value                 | a generator object
+  Memory           | whole result in memory    | one item at a time
+
+    return inside a generator ends it; its value is carried by StopIteration:
+        def g():
+            yield 1
+            return "done"
+        it = g(); next(it)
+        try: next(it)
+        except StopIteration as e: print(e.value)       # done
+
+11. GENERATOR EXPRESSIONS
+------------------------------------------------------------------------------
+    g = (x * x for x in range(3))
+    next(g)                        # 0
+    list(g)                        # [1, 4]      the rest
+    list(g)                        # []          exhausted
+
+    sum(x * x for x in range(10))  # 285
+    sorted(x for x in "banana")    # sorted accepts any iterable
+    - Written like a list comprehension with () instead of [].
+    - The outermost iterable is evaluated immediately; the rest is lazy.
+    - Single use: it cannot be rewound or restarted.
+
+Memory comparison:
+    sum([x for x in range(10**7)])     # builds a 10-million item list
+    sum(x for x in range(10**7))       # constant memory
+
+12. COMMON GENERATOR PATTERNS
+------------------------------------------------------------------------------
+Infinite generator:
+    def naturals():
+        n = 1
+        while True:
+            yield n
+            n += 1
+    from itertools import islice
+    list(islice(naturals(), 5))        # [1, 2, 3, 4, 5]
+
+Fibonacci:
+    def fib():
+        a, b = 0, 1
+        while True:
+            yield a
+            a, b = b, a + b
+    list(islice(fib(), 8))             # [0, 1, 1, 2, 3, 5, 8, 13]
+
+Primes:
+    def primes():
+        n = 2
+        while True:
+            if all(n % p for p in range(2, int(n ** 0.5) + 1)):
+                yield n
+            n += 1
+    list(islice(primes(), 5))          # [2, 3, 5, 7, 11]
+
+Reading a big file line by line:
+    def read_lines(path):
+        with open(path) as f:
+            for line in f:
+                yield line.rstrip("\n")
+
+Chunking a sequence:
+    def chunks(seq, n):
+        for i in range(0, len(seq), n):
+            yield seq[i:i + n]
+    list(chunks([1, 2, 3, 4, 5], 2))   # [[1, 2], [3, 4], [5]]
+
+Pipeline of generators (nothing is computed until the end):
+    nums    = (x for x in range(10))
+    evens   = (x for x in nums if x % 2 == 0)
+    squares = (x * x for x in evens)
+    sum(squares)                       # 0 + 4 + 16 + 36 + 64 = 120
+
+Walking a tree / recursion with yield from:
+    def inorder(node):
+        if node:
+            yield from inorder(node.left)
+            yield node.val
+            yield from inorder(node.right)
+
+13. yield from
+------------------------------------------------------------------------------
+Delegates to another iterable / generator.
+
+    def chain(*iterables):
+        for it in iterables:
+            yield from it             # same as: for x in it: yield x
+
+    list(chain([1, 2], "ab"))         # [1, 2, 'a', 'b']
+
+    def flatten(lst):
+        for x in lst:
+            if isinstance(x, list):
+                yield from flatten(x)
+            else:
+                yield x
+    list(flatten([1, [2, [3, 4]], 5]))      # [1, 2, 3, 4, 5]
+
+yield from also passes send() / throw() to the inner generator and returns
+the inner generator's return value.
+
+14. send(), throw(), close() (GENERATORS AS COROUTINES)
+------------------------------------------------------------------------------
+yield is also an EXPRESSION: x = yield value receives data from send().
+
+    def running_avg():
+        total, count, avg = 0, 0, None
+        while True:
+            x = yield avg            # hand out avg, wait for the next value
+            total += x
+            count += 1
+            avg = total / count
+
+    a = running_avg()
+    next(a)                          # "prime" the generator -> None
+    a.send(10)                       # 10.0
+    a.send(20)                       # 15.0
+    a.close()                        # raises GeneratorExit inside, then ends
+
+    - The first call must be next(g) or g.send(None); otherwise
+      TypeError: can't send non-None value to a just-started generator.
+    - g.throw(ValueError) raises an exception at the paused yield.
+    - g.close() stops the generator (finally blocks run).
+    - Modern asynchronous code uses async / await (built on the same idea).
+
+15. GENERATOR FACTS AND GOTCHAS
+------------------------------------------------------------------------------
+    - A generator is an iterator: iter(g) is g, and it has __next__.
+    - Single use: once exhausted, it yields nothing more.
+          g = (x for x in range(3)); list(g); list(g)    # [0,1,2] then []
+    - No indexing, slicing or len():
+          g[0]          # TypeError: 'generator' object is not subscriptable
+          len(g)        # TypeError: object of type 'generator' has no len()
+      Use list(g) or itertools.islice(g, a, b).
+    - A generator object is always truthy, even if it would produce nothing.
+    - A function with yield anywhere is a generator, even if the yield is
+      never reached.
+    - Do not modify a collection while a generator iterates it.
+    - Exceptions inside a generator propagate to whoever called next().
+    - Generators save memory but are not faster for small data.
+    - Use a list when you need the data several times, random access, len()
+      or sorting.
+
+
+==============================================================================
+                           C. ITERATORS
+==============================================================================
+
+16. ITERABLE vs ITERATOR
+------------------------------------------------------------------------------
+  Term      | Needs                      | Examples
+  ----------|----------------------------|-----------------------------------
+  Iterable  | __iter__() returns an      | list, tuple, str, dict, set, range,
+            | iterator                   | file, generator
+  Iterator  | __next__() and __iter__()  | iter(list), generator, map, zip,
+            | (returns itself)           | filter, enumerate, file object
+
+    - Every iterator is iterable; not every iterable is an iterator.
+    - A list is an iterable but NOT an iterator:
+          next([1, 2])           # TypeError: 'list' object is not an iterator
+    - range is an iterable (reusable), not an iterator:
+          next(range(3))         # TypeError: 'range' object is not an
+                                 # iterator
+    - An iterator remembers its position and is single-use.
+
+    from collections.abc import Iterable, Iterator
+    isinstance([1], Iterable)            # True
+    isinstance([1], Iterator)            # False
+    isinstance(iter([1]), Iterator)      # True
+    isinstance(open("f.txt"), Iterator)  # True (files are iterators)
+
+17. THE ITERATOR PROTOCOL
+------------------------------------------------------------------------------
+    it = iter([10, 20])      # asks the list for an iterator (calls __iter__)
+    next(it)                 # 10     (calls __next__)
+    next(it)                 # 20
+    next(it)                 # raises StopIteration
+    next(it, "end")          # 'end'  (a default avoids the exception)
+
+What a for loop really does:
+    for x in obj:
+        body
+    # is
+    it = iter(obj)
+    while True:
+        try:
+            x = next(it)
+        except StopIteration:
+            break
+        body
+
+    - for, list(), tuple(), sum(), sorted(), in, unpacking and * all use the
+      protocol.
+    - iter(it) is it for an iterator (so it can be used where an iterable is
+      expected).
+    - Fallback: an object with __getitem__ accepting 0, 1, 2 ... is iterable.
+
+18. WRITING A CUSTOM ITERATOR CLASS
+------------------------------------------------------------------------------
+    class Countdown:
+        def __init__(self, start):
+            self.current = start
+
+        def __iter__(self):
+            return self                 # the object is its own iterator
+
+        def __next__(self):
+            if self.current <= 0:
+                raise StopIteration     # signals the end
+            value = self.current
+            self.current -= 1
+            return value
+
+    list(Countdown(3))                  # [3, 2, 1]
+    c = Countdown(2); list(c); list(c)  # [2, 1] then [] (used up)
+
+A REUSABLE iterable: make __iter__ return a NEW iterator each time (a
+generator method does this simply):
+
+    class Range3:
+        def __init__(self, n):
+            self.n = n
+        def __iter__(self):
+            for i in range(self.n):
+                yield i
+
+    r = Range3(3)
+    list(r); list(r)                    # [0, 1, 2] both times
+
+Rule: raise StopIteration from __next__ when finished; never return None as
+a signal. A generator is usually the simplest way to build an iterator.
+
+19. BUILT-IN ITERATOR TOOLS
+------------------------------------------------------------------------------
+    enumerate(it, start=0)      (index, item) pairs
+    zip(a, b, ...)              tuples, stops at the shortest
+    map(f, it)                  apply f lazily
+    filter(f, it)               keep items where f(item) is truthy
+    reversed(seq)               iterate backwards
+    iter(callable, sentinel)    call callable() until it returns sentinel
+    next(it[, default])         next item
+
+    for line in iter(input, "quit"): print(line)     # reads until "quit"
+    it = iter([1, 2, 3, 4])
+    list(zip(it, it))           # [(1, 2), (3, 4)]  pairs up neighbours
+    m = map(str, [1, 2]); list(m); list(m)    # ['1', '2'] then []
+
+20. itertools (LAZY BUILDING BLOCKS)
+------------------------------------------------------------------------------
+    from itertools import *
+
+  Infinite:
+    count(5)                        # 5, 6, 7, ...
+    cycle("ab")                     # a, b, a, b, ...
+    repeat(7, 3)                    # 7, 7, 7
+
+  Finite / combining:
+    list(islice(count(5), 3))                    # [5, 6, 7]
+    list(islice("abcdef", 1, 4))                 # ['b', 'c', 'd']
+    list(chain([1], [2, 3]))                     # [1, 2, 3]
+    list(chain.from_iterable([[1], [2, 3]]))     # [1, 2, 3]
+    list(takewhile(lambda x: x < 3, [1, 2, 3, 1]))   # [1, 2]
+    list(dropwhile(lambda x: x < 3, [1, 2, 3, 1]))   # [3, 1]
+    list(accumulate([1, 2, 3]))                  # [1, 3, 6]
+    list(zip_longest([1, 2], "abc", fillvalue=0))
+    # [(1, 'a'), (2, 'b'), (0, 'c')]
+    list(compress("abc", [1, 0, 1]))             # ['a', 'c']
+    list(starmap(pow, [(2, 3), (3, 2)]))         # [8, 9]
+    list(pairwise([1, 2, 3]))                    # [(1, 2), (2, 3)]   3.10+
+    list(batched("abcde", 2))      # [('a','b'), ('c','d'), ('e',)]   3.12+
+
+  Combinatorics:
+    list(product([1, 2], "ab"))        # [(1,'a'), (1,'b'), (2,'a'), (2,'b')]
+    list(permutations([1, 2, 3], 2))
+    # [(1,2), (1,3), (2,1), (2,3), (3,1), (3,2)]
+    list(combinations([1, 2, 3], 2))   # [(1, 2), (1, 3), (2, 3)]
+    list(combinations_with_replacement("ab", 2))   # aa ab bb
+
+  Grouping (input must be SORTED by the key):
+    [(k, list(g)) for k, g in groupby("aabbc")]
+    # [('a', ['a','a']), ('b', ['b','b']), ('c', ['c'])]
+
+  Copying an iterator:
+    a, b = tee(iter([1, 2, 3]))        # two independent iterators
+
+21. ITERATOR GOTCHAS
+------------------------------------------------------------------------------
+ 1. Iterators are single-use. Re-create them or store results in a list.
+ 2. next() on an exhausted iterator raises StopIteration (or returns the
+    default you passed).
+ 3. Do not mix next() and a for loop on the same iterator unless you want
+    to consume items.
+ 4. map / filter / zip / reversed / enumerate return iterators, not lists.
+ 5. A dict or set is an iterable, not an iterator; modifying its size while
+    iterating raises RuntimeError.
+ 6. Raising StopIteration inside a generator becomes RuntimeError (3.7+);
+    use return.
+ 7. groupby groups only CONSECUTIVE equal keys; sort first.
+ 8. Unpacking an iterator consumes it: a, b = iter([1, 2]).
+ 9. An iterator over a list reflects changes made to the list while
+    iterating (can skip or repeat items).
+
+
+==============================================================================
+                          D. DECORATORS
+==============================================================================
+
+22. WHAT IS A DECORATOR?
+------------------------------------------------------------------------------
+A decorator is a callable that takes a function and returns a new (usually
+wrapped) function, adding behaviour without changing the original code.
+
+Built from three ideas: functions are objects, functions can be passed
+around, and inner functions are closures.
+
+    def shout(func):
+        def wrapper():
+            result = func()
+            return result.upper()
+        return wrapper
+
+    @shout                       # syntax sugar for:  greet = shout(greet)
+    def greet():
+        return "hello"
+
+    greet()                      # 'HELLO'
+
+Manual form: greet = shout(greet). @decorator is just a shorter way to write
+the same thing.
+
+Timing of events:
+    def deco(f):
+        print("decorating", f.__name__)       # runs at DEFINITION time
+        def w(*a, **k):
+            print("before")                   # runs at every CALL
+            return f(*a, **k)
+        return w
+
+    @deco
+    def hi(): print("hi")
+    print("defined")
+    hi()
+    # decorating hi
+    # defined
+    # before
+    # hi
+
+23. A GENERAL-PURPOSE DECORATOR
+------------------------------------------------------------------------------
+Accept any arguments, return the original result, keep the metadata:
+
+    import functools
+
+    def logged(func):
+        @functools.wraps(func)             # copies __name__, __doc__, ...
+        def wrapper(*args, **kwargs):
+            print(f"calling {func.__name__}{args}")
+            result = func(*args, **kwargs)
+            print(f"{func.__name__} returned {result}")
+            return result                  # do not forget this!
+        return wrapper
+
+    @logged
+    def add(a, b):
+        """Add two numbers."""
+        return a + b
+
+    add(2, 3)
+    # calling add(2, 3)
+    # add returned 5
+    add.__name__           # 'add'   (without wraps it would be 'wrapper')
+    add.__doc__            # 'Add two numbers.'
+    add.__wrapped__        # the original function
+
+24. COMMON USEFUL DECORATORS
+------------------------------------------------------------------------------
+Timer:
+    import time
+    def timer(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            print(f"{func.__name__} took {time.perf_counter() - start:.4f}s")
+            return result
+        return wrapper
+
+Memoisation (cache results):
+    def memoize(func):
+        cache = {}
+        @functools.wraps(func)
+        def wrapper(*args):
+            if args not in cache:
+                cache[args] = func(*args)
+            return cache[args]
+        return wrapper
+
+    @memoize
+    def fib(n):
+        return n if n < 2 else fib(n - 1) + fib(n - 2)
+    fib(50)                    # 12586269025   (built-in: functools.lru_cache)
+
+Retry:
+    def retry(func):
+        def wrapper(*args, **kwargs):
+            for attempt in range(3):
+                try:
+                    return func(*args, **kwargs)
+                except Exception:
+                    if attempt == 2: raise
+        return wrapper
+
+Access control / validation:
+    def require_positive(func):
+        def wrapper(n):
+            if n <= 0:
+                raise ValueError("n must be positive")
+            return func(n)
+        return wrapper
+
+Registration (decorator that records the function and returns it unchanged):
+    registry = {}
+    def register(func):
+        registry[func.__name__] = func
+        return func
+
+25. DECORATORS WITH ARGUMENTS
+------------------------------------------------------------------------------
+Need one more level: a function that RETURNS the decorator.
+
+    def repeat(n):                         # level 1: takes the arguments
+        def decorator(func):               # level 2: takes the function
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):  # level 3: runs on each call
+                for _ in range(n):
+                    result = func(*args, **kwargs)
+                return result
+            return wrapper
+        return decorator
+
+    @repeat(3)                  # same as: hello = repeat(3)(hello)
+    def hello():
+        print("Hello")
+
+    hello()                     # prints Hello three times
+
+    @repeat                     # mistake: passes hello as n -> wrong
+    - Always write @repeat(3) with parentheses when the decorator takes
+      arguments.
+    - Optional-argument pattern: accept func=None, *, n=3 and return
+      partial(decorator, n=n) when func is None.
+
+26. STACKING DECORATORS
+------------------------------------------------------------------------------
+    def bold(f):   return lambda: "<b>" + f() + "</b>"
+    def italic(f): return lambda: "<i>" + f() + "</i>"
+
+    @bold
+    @italic
+    def text():
+        return "hi"
+
+    text()                       # '<b><i>hi</i></b>'
+    # same as  text = bold(italic(text))
+
+The decorator nearest to the function is applied FIRST; the top one wraps the
+result and runs first at call time (outermost).
+
+27. CLASS-BASED DECORATORS AND DECORATING CLASSES
+------------------------------------------------------------------------------
+A class with __call__ can be a decorator and can keep state:
+
+    class CountCalls:
+        def __init__(self, func):
+            functools.update_wrapper(self, func)
+            self.func = func
+            self.calls = 0
+        def __call__(self, *args, **kwargs):
+            self.calls += 1
+            return self.func(*args, **kwargs)
+
+    @CountCalls
+    def say(): print("hi")
+    say(); say()
+    say.calls                    # 2
+
+A decorator can also take and return a CLASS:
+    def add_repr(cls):
+        cls.__repr__ = lambda self: f"<{cls.__name__}>"
+        return cls
+    (the @dataclass decorator in section 42 works this way)
+
+28. BUILT-IN AND STANDARD-LIBRARY DECORATORS
+------------------------------------------------------------------------------
+  Decorator                 | Purpose
+  --------------------------|---------------------------------------------
+  @staticmethod             | method without self or cls
+  @classmethod              | method receiving the class (cls)
+  @property                 | attribute access that runs a method
+  @name.setter / .deleter   | setter / deleter for a property
+  @functools.wraps(f)       | copy metadata in your own decorators
+  @functools.lru_cache      | memoise (bounded LRU); @functools.cache 3.9+
+  @functools.cached_property| compute once per instance, then store
+  @functools.singledispatch | function overloading by first argument type
+  @functools.total_ordering | fill in comparison methods from __eq__, __lt__
+  @contextlib.contextmanager| generator -> context manager
+  @dataclasses.dataclass    | generate __init__, __repr__, __eq__
+  @abc.abstractmethod       | must be overridden in subclasses
+  @atexit.register          | run at interpreter exit
+
+    class Circle:
+        def __init__(self, r): self._r = r
+        @property
+        def area(self):                  # used as c.area (no parentheses)
+            return 3.14159 * self._r ** 2
+        @property
+        def r(self): return self._r
+        @r.setter
+        def r(self, v):
+            if v < 0: raise ValueError("negative")
+            self._r = v
+
+29. DECORATOR GOTCHAS
+------------------------------------------------------------------------------
+ 1. Forgetting  return result  in wrapper makes the decorated function
+    return None.
+ 2. Forgetting  return wrapper  in the decorator makes the name None.
+ 3. Forgetting functools.wraps loses __name__, __doc__ and help().
+ 4. Accept *args, **kwargs so the wrapper works for any signature.
+ 5. A decorator with arguments needs the three-level structure and
+    parentheses at use: @repeat(3).
+ 6. Decorator code runs at definition (import) time; the wrapper at call
+    time.
+ 7. Stacked decorators apply bottom-up and execute top-down.
+ 8. State shared in a closure (a cache, a counter) is shared by all calls of
+    that one decorated function.
+ 9. When decorating methods, the wrapper receives self as args[0].
+10. lru_cache arguments must be hashable (no lists / dicts).
+11. The decorated name now refers to the wrapper, not the original; the
+    original is available as __wrapped__.
+
+
+==============================================================================
+                      E. CONTEXT MANAGERS
+==============================================================================
+
+30. THE with STATEMENT
+------------------------------------------------------------------------------
+A context manager sets something up, lets you use it, and ALWAYS cleans up,
+even if an error occurs.
+
+    with open("data.txt") as f:       # set up: open the file
+        text = f.read()               # use it
+    # clean up: the file is closed here, even on exceptions
+    f.closed                          # True
+    f.read()                          # ValueError: I/O on closed file
+
+Equivalent try / finally (what with replaces):
+    f = open("data.txt")
+    try:
+        text = f.read()
+    finally:
+        f.close()
+
+Common context managers:
+    open(...)                     files
+    threading.Lock()              with lock: ...
+    sqlite3.connect(...)          commit / rollback transactions
+    tempfile.TemporaryDirectory() deletes the directory on exit
+    decimal.localcontext()        temporary precision
+    unittest: self.assertRaises(ValueError)
+    contextlib.suppress / redirect_stdout / closing / ExitStack
+    zipfile.ZipFile, socket, subprocess.Popen, requests.Session ...
+
+31. THE CONTEXT MANAGER PROTOCOL
+------------------------------------------------------------------------------
+An object is a context manager if it defines:
+    __enter__(self)                       runs on entering; its return value
+                                          is bound by "as"
+    __exit__(self, exc_type, exc, tb)     runs on leaving, always
+        - exc_type, exc, tb are None when no exception happened
+        - return True  -> the exception is SUPPRESSED
+        - return False/None -> the exception continues to propagate
+
+    class CM:
+        def __enter__(self):
+            print("enter")
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            print("exit", exc_type)
+            return False
+
+    with CM() as c:
+        print("body")
+    # enter
+    # body
+    # exit None
+
+    with CM():
+        raise ValueError("boom")
+    # enter
+    # exit <class 'ValueError'>
+    # ValueError: boom           (propagated because __exit__ returned False)
+
+If __exit__ returns True the error is swallowed and the program continues
+after the with block.
+
+What "with" does (simplified):
+    mgr = CM()
+    value = mgr.__enter__()
+    try:
+        body
+    except BaseException:
+        if not mgr.__exit__(*sys.exc_info()):
+            raise
+    else:
+        mgr.__exit__(None, None, None)
+
+Notes:
+    - If __enter__ itself raises, __exit__ is NOT called.
+    - "as name" is optional: with lock: ...
+    - A context manager can be reused only if designed for it.
+
+32. CLASS-BASED EXAMPLES
+------------------------------------------------------------------------------
+Timer:
+    import time
+    class Timer:
+        def __enter__(self):
+            self.start = time.perf_counter()
+            return self
+        def __exit__(self, *exc):
+            self.elapsed = time.perf_counter() - self.start
+            print(f"took {self.elapsed:.3f}s")
+
+    with Timer():
+        sum(range(10**6))
+
+Change directory temporarily, database transaction:
+    class Transaction:
+        def __init__(self, conn): self.conn = conn
+        def __enter__(self): return self.conn.cursor()
+        def __exit__(self, exc_type, exc, tb):
+            if exc_type is None: self.conn.commit()
+            else: self.conn.rollback()
+            return False                     # do not hide the error
+
+Suppress selected errors:
+    class Ignore:
+        def __init__(self, *exc): self.exc = exc
+        def __enter__(self): return self
+        def __exit__(self, exc_type, exc, tb):
+            return exc_type is not None and issubclass(exc_type, self.exc)
+
+33. @contextmanager (GENERATOR-BASED)
+------------------------------------------------------------------------------
+Write set-up before yield and clean-up after it:
+
+    from contextlib import contextmanager
+
+    @contextmanager
+    def managed(name):
+        print("open", name)           # __enter__ part
+        try:
+            yield name.upper()        # value bound by "as"; body runs here
+        finally:
+            print("close", name)      # __exit__ part (always runs)
+
+    with managed("db") as m:
+        print(m)
+    # open db
+    # DB
+    # close db
+
+Rules:
+    - Exactly one yield.
+    - Wrap the yield in try / finally so clean-up runs when the body raises
+      (the exception is thrown into the generator at the yield).
+    - To suppress an exception, catch it around the yield and do not re-raise.
+
+    @contextmanager
+    def timer():
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            print(f"{time.perf_counter() - start:.3f}s")
+
+    @contextmanager
+    def cd(path):
+        old = os.getcwd(); os.chdir(path)
+        try: yield
+        finally: os.chdir(old)
+
+34. contextlib TOOLS
+------------------------------------------------------------------------------
+    from contextlib import (suppress, redirect_stdout, closing, ExitStack,
+                            nullcontext)
+    import io, os
+
+    with suppress(FileNotFoundError):         # ignore these errors
+        os.remove("missing.txt")
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):                # capture print output
+        print("hi")
+    buf.getvalue()                            # 'hi\n'
+
+    with closing(urlopen(url)) as page: ...   # calls .close() on exit
+
+    with ExitStack() as stack:                # variable number of contexts
+        files = [stack.enter_context(open(p)) for p in paths]
+
+    with nullcontext(): ...                   # do-nothing placeholder
+    contextlib.chdir(path)                    # 3.11+ temporary cwd
+    Async version: async with ... (uses __aenter__ / __aexit__).
+
+35. SEVERAL CONTEXT MANAGERS
+------------------------------------------------------------------------------
+    with open("in.txt") as src, open("out.txt", "w") as dst:
+        dst.write(src.read())
+
+    with (open("a.txt") as a,          # parenthesised form: Python 3.10+
+          open("b.txt") as b):
+        ...
+
+They are entered left to right and exited in REVERSE order:
+    with A() as a, B() as b:   ->  enter A, enter B, ..., exit B, exit A
+Same as nested with statements.
+
+36. CONTEXT MANAGER GOTCHAS
+------------------------------------------------------------------------------
+ 1. Returning a truthy value from __exit__ silently swallows exceptions; use
+    it deliberately.
+ 2. In @contextmanager always use try / finally around the yield.
+ 3. A with statement does not create a new scope; names assigned inside
+    remain available afterwards.
+ 4. Using an object that lacks the protocol fails:
+        with 5: ...     # TypeError (no __enter__ / __exit__)
+        (older versions: AttributeError: __enter__)
+ 5. Do not use the resource after the block ends (closed file, closed
+    connection).
+ 6. __exit__ must accept three arguments (exc_type, exc, tb).
+ 7. @contextmanager objects are single-use; call the function again for a
+    new one.
+ 8. Prefer with over manual open() / close().
+
+
+==============================================================================
+                         F. DATACLASSES
+==============================================================================
+
+37. WHAT IS A DATACLASS?
+------------------------------------------------------------------------------
+@dataclass (module dataclasses, Python 3.7+) writes the repetitive methods of
+a data-holding class for you: __init__, __repr__ and __eq__ (and optionally
+ordering, hashing and more) from the annotated fields.
+
+Without it:
+    class Point:
+        def __init__(self, x, y=0):
+            self.x = x
+            self.y = y
+        def __repr__(self):
+            return f"Point(x={self.x!r}, y={self.y!r})"
+        def __eq__(self, other):
+            if other.__class__ is not self.__class__:
+                return NotImplemented
+            return (self.x, self.y) == (other.x, other.y)
+
+With it:
+    from dataclasses import dataclass
+
+    @dataclass
+    class Point:
+        x: int
+        y: int = 0
+
+    p = Point(1)                 # Point(x=1, y=0)
+    print(p)                     # Point(x=1, y=0)
+    p.x, p.y                     # 1 0
+    p == Point(1, 0)             # True
+    p == (1, 0)                  # False (different class)
+    p.x = 5                      # allowed (mutable by default)
+
+Rules:
+    - Fields are class attributes WITH a type annotation; the annotation is
+      not enforced at run time (Point("a", 2) works).
+    - Fields without a default must come before fields with defaults:
+          x: int = 0
+          y: int                 # TypeError: non-default argument 'y' follows
+                                 # default argument
+    - Attributes without an annotation are ordinary class attributes, not
+      fields.
+
+38. THE DECORATOR OPTIONS
+------------------------------------------------------------------------------
+    @dataclass(init=True, repr=True, eq=True, order=False,
+               unsafe_hash=False, frozen=False,
+               slots=False, kw_only=False)        # slots, kw_only: 3.10+
+
+  Option        | Effect
+  --------------|-------------------------------------------------------------
+  init          | generate __init__
+  repr          | generate __repr__
+  eq            | generate __eq__ (compares fields as tuples; same class)
+  order         | generate <, <=, >, >= comparing fields in order
+  frozen=True   | immutable: assignment raises FrozenInstanceError; also makes
+                | instances hashable (with eq=True)
+  unsafe_hash   | force __hash__ even when mutable
+  slots=True    | use __slots__: less memory, no new attributes can be added
+  kw_only=True  | all fields must be given by keyword
+
+    @dataclass(frozen=True)
+    class P:
+        x: int
+    p = P(1)
+    p.x = 2          # dataclasses.FrozenInstanceError: cannot assign to
+                     # field 'x'
+    {p: "ok"}        # hashable: usable as dict key / set item
+
+    @dataclass(order=True)
+    class Version:
+        major: int
+        minor: int
+    Version(1, 2) < Version(1, 3)                 # True
+    sorted([Version(2, 0), Version(1, 5)])        # smallest first
+
+Hashing rules:
+    eq=True, frozen=False (the default)  -> __hash__ is None (unhashable):
+        hash(Point(1, 2))     # TypeError: unhashable type: 'Point'
+    eq=True, frozen=True                 -> hashable
+    A mutable object should not be hashable.
+
+39. field(), MUTABLE DEFAULTS, __post_init__
+------------------------------------------------------------------------------
+Mutable defaults are rejected:
+    @dataclass
+    class Bag:
+        items: list = []         # ValueError: mutable default <class 'list'>
+                                 # for field items is not allowed: use
+                                 # default_factory
+Use default_factory (a function called for EACH new instance):
+    from dataclasses import field
+
+    @dataclass
+    class Bag:
+        items: list = field(default_factory=list)
+        tags: dict = field(default_factory=dict)
+    Bag().items is Bag().items       # False (independent lists)
+
+field() options:
+    field(default=0)                    default value
+    field(default_factory=list)         factory for mutable defaults
+    field(init=False)                   not an __init__ parameter
+    field(repr=False)                   hide from __repr__
+    field(compare=False)                ignore in ==, ordering, hash
+    field(kw_only=True)                 keyword-only (3.10+)
+    field(metadata={"unit": "cm"})      attach extra data
+
+__post_init__ runs right after the generated __init__ (validation, derived
+fields):
+    @dataclass
+    class Rect:
+        w: float
+        h: float
+        area: float = field(init=False)
+
+        def __post_init__(self):
+            if self.w < 0 or self.h < 0:
+                raise ValueError("negative size")
+            self.area = self.w * self.h
+
+    Rect(2, 3)               # Rect(w=2, h=3, area=6)
+
+Other pieces:
+    from typing import ClassVar
+    count: ClassVar[int] = 0       # class variable, NOT a field
+    from dataclasses import InitVar
+    scale: InitVar[int] = 1        # passed to __init__ and __post_init__ only
+
+40. HELPER FUNCTIONS AND INHERITANCE
+------------------------------------------------------------------------------
+    from dataclasses import asdict, astuple, replace, fields, is_dataclass
+
+    p = Point(1, 2)
+    asdict(p)                  # {'x': 1, 'y': 2}      (recursive)
+    astuple(p)                 # (1, 2)
+    replace(p, x=9)            # Point(x=9, y=2)  (a new object)
+    [f.name for f in fields(p)]    # ['x', 'y']
+    is_dataclass(p)            # True
+
+Inheritance (fields are collected in order, base class first):
+    @dataclass
+    class A:
+        x: int
+    @dataclass
+    class B(A):
+        y: int = 0
+    B(1, 2)                    # B(x=1, y=2)
+    A base field with a default followed by a subclass field without a default
+    raises TypeError; use kw_only=True to avoid it.
+
+Pattern matching works automatically (__match_args__):
+    match p:
+        case Point(x, y): print(x, y)
+
+Nested dataclasses:
+    @dataclass
+    class Line:
+        start: Point
+        end: Point
+    Line(Point(0, 0), Point(1, 1))
+    # Line(start=Point(x=0, y=0), end=Point(x=1, y=1))
+
+Typical uses: records, configuration objects, DTOs, graph nodes, test data,
+returning structured results.
+
+41. DATACLASS vs OTHER OPTIONS
+------------------------------------------------------------------------------
+  Feature          | dataclass     | namedtuple /   | plain class | dict
+                   |               | NamedTuple     |             |
+  -----------------|---------------|----------------|-------------|--------
+  Mutable          | yes (default) | no             | yes         | yes
+  Immutable option | frozen=True   | always         | manual      | no
+  Field access     | obj.x         | obj.x, obj[0]  | obj.x       | d["x"]
+  Unpacking        | no (astuple)  | yes            | no          | no
+  Defaults         | yes           | yes            | yes         | n/a
+  Methods          | yes           | yes            | yes         | no
+  Inheritance      | yes           | limited        | yes         | n/a
+  Boilerplate      | none          | none           | much        | none
+  Memory           | normal/slots  | small          | normal      | larger
+  Validation       | __post_init__ | manual         | __init__    | manual
+
+Third-party: pydantic and attrs add run-time validation and more.
+
+42. HOW @dataclass WORKS (IDEA)
+------------------------------------------------------------------------------
+@dataclass is a CLASS DECORATOR: it receives the class, reads
+cls.__annotations__ and the defaults, adds the generated methods to the
+class, and returns the same class. That is why it combines decorators
+(section 27) with classes.
+
+    @dataclass
+    class C: ...         # same as  C = dataclass(C)
+
+43. DATACLASS GOTCHAS
+------------------------------------------------------------------------------
+ 1. Annotations are required for fields; types are not checked.
+ 2. Mutable defaults (list, dict, set) need field(default_factory=...).
+ 3. Non-default fields cannot follow default fields.
+ 4. Default eq=True makes instances unhashable unless frozen=True.
+ 5. frozen=True protects field assignment but not mutable contents:
+    a frozen dataclass holding a list can still change that list.
+ 6. order=True compares fields in definition order, as tuples, same class.
+ 7. == compares field values, not identity (use "is" for identity).
+ 8. replace() and asdict() make new objects (asdict copies recursively).
+ 9. replace() builds a new object through __init__, so __post_init__ runs
+    again; fields with init=False cannot be passed to replace().
+10. slots=True (3.10+) saves memory but blocks adding new attributes.
+11. Defining your own __init__ or __repr__ inside the class wins over the
+    generated one.
+
+
+==============================================================================
+                  G. PITFALLS CHECKLIST AND QUICK GUIDE
+==============================================================================
+
+44. CHECKLIST
+------------------------------------------------------------------------------
+  1. [ ] builds a list, { } a set or dict, ( ) a generator; there is no tuple
+     comprehension.
+  2. Filter if goes after for; ternary if/else goes before for.
+  3. Comprehension variables do not leak.
+  4. Generators are lazy and single-use; calling the function runs nothing.
+  5. yield pauses and keeps state; return ends the function.
+  6. Prime a generator with next() before send().
+  7. Iterable has __iter__; iterator has __iter__ and __next__.
+  8. A list is not an iterator; iter(list) is.
+  9. Custom iterators raise StopIteration to finish.
+ 10. @decorator means  f = decorator(f).
+ 11. Use functools.wraps and *args, **kwargs; return the wrapper and the
+     result.
+ 12. Decorators with arguments have three levels; call @name(args).
+ 13. with guarantees clean-up; __exit__ returning True swallows exceptions.
+ 14. @contextmanager needs try / finally around its single yield.
+ 15. Dataclass defaults: use default_factory for mutable values.
+ 16. frozen=True gives immutability and hashing; default dataclasses are
+     unhashable.
+ 17. Annotations in dataclasses are hints, not enforcement.
+
+45. QUICK SELECTION GUIDE
+------------------------------------------------------------------------------
+    Build a new list/set/dict from another iterable   -> comprehension
+    Huge or infinite data, one pass                   -> generator
+    Need the data repeatedly / random access / len    -> list
+    Custom iteration logic                            -> generator function
+                                                         (class if state is
+                                                         complex)
+    Add logging, timing, caching, checks to functions -> decorator
+    Memoise a pure function                           -> functools.cache /
+                                                         lru_cache
+    Guarantee close / unlock / rollback               -> with / context
+                                                         manager
+    Simple set-up and tear-down                       -> @contextmanager
+    Data-holding class                                -> @dataclass
+    Immutable record, usable as key                   -> frozen dataclass or
+                                                         NamedTuple
+
+
+==============================================================================
+                  H. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+LIST COMPREHENSIONS
+Q1. What is the output?   print([x * x for x in range(5) if x % 2 == 0])
+A.  [0, 4, 16]
+
+Q2. What is the output?   print([x if x % 2 == 0 else -x for x in range(5)])
+A.  [0, -1, 2, -3, 4]   (ternary BEFORE for: transforms every item).
+
+Q3. What is the output?   print([(i, j) for i in range(2) for j in range(2)])
+A.  [(0, 0), (0, 1), (1, 0), (1, 1)]   (the first for is the outer loop).
+
+Q4. How do you flatten [[1, 2], [3, 4]] with a comprehension?
+A.  [x for row in m for x in row]  ->  [1, 2, 3, 4]
+
+Q5. What is the output?
+        print({x: x * x for x in range(3)}, {x % 2 for x in range(5)})
+A.  {0: 0, 1: 1, 2: 4} {0, 1}
+
+Q6. What is the output?   x = 10; [x for x in range(3)]; print(x)
+A.  10   (the comprehension variable does not leak into the outer scope).
+
+Q7. Why is  [x for x in range(5) if x else 0]  a SyntaxError? Fix it.
+A.  else is not allowed in the filter position. Use the ternary in front:
+    [x if x else 0 for x in range(5)].
+
+Q8. What is the difference between [x for x in it] and (x for x in it)?
+A.  The first builds the entire list at once (eager, O(n) memory). The second
+    is a generator expression: lazy, constant memory, single use.
+
+Q9. Is there a tuple comprehension? What is the output?
+        t = (x for x in range(3)); print(type(t))
+A.  No. (x for ...) is a generator: <class 'generator'>. Use
+    tuple(x for x in ...) for a tuple.
+
+GENERATORS
+Q10. What is the output?
+        def gen():
+            print("A"); yield 1
+            print("B"); yield 2
+        g = gen(); print("created"); print(next(g)); print(next(g))
+A.  created
+    A
+    1
+    B
+    2
+    (calling gen() runs nothing; the body runs only when next() is called).
+
+Q11. What is the output?
+        g = (x for x in range(3)); print(list(g), list(g))
+A.  [0, 1, 2] []   (a generator is exhausted after one pass).
+
+Q12. Difference between return and yield?
+A.  return ends the function and gives one value; yield pauses the function,
+    hands out a value, and keeps its state so it can resume. A function with
+    yield returns a generator.
+
+Q13. What is the output?   print(sum(x * x for x in range(4)))
+A.  14   (0 + 1 + 4 + 9). The extra parentheses of the generator expression
+    are optional when it is the only argument.
+
+Q14. What does yield from do?
+A.  It delegates to another iterable or generator, yielding each of its
+    values (and passing send / throw through). list(chain([1, 2], "ab")) with
+    yield from gives [1, 2, 'a', 'b'].
+
+Q15. How do you get a generator's return value?
+A.  It is stored in StopIteration.value: catch the exception from next(), or
+    use  result = yield from gen.
+
+Q16. What happens?   g = (x for x in range(3)); g[0]   and   len(g)
+A.  TypeError: 'generator' object is not subscriptable, and
+    TypeError: object of type 'generator' has no len().
+
+Q17. What happens?   def f(): x = yield; ...    g = f(); g.send(5)
+A.  TypeError: can't send non-None value to a just-started generator.
+    Call next(g) first (priming), then send.
+
+Q18. When would you use a generator instead of a list?
+A.  Large or infinite sequences, streaming files, pipelines, or when values
+    are consumed once: it saves memory and starts producing immediately.
+
+ITERATORS
+Q19. Difference between an iterable and an iterator?
+A.  An iterable can produce an iterator (has __iter__). An iterator produces
+    values one by one (has __next__, and __iter__ returning itself) and is
+    single-use. Lists, strings and dicts are iterables; iter(list) and
+    generators are iterators.
+
+Q20. What is the output?
+        print(isinstance([1], Iterable), isinstance([1], Iterator),
+              isinstance(iter([1]), Iterator))
+A.  True False True
+
+Q21. What is the output?
+        it = iter([1, 2]); next(it); next(it); print(next(it, "end"))
+A.  end   (the default avoids StopIteration).
+
+Q22. What does a for loop do internally?
+A.  It calls iter(obj) once, then calls next() repeatedly, and stops when
+    StopIteration is raised.
+
+Q23. What happens?   next(range(3))
+A.  TypeError: 'range' object is not an iterator. range is an iterable; use
+    next(iter(range(3))).
+
+Q24. What must a class define to be an iterator?
+A.  __iter__ (returning self) and __next__ (returning the next value and
+    raising StopIteration at the end).
+
+Q25. What is the output?
+        it = iter([1, 2, 3, 4]); print(list(zip(it, it)))
+A.  [(1, 2), (3, 4)]   (both arguments are the same iterator).
+
+Q26. What is the output?
+        from itertools import islice, count
+        print(list(islice(count(5), 3)))
+A.  [5, 6, 7]
+
+Q27. What is the output?
+        from itertools import takewhile
+        print(list(takewhile(lambda x: x < 3, [1, 2, 3, 1])))
+A.  [1, 2]   (stops at the first failure; the final 1 is not reached).
+
+Q28. What does iter(callable, sentinel) do?
+A.  Calls callable() repeatedly and stops when the result equals the
+    sentinel: for line in iter(input, "quit"): ...
+
+Q29. Is a generator an iterator? Is every iterator a generator?
+A.  Yes, every generator is an iterator. No, an iterator can be a class with
+    __next__, or map / zip / a file object.
+
+DECORATORS
+Q30. What is a decorator? What does @dec above a function mean?
+A.  A callable that takes a function and returns a new one with added
+    behaviour. @dec def f ... is the same as f = dec(f).
+
+Q31. What is the output?
+        def deco(f):
+            print("decorating", f.__name__)
+            def w(*a, **k):
+                print("before"); return f(*a, **k)
+            return w
+        @deco
+        def hi(): print("hi")
+        print("defined"); hi()
+A.  decorating hi
+    defined
+    before
+    hi
+    (the decorator runs once at definition time; the wrapper on every call).
+
+Q32. What is the output?
+        def bold(f):   return lambda: "<b>" + f() + "</b>"
+        def italic(f): return lambda: "<i>" + f() + "</i>"
+        @bold
+        @italic
+        def text(): return "hi"
+        print(text())
+A.  <b><i>hi</i></b>   (italic is applied first, then bold: bold(italic(f))).
+
+Q33. Why use functools.wraps?
+A.  It copies __name__, __doc__ and other metadata from the original function
+    to the wrapper (without it hi.__name__ would be 'w' and help() would be
+    wrong). It also sets __wrapped__.
+
+Q34. How do you write a decorator that takes arguments?
+A.  Add an outer function that receives the arguments and returns the real
+    decorator: three levels (arguments -> function -> wrapper). Use it as
+    @repeat(3); @repeat without parentheses would pass the function as the
+    argument.
+
+Q35. What goes wrong if the wrapper does not return the result?
+A.  The decorated function always returns None.
+
+Q36. Name some built-in decorators and what they do.
+A.  @staticmethod, @classmethod, @property, @functools.lru_cache / cache
+    (memoisation), @functools.wraps, @dataclass, @abstractmethod,
+    @contextmanager.
+
+Q37. How can a class be a decorator?
+A.  Give it __init__(self, func) to store the function and __call__ to run it
+    (it can keep state, e.g. a call counter). Use functools.update_wrapper
+    to copy metadata.
+
+CONTEXT MANAGERS
+Q38. What is the output?
+        class CM:
+            def __enter__(self): print("enter"); return self
+            def __exit__(self, t, v, tb): print("exit"); return False
+        with CM(): print("body")
+A.  enter
+    body
+    exit
+
+Q39. What does __exit__ returning True do?
+A.  It suppresses the exception that occurred in the with block; execution
+    continues after the block. Returning False/None lets the exception
+    propagate. __exit__ always runs, even on errors.
+
+Q40. What is the output?
+        class CM:
+            def __enter__(self): return self
+            def __exit__(self, t, v, tb): print("cleanup"); return True
+        with CM():
+            raise ValueError
+        print("after")
+A.  cleanup
+    after
+    (the ValueError is suppressed because __exit__ returned True).
+
+Q41. How does @contextmanager work? What must you remember?
+A.  A generator function with exactly one yield: code before it is the
+    set-up (__enter__), the yielded value goes to "as", code after it is the
+    clean-up (__exit__). Wrap the yield in try / finally so clean-up runs
+    when the body raises.
+
+Q42. What replaces a try / finally with open()?
+A.  with open(...) as f:  The file is closed automatically on exit, even if
+    an exception occurs.
+
+Q43. In what order are  with A() as a, B() as b:  contexts entered and exited?
+A.  Entered A then B; exited B then A (reverse order).
+
+Q44. What is contextlib.suppress used for?
+A.  Ignoring specific exceptions: with suppress(FileNotFoundError):
+    os.remove(path).
+
+DATACLASSES
+Q45. What does @dataclass generate? What is the output?
+        @dataclass
+        class Point: x: int; y: int = 0
+        print(Point(1), Point(1) == Point(1, 0))
+A.  Point(x=1, y=0) True. It generates __init__, __repr__ and __eq__ (and
+    more when requested) from the annotated fields.
+
+Q46. What happens?   @dataclass class Bag: items: list = []
+A.  ValueError: mutable default <class 'list'> for field items is not
+    allowed: use default_factory. Write
+    items: list = field(default_factory=list).
+
+Q47. What is the effect of frozen=True?
+A.  Fields cannot be assigned after creation (FrozenInstanceError) and, with
+    eq=True, __hash__ is generated, so instances can be dict keys / set items.
+    Mutable objects inside are still mutable.
+
+Q48. What does order=True do?
+A.  Generates <, <=, >, >= comparing instances as tuples of their fields in
+    definition order, so Version(1, 2) < Version(1, 3) is True and instances
+    can be sorted.
+
+Q49. What is __post_init__ for? What is the output?
+        @dataclass
+        class Rect:
+            w: int; h: int
+            area: int = field(init=False)
+            def __post_init__(self): self.area = self.w * self.h
+        print(Rect(2, 3))
+A.  Rect(w=2, h=3, area=6). __post_init__ runs after the generated __init__
+    for validation or derived fields.
+
+Q50. Dataclass vs namedtuple vs a plain class?
+A.  A dataclass is mutable by default, supports defaults, methods,
+    inheritance, validation and frozen / ordered options with no boilerplate.
+    A namedtuple is an immutable tuple (indexable, unpackable, lighter). A
+    plain class needs hand-written __init__, __repr__ and __eq__.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

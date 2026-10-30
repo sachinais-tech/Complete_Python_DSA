@@ -1,0 +1,958 @@
+==============================================================================
+                         PYTHON VARIABLES - COMPLETE NOTES
+==============================================================================
+
+
+1. WHAT IS A VARIABLE?
+------------------------------------------------------------------------------
+A variable is a NAME that refers to an object (value) stored in memory.
+In Python, a variable is not a box that holds a value; it is a label (reference)
+attached to an object.
+
+    x = 10        # name 'x' now refers to the int object 10
+
+Key points:
+  - No declaration needed. A variable is created the moment you assign to it.
+  - No type needs to be written. Python is dynamically typed.
+  - The "=" operator is the ASSIGNMENT operator (not equality).
+  - Variables hold references to objects; objects have a type, names do not.
+
+
+2. CREATING (ASSIGNING) VARIABLES
+------------------------------------------------------------------------------
+    name = "Sachin"        # str
+    age = 25               # int
+    height = 5.9           # float
+    is_student = True      # bool
+    nothing = None         # NoneType
+    z = 3 + 4j             # complex
+
+    print(name, age, height, is_student, nothing, z)
+
+
+3. DYNAMIC TYPING
+------------------------------------------------------------------------------
+The same name can be re-assigned to a different type at any time.
+
+    x = 10
+    print(type(x))         # <class 'int'>
+    x = "hello"
+    print(type(x))         # <class 'str'>
+    x = [1, 2, 3]
+    print(type(x))         # <class 'list'>
+
+Python is also STRONGLY typed: it will not silently mix incompatible types.
+
+    "5" + 5                # TypeError: can only concatenate str to str
+    "5" + str(5)           # '55'
+    int("5") + 5           # 10
+
+
+4. RULES FOR NAMING VARIABLES (IDENTIFIERS)
+------------------------------------------------------------------------------
+  1. Must start with a letter (a-z, A-Z) or underscore (_).
+  2. Can contain letters, digits (0-9) and underscores only.
+  3. Cannot start with a digit.
+  4. Cannot contain spaces or special characters (@, $, %, -, !, etc.).
+  5. Are CASE-SENSITIVE:  age, Age and AGE are three different variables.
+  6. Cannot be a Python keyword (reserved word).
+  7. No length limit (but keep names readable).
+  8. Unicode letters are allowed (e.g. naam = "x"), but avoid in practice.
+
+Valid:
+    name        _name       name1       first_name     __private
+    _          userAge     MAX_SIZE    x2             camelCase
+
+Invalid:
+    1name       # starts with digit
+    first-name  # hyphen not allowed
+    first name  # space not allowed
+    my$var      # special character
+    class       # keyword
+    for         # keyword
+
+Case sensitivity example:
+    age = 20
+    Age = 30
+    AGE = 40
+    print(age, Age, AGE)   # 20 30 40
+
+
+5. PYTHON KEYWORDS (cannot be used as variable names)
+------------------------------------------------------------------------------
+    False   None    True    and      as       assert   async    await
+    break   class   continue def     del      elif     else     except
+    finally for     from     global  if       import   in       is
+    lambda  nonlocal not     or      pass     raise    return   try
+    while   with    yield
+
+(match, case, type, _ are "soft keywords": they are keywords only in a
+ specific context and can still be used as variable names, but avoid it.)
+
+See the list yourself:
+    import keyword
+    print(keyword.kwlist)
+    print(keyword.iskeyword("for"))    # True
+
+Avoid shadowing built-in names (they are NOT keywords, but overwriting them
+causes bugs):
+    list = [1, 2, 3]        # now list() the built-in is broken
+    print = "hi"            # now print() is broken
+    sum, max, min, str, int, len, id, type, input, dict, set ...
+
+To restore: del list   (removes your variable, built-in is visible again)
+
+
+6. NAMING CONVENTIONS (PEP 8)
+------------------------------------------------------------------------------
+  snake_case        -> variables and functions      : student_name, total_marks
+  UPPER_SNAKE_CASE  -> constants                    : PI, MAX_USERS
+  PascalCase        -> classes                      : StudentRecord
+  _single_leading   -> "internal use" by convention : _count
+  single_trailing_  -> avoid clash with keyword     : class_, type_
+  __double_leading  -> name mangling inside classes : __secret
+  __dunder__        -> special/magic names          : __init__, __name__
+  _                 -> throwaway / last result in REPL
+
+Tips: use meaningful names (total_price not tp); avoid single letters like
+l, O, I (confusing); avoid names that differ only by case.
+
+
+7. MULTIPLE ASSIGNMENT
+------------------------------------------------------------------------------
+a) Same value to many variables (chained assignment)
+    a = b = c = 0
+    print(a, b, c)         # 0 0 0
+    (all three refer to the SAME object - careful with mutable objects!)
+
+    x = y = []
+    x.append(1)
+    print(y)               # [1]  <- y changed too, same list
+
+b) Different values to different variables (tuple packing/unpacking)
+    a, b, c = 1, 2.5, "hi"
+    print(a, b, c)
+
+c) Unpacking a sequence
+    p, q, r = [10, 20, 30]
+    d1, d2, d3 = "abc"               # d1='a', d2='b', d3='c'
+    x, y = (5, 6)
+
+    Number of names must match number of values:
+    a, b = 1, 2, 3                   # ValueError: too many values to unpack
+    a, b, c = 1, 2                   # ValueError: not enough values
+
+d) Extended unpacking with * (star)
+    first, *rest = [1, 2, 3, 4]      # first=1, rest=[2, 3, 4]
+    *init, last = [1, 2, 3, 4]       # init=[1, 2, 3], last=4
+    a, *mid, z = [1, 2, 3, 4, 5]     # a=1, mid=[2, 3, 4], z=5
+
+e) Swapping without temp variable
+    a, b = 10, 20
+    a, b = b, a
+    print(a, b)            # 20 10
+
+f) Ignoring values with _
+    a, _, c = (1, 2, 3)
+    _, _, last = (1, 2, 3)
+
+g) Nested unpacking
+    (a, b), c = (1, 2), 3
+    for i, (x, y) in enumerate([(1, 2), (3, 4)]):
+        print(i, x, y)
+
+
+8. AUGMENTED (COMPOUND) ASSIGNMENT
+------------------------------------------------------------------------------
+    x = 10
+    x += 5     # x = x + 5     -> 15
+    x -= 3     # x = x - 3     -> 12
+    x *= 2     # x = x * 2     -> 24
+    x /= 4     # x = x / 4     -> 6.0  (float)
+    x //= 4    # floor divide  -> 1.0
+    x %= 1     # modulus       -> 0.0
+    x **= 2    # power
+    x &= 1     # bitwise AND
+    x |= 1     # bitwise OR
+    x ^= 1     # bitwise XOR
+    x <<= 1    # left shift
+    x >>= 1    # right shift
+
+Also works for strings and lists:
+    s = "ab"; s += "cd"       # 'abcd'
+    s *= 2                    # 'abcdabcd'
+    lst = [1]; lst += [2, 3]  # [1, 2, 3]  (modifies list IN PLACE)
+
+
+9. WALRUS OPERATOR  :=  (Python 3.8+)
+------------------------------------------------------------------------------
+Assigns a value inside an expression.
+
+    if (n := len("hello")) > 3:
+        print(n)                      # 5
+
+    while (line := input("> ")) != "quit":
+        print(line)
+
+    data = [y for x in range(5) if (y := x * x) > 4]   # [9, 16]
+
+
+10. DATA TYPES OF VARIABLES
+------------------------------------------------------------------------------
+  Numeric   : int, float, complex
+  Text      : str
+  Boolean   : bool
+  Sequence  : list, tuple, range
+  Mapping   : dict
+  Set       : set, frozenset
+  Binary    : bytes, bytearray, memoryview
+  None      : NoneType
+
+    a = 10                     # int
+    b = 3.14                   # float
+    c = 2 + 3j                 # complex
+    d = "text"                 # str
+    e = True                   # bool
+    f = [1, 2, 3]              # list
+    g = (1, 2, 3)              # tuple
+    h = {"k": "v"}             # dict
+    i = {1, 2, 3}              # set
+    j = frozenset({1, 2})      # frozenset
+    k = range(5)               # range
+    l = b"abc"                 # bytes
+    m = None                   # NoneType
+
+Checking type:
+    type(a)                    # <class 'int'>
+    isinstance(a, int)         # True   (preferred for checks)
+    isinstance(a, (int, float))# True if either
+
+
+11. TYPE CONVERSION (CASTING)
+------------------------------------------------------------------------------
+Explicit:
+    int("42")          # 42
+    int(3.99)          # 3  (truncates, does not round)
+    int("101", 2)      # 5  (base 2)
+    float("3.5")       # 3.5
+    float(7)           # 7.0
+    str(100)           # '100'
+    bool(0)            # False
+    bool("")           # False
+    bool("a")          # True
+    list("abc")        # ['a', 'b', 'c']
+    tuple([1, 2])      # (1, 2)
+    set([1, 1, 2])     # {1, 2}
+    dict([("a", 1)])   # {'a': 1}
+    complex(2, 3)      # (2+3j)
+
+Invalid conversion -> ValueError:
+    int("abc")         # ValueError
+    int("3.5")         # ValueError (use int(float("3.5")))
+
+Implicit (automatic):
+    1 + 2.0            # 3.0  (int promoted to float)
+    True + 1           # 2    (bool is int subclass)
+
+Falsy values: 0, 0.0, 0j, "", [], (), {}, set(), None, False  (all else truthy)
+
+input() always returns str:
+    age = int(input("Age: "))
+
+
+12. MEMORY MODEL: id(), is, REFERENCES
+------------------------------------------------------------------------------
+    x = 10
+    y = x
+    print(id(x), id(y))        # same id -> same object
+    print(x is y)              # True
+
+    y = 20                     # y now points to a NEW object; x unchanged
+    print(x, y)                # 10 20
+
+  - id(obj)  : unique identity (memory address in CPython)
+  - ==       : compares VALUES
+  - is       : compares IDENTITY (same object)
+
+    a = [1, 2]; b = [1, 2]
+    a == b     # True
+    a is b     # False
+
+Small-integer caching: CPython caches ints from -5 to 256.
+    a = 256; b = 256; a is b    # True
+    a = 257; b = 257; a is b    # may be False (implementation detail!)
+String interning: some identical strings may share one object.
+    NEVER use "is" to compare numbers/strings; use "==".
+    Use "is" only for None/True/False:   if x is None:
+
+Reference counting & garbage collection:
+    - Each object tracks how many names refer to it.
+    - When count hits 0, memory is freed automatically.
+    import sys
+    sys.getrefcount(x)         # count (+1 for the call's temp reference)
+    del x                      # removes the NAME, not necessarily the object
+
+
+13. MUTABLE vs IMMUTABLE
+------------------------------------------------------------------------------
+Immutable (cannot change in place): int, float, complex, bool, str, tuple,
+                                    frozenset, bytes, None
+Mutable   (can change in place)   : list, dict, set, bytearray, user objects
+
+Immutable:
+    s = "abc"
+    s[0] = "X"                 # TypeError
+    s = "X" + s[1:]            # creates a NEW string
+
+    n = 5
+    print(id(n))
+    n += 1
+    print(id(n))               # different id -> new object
+
+Mutable:
+    lst = [1, 2, 3]
+    print(id(lst))
+    lst.append(4)
+    print(id(lst))             # SAME id -> modified in place
+
+Aliasing pitfall:
+    a = [1, 2, 3]
+    b = a                      # b is another name for the SAME list
+    b.append(4)
+    print(a)                   # [1, 2, 3, 4]
+
+Copying:
+    b = a.copy()               # shallow copy   (also list(a), a[:])
+    import copy
+    c = copy.deepcopy(a)       # deep copy (nested objects copied too)
+
+    nested = [[1, 2], [3]]
+    sh = nested.copy()
+    sh[0].append(99)
+    print(nested)              # [[1, 2, 99], [3]]  <- shallow copy shares inner
+    dp = copy.deepcopy(nested) # fully independent
+
+Tuple with mutable inside:
+    t = ([1], 2)
+    t[0].append(5)             # OK -> ([1, 5], 2)
+    t[0] = [9]                 # TypeError
+
+Mutable default argument trap:
+    def f(x, items=[]):        # BAD: same list reused across calls
+        items.append(x); return items
+    def f(x, items=None):      # GOOD
+        if items is None: items = []
+        items.append(x); return items
+
+
+14. SCOPE OF VARIABLES (LEGB RULE)
+------------------------------------------------------------------------------
+Python looks up names in this order:
+    L - Local      : inside the current function
+    E - Enclosing  : in outer (enclosing) functions
+    G - Global     : at module (file) level
+    B - Built-in   : Python's built-in names (len, print, ...)
+
+a) Global variable
+    count = 0                  # global
+    def show():
+        print(count)           # reading a global is fine
+    show()
+
+b) Local variable
+    def f():
+        msg = "local"          # exists only inside f
+        print(msg)
+    f()
+    print(msg)                 # NameError
+
+c) Local shadows global
+    x = 10
+    def f():
+        x = 20                 # new local x
+        print(x)               # 20
+    f()
+    print(x)                   # 10
+
+d) UnboundLocalError (assign + read before assign)
+    x = 1
+    def f():
+        print(x)               # UnboundLocalError: x is local (assigned below)
+        x = 2
+
+e) global keyword - modify a global inside a function
+    total = 0
+    def add(n):
+        global total
+        total += n
+    add(5)
+    print(total)               # 5
+
+f) nonlocal keyword - modify enclosing function's variable
+    def outer():
+        n = 0
+        def inner():
+            nonlocal n
+            n += 1
+        inner(); inner()
+        return n
+    print(outer())             # 2
+
+g) Mutating a global object does NOT need 'global'
+    data = []
+    def add(x):
+        data.append(x)         # modifies object, no rebinding
+    add(1)
+
+h) Block scope: Python has NO block scope for if/for/while/with.
+    if True:
+        y = 5
+    print(y)                   # 5 (still visible)
+    for i in range(3):
+        pass
+    print(i)                   # 2 (loop variable leaks)
+
+   Exceptions that DO have their own scope: functions, lambdas, classes,
+   comprehensions (list/set/dict/generator), and the "except ... as e" name
+   (deleted after the except block).
+
+i) Comprehension variable doesn't leak
+    [k for k in range(3)]
+    print(k)                   # NameError
+
+j) Inspect scope
+    globals()                  # dict of global names
+    locals()                   # dict of local names
+    dir()                      # names in current scope
+
+k) Class variables vs instance variables
+    class Student:
+        school = "ABC"             # class variable (shared by all)
+        def __init__(self, name):
+            self.name = name       # instance variable (per object)
+
+    s1 = Student("A"); s2 = Student("B")
+    Student.school = "XYZ"         # changes for all
+    s1.school = "Own"              # creates instance var only on s1
+
+l) Module-level "private" variable by convention
+    _internal = 1                  # not imported by: from mod import *
+
+
+15. CONSTANTS
+------------------------------------------------------------------------------
+Python has no true constants. By convention, use UPPER_CASE names.
+
+    PI = 3.14159
+    MAX_USERS = 100
+    # PI = 3 is allowed by Python, but you should not do it.
+
+Real protection options:
+    - tuple / frozenset for immutable collections
+    - typing.Final (static type checkers flag reassignment)
+          from typing import Final
+          MAX: Final = 10
+    - enum.Enum for named constant groups
+    - properties without setters in classes
+
+
+16. DELETING VARIABLES
+------------------------------------------------------------------------------
+    x = 5
+    del x
+    print(x)                   # NameError: name 'x' is not defined
+
+    del a, b                   # delete multiple
+    del lst[0]                 # delete an item (not the variable)
+    del d["key"]               # delete dict key
+
+
+17. THE VALUE None AND UNINITIALIZED VARIABLES
+------------------------------------------------------------------------------
+Python has no "declared but empty" variable. Using a name never assigned
+raises NameError.
+
+    print(undefined_var)       # NameError
+
+To create a "placeholder", assign None:
+    result = None
+    if result is None:
+        result = compute()
+
+
+18. TYPE HINTS / ANNOTATIONS (optional, not enforced at runtime)
+------------------------------------------------------------------------------
+    age: int = 25
+    name: str = "Sachin"
+    scores: list[int] = [90, 80]
+    price: float            # annotation only, variable NOT created
+    maybe: int | None = None
+
+    print(__annotations__)
+    Tools such as mypy / pyright use these for static checking.
+
+
+19. PRINTING / FORMATTING VARIABLES
+------------------------------------------------------------------------------
+    name = "Sachin"; age = 25
+    print(name, age)                          # Sachin 25
+    print("Name:", name, "Age:", age)
+    print("Name: " + name + ", Age: " + str(age))
+    print("Name: %s, Age: %d" % (name, age))   # old style
+    print("Name: {}, Age: {}".format(name, age))
+    print(f"Name: {name}, Age: {age}")         # f-string (best)
+    print(f"{age=}")                           # age=25  (3.8+ debug form)
+    print(f"{3.14159:.2f}")                    # 3.14
+    print(f"{1000000:,}")                      # 1,000,000
+    print(f"{name:>10}")                       # right-align
+
+
+20. TAKING INPUT INTO VARIABLES
+------------------------------------------------------------------------------
+    name = input("Enter name: ")               # always str
+    age = int(input("Enter age: "))
+    price = float(input("Enter price: "))
+    a, b = map(int, input("Two numbers: ").split())
+    nums = list(map(int, input().split()))
+
+
+21. NUMBER FORMS IN VARIABLES
+------------------------------------------------------------------------------
+    a = 1_000_000          # underscores for readability
+    b = 0b1010             # binary  -> 10
+    c = 0o17               # octal   -> 15
+    d = 0xFF               # hex     -> 255
+    e = 1.5e3              # scientific -> 1500.0
+    big = 2 ** 100         # ints have unlimited size
+    0.1 + 0.2              # 0.30000000000000004 (float precision)
+
+Integer ops:   10 / 3 = 3.333..   10 // 3 = 3   10 % 3 = 1   2 ** 3 = 8
+
+
+22. STRINGS IN VARIABLES (quick reference)
+------------------------------------------------------------------------------
+    s1 = 'single'
+    s2 = "double"
+    s3 = """multi
+    line"""
+    s4 = r"raw \n string"          # raw string
+    s5 = "It's"   or   'He said "hi"'
+    s = "Python"
+    s[0]        # 'P'      s[-1]    # 'n'      s[1:4]  # 'yth'
+    len(s)      # 6        s.upper()  s.lower()  s.replace("P", "J")
+    Strings are immutable.
+
+
+23. SPECIAL / BUILT-IN VARIABLES
+------------------------------------------------------------------------------
+    __name__       # "__main__" when file is run directly
+    __file__       # path of current file
+    __doc__        # docstring
+    __builtins__   # built-in namespace
+    _              # last result in interactive REPL
+
+    if __name__ == "__main__":
+        main()
+
+
+24. USEFUL FUNCTIONS FOR WORKING WITH VARIABLES
+------------------------------------------------------------------------------
+    type(x)           # type of object
+    id(x)             # identity
+    isinstance(x, T)  # type check
+    dir()             # names in scope
+    vars(obj)         # __dict__ of an object
+    globals(), locals()
+    hasattr(o, "a"), getattr(o, "a", default), setattr(o, "a", v), delattr(o, "a")
+    sys.getsizeof(x)  # memory size of object in bytes
+
+Dynamic variable creation (rarely recommended; prefer dict):
+    globals()["dyn_var"] = 42
+    print(dyn_var)             # 42
+    values = {"a": 1, "b": 2}  # better than creating a1, a2, a3 ...
+
+
+25. COMMON ERRORS RELATED TO VARIABLES
+------------------------------------------------------------------------------
+  NameError            : using a name that was never defined / misspelled
+  UnboundLocalError    : reading a local before assigning it
+  SyntaxError          : invalid name (1x, my-var, keyword) or "=" misuse
+  TypeError            : operation between incompatible types ("a" + 1)
+  ValueError           : bad conversion (int("abc")) / wrong unpack count
+  IndentationError     : bad indentation around assignments
+  AttributeError       : accessing a non-existent attribute
+
+
+26. COMMON MISTAKES & BEST PRACTICES
+------------------------------------------------------------------------------
+  - Use "==" for comparison, "=" for assignment.
+  - Do not compare numbers/strings with "is".
+  - Do not shadow built-ins (list, str, sum, max, id, type, input...).
+  - Beware aliasing of mutable objects; copy when you need independence.
+  - Avoid mutable default arguments.
+  - Minimize use of global variables; pass arguments and return values.
+  - Use descriptive names and snake_case; UPPER_CASE for constants.
+  - Initialize variables before use (e.g. total = 0 before a loop).
+  - Convert input() results to the needed type.
+  - Prefer f-strings for formatting.
+  - Prefer a dict/list over many numbered variables (v1, v2, v3 ...).
+
+
+27. QUICK SUMMARY TABLE
+------------------------------------------------------------------------------
+  Concept            | Key idea
+  -------------------|-----------------------------------------------------
+  Variable           | Name bound to an object
+  Declaration        | Not needed; created on first assignment
+  Typing             | Dynamic and strong
+  Naming             | letters/digits/_ ; not start with digit; no keywords
+  Case               | Case-sensitive
+  Multiple assign    | a = b = 0 ; a, b = 1, 2 ; a, *b = seq
+  Swap               | a, b = b, a
+  Mutable            | list, dict, set (change in place)
+  Immutable          | int, float, str, tuple, bool, frozenset
+  Scope              | LEGB; global / nonlocal keywords
+  Constants          | UPPER_CASE by convention only
+  Delete             | del name
+  Identity vs value  | is vs ==
+
+
+28. PRACTICE EXAMPLES
+------------------------------------------------------------------------------
+# 1. Swap two numbers
+a, b = 5, 9
+a, b = b, a
+print(a, b)
+
+# 2. Area of circle
+PI = 3.14159
+r = float(input("Radius: "))
+area = PI * r ** 2
+print(f"Area = {area:.2f}")
+
+# 3. Simple interest
+p, r, t = 1000, 5, 2
+si = p * r * t / 100
+print("Simple interest:", si)
+
+# 4. Swap using arithmetic
+a, b = 3, 4
+a = a + b
+b = a - b
+a = a - b
+
+# 5. Counter using global
+counter = 0
+def inc():
+    global counter
+    counter += 1
+inc(); inc()
+print(counter)                 # 2
+
+# 6. Show aliasing
+x = [1, 2]
+y = x
+y.append(3)
+print(x is y, x)               # True [1, 2, 3]
+
+# 7. Type check and convert
+val = "123"
+print(type(val))
+val = int(val)
+print(type(val), val + 1)
+
+29. INTERVIEW QUESTIONS & ANSWERS
+------------------------------------------------------------------------------
+
+--- BASIC LEVEL ---
+
+Q1. What is a variable in Python?
+A.  A name that refers to an object in memory. Created on first assignment;
+    no declaration or type is required. The type belongs to the object.
+
+Q2. Is Python statically or dynamically typed? Strongly or weakly?
+A.  Dynamically typed (type checked at runtime, a name can be rebound to any
+    type) and strongly typed (no implicit unsafe coercion: "5" + 5 -> TypeError).
+
+Q3. What are the rules for naming a variable?
+A.  Start with letter/underscore, then letters/digits/underscores; no spaces or
+    special characters; not a keyword; case-sensitive.
+
+Q4. Which of these are valid: 2var, _var, var-2, var_2, for, Var?
+A.  Valid: _var, var_2, Var.  Invalid: 2var (digit start), var-2 (hyphen),
+    for (keyword).
+
+Q5. How do you check the type of a variable?
+A.  type(x) or isinstance(x, int). isinstance is preferred (respects
+    inheritance and accepts a tuple of types).
+
+Q6. How do you assign multiple variables in one line?
+A.  a, b, c = 1, 2, 3   or   a = b = c = 0
+
+Q7. How do you swap two variables?
+A.  a, b = b, a   (tuple packing/unpacking, no temp variable needed).
+
+Q8. What does input() return?
+A.  Always a str. Convert with int()/float() when needed.
+
+Q9. What is the difference between = and ==?
+A.  = assigns a value; == compares values for equality.
+
+Q10. How do you delete a variable?
+A.  del x. It removes the name; the object is freed only when no references
+    remain.
+
+--- INTERMEDIATE LEVEL ---
+
+Q11. What is the difference between == and is?
+A.  == compares values; is compares identity (same object, id(a) == id(b)).
+    Use is only for None/True/False.
+
+Q12. What is the output?
+        a = 256; b = 256; print(a is b)
+        a = 257; b = 257; print(a is b)
+A.  True, then usually False in a REPL/function-level code. CPython caches
+    small ints (-5..256). It is an implementation detail; never rely on it.
+
+Q13. Mutable vs immutable - give examples and explain the impact.
+A.  Immutable: int, float, bool, str, tuple, frozenset, bytes - cannot change in
+    place; "modifying" creates a new object.
+    
+     Mutable: list, dict, set - change
+    in place, so aliases see the change.
+
+Q14. What is the output?
+        a = [1, 2, 3]
+        b = a
+        b.append(4)
+        print(a)
+A.  [1, 2, 3, 4]. b is another name for the same list.
+
+Q15. What is the output?
+        x = 10
+        def f():
+            x = 20
+        f()
+        print(x)
+A.  10. Assignment inside f creates a local x.
+
+Q16. What is the output / error?
+        x = 10
+        def f():
+            print(x)
+            x = 20
+        f()
+A.  UnboundLocalError. x is assigned in f so it is local for the whole
+    function, but is read before assignment.
+
+Q17. Explain the LEGB rule.
+A.  Name lookup order: Local -> Enclosing -> Global -> Built-in.
+
+Q18. Difference between global and nonlocal?
+A.  global: rebind a module-level name from inside a function.
+    nonlocal: rebind a variable of the nearest enclosing function scope
+    (not global).
+
+Q19. Does Python have constants?
+A.  No true constants. Convention: UPPER_CASE. typing.Final helps type
+    checkers; Enum/tuple/frozenset give immutability.
+
+Q20. What is the difference between shallow and deep copy?
+A.  Shallow (copy.copy, list.copy, [:]) copies the outer container only; inner
+    objects are shared. Deep (copy.deepcopy) recursively copies everything.
+
+Q21. Does Python have block scope?
+A.  No for if/for/while/with/try (variables stay visible after the block).
+    Yes for functions, classes, lambdas, and comprehensions.
+
+Q22. Why is this a bug and how do you fix it?
+        def add(x, items=[]):
+            items.append(x)
+            return items
+A.  The default list is created once and shared across calls. Use
+    items=None and create the list inside the function.
+
+Q23. What does this print?
+        x = y = []
+        x.append(1)
+        print(y)
+A.  [1]. Chained assignment binds both names to the same list.
+
+Q24. What happens with a, b = 1, 2, 3 ?
+A.  ValueError: too many values to unpack (expected 2).
+
+Q25. What does first, *rest = [1, 2, 3, 4] give?
+A.  first = 1, rest = [2, 3, 4].
+
+Q26. Why shouldn't you name a variable list, str, or sum?
+A.  It shadows the built-in, so list(...) etc. break later in that scope
+    (TypeError: 'list' object is not callable). Fix with del list.
+
+Q27. How are variables passed to functions - by value or by reference?
+A.  "Pass by object reference" (call by sharing). The function gets a reference
+    to the same object. Mutating it affects the caller; rebinding the
+    parameter does not.
+        def f(lst): lst.append(1)      # caller sees change
+        def g(lst): lst = [9]          # caller unaffected
+        def h(n):   n += 1             # int immutable: caller unaffected
+
+--- ADVANCED LEVEL ---
+
+Q28. How does Python manage memory for variables?
+A.  Objects live on a private heap. Names are references. CPython uses
+    reference counting plus a cyclic garbage collector (gc module) for
+    reference cycles. When the count reaches 0 the object is freed.
+
+Q29. What is the output and why?
+        a = "hello"
+        b = "hello"
+        print(a is b)
+        c = "hello world!"
+        d = "hello world!"
+        print(c is d)
+A.  Typically True (identifier-like strings are interned); the second may be
+    True or False depending on compile-time constant folding/interning.
+    Behaviour is implementation-specific - always use ==.
+
+Q30. What is the output?
+        t = ([1, 2], 3)
+        t[0].append(99)
+        print(t)
+        t[0] = [5]
+A.  ([1, 2, 99], 3) then TypeError: 'tuple' object does not support item
+    assignment. A tuple's references are fixed but a mutable element can still
+    change.
+
+Q31. What does t += [4] do when t = ([1], 2) and the element is a list?
+        t = ([1, 2], 3)
+        t[0] += [4]
+A.  The list is extended in place BUT then the assignment back to t[0] fails
+    -> TypeError, yet t is now ([1, 2, 4], 3). Classic gotcha.
+
+Q32. What is the output?
+        a = [1, 2, 3]
+        a += [4]          # (1)
+        a = a + [5]       # (2)
+    What is the difference between (1) and (2)?
+A.  (1) extends the same list in place (id unchanged, aliases see it).
+    (2) builds a new list and rebinds a (aliases do not see it).
+
+Q33. What is the output?
+        funcs = [lambda: i for i in range(3)]
+        print([f() for f in funcs])
+A.  [2, 2, 2]. Closures capture the variable i (late binding), not its value.
+    Fix: lambda i=i: i
+
+Q34. What is a closure? How do variables behave in it?
+A.  An inner function that remembers variables of its enclosing scope after the
+    outer function has returned. They are stored in cells
+    (f.__closure__, f.__code__.co_freevars). Use nonlocal to rebind them.
+
+Q35. Class variable vs instance variable - what is the output?
+        class A:
+            items = []
+            n = 0
+        a, b = A(), A()
+        a.items.append(1)
+        a.n += 1
+        print(b.items, b.n, A.n)
+A.  [1] 0 0. items is a shared mutable class attribute (mutated in place).
+    a.n += 1 reads class n (0) and creates an instance attribute on a only.
+
+Q36. What is name mangling?
+A.  Inside a class, __name becomes _ClassName__name to avoid accidental
+    override in subclasses. It is not true privacy.
+
+Q37. What is the walrus operator and when to use it?
+A.  := assigns and returns a value within an expression (3.8+).
+        if (n := len(data)) > 10: ...
+    Useful in while-loops and comprehensions to avoid repeating a computation.
+
+Q38. How do __slots__ affect instance variables?
+A.  __slots__ = ("x", "y") removes the per-instance __dict__, saving memory and
+    blocking creation of other attributes.
+
+Q39. What does del x really do?
+A.  Removes the name binding from the current namespace and decrements the
+    object's refcount. The object is destroyed only if the count reaches 0.
+
+Q40. How can you see which variables exist?
+A.  dir(), globals(), locals(), vars(obj).
+
+Q41. What is the output?
+        x = 5
+        def f():
+            global x
+            x = 6
+            def g():
+                x = 7
+            g()
+            return x
+        print(f(), x)
+A.  6 6. g() creates its own local x; f() assigned the global x = 6.
+
+Q42. Are Python type hints enforced?
+A.  No. They are annotations stored in __annotations__ and used by tools such
+    as mypy/pyright/IDEs. x: int = "a" runs without error.
+
+Q43. What is the output?
+        print(0.1 + 0.2 == 0.3)
+A.  False (binary floating point). Use math.isclose(0.1 + 0.2, 0.3) or the
+    decimal module.
+
+Q44. What does this print and why?
+        a = 10
+        def f():
+            a += 1
+        f()
+A.  UnboundLocalError. a += 1 is an assignment, so a is local, and it has no
+    value yet. Declare global a (or pass/return values).
+
+Q45. Is the loop variable available after a for loop?
+        for i in range(3): pass
+        print(i)
+A.  Yes, 2. But in a list comprehension the variable does not leak.
+    If the iterable is empty, i is never created (NameError).
+
+--- CODING / OUTPUT PRACTICE ---
+
+Q46. Swap two variables without a third variable (3 ways).
+A.  a, b = b, a
+    a = a + b; b = a - b; a = a - b
+    a ^= b; b ^= a; a ^= b            # integers only
+
+Q47. Write code to show that strings are immutable.
+A.  s = "abc"
+    try:
+        s[0] = "x"
+    except TypeError as e:
+        print(e)     # 'str' object does not support item assignment
+
+Q48. Print the memory identity before and after modifying a list and an int.
+A.  lst = [1]; print(id(lst)); lst.append(2); print(id(lst))   # same
+    n = 1;     print(id(n));   n += 1;        print(id(n))     # different
+
+Q49. Create variables dynamically (and the better alternative).
+A.  for i in range(3): globals()[f"v{i}"] = i      # works but discouraged
+    vars_ = {f"v{i}": i for i in range(3)}         # preferred: use a dict
+
+Q50. Count references to an object.
+A.  import sys
+    x = [1]; y = x
+    print(sys.getrefcount(x))   # 3 (x, y, + temporary argument)
+
+--- ONE-LINE QUICK ANSWERS ---
+  * Variable type fixed?          -> No, the object's type is fixed, not the name.
+  * Variables case-sensitive?     -> Yes.
+  * Can a variable start with _?  -> Yes.
+  * Max length of a name?         -> No limit.
+  * int size limit?               -> None (arbitrary precision).
+  * Default value of a variable?  -> None exists; unassigned name -> NameError.
+  * bool("False")?                -> True (non-empty string).
+  * type(None)?                   -> <class 'NoneType'>.
+  * Is True + True?               -> 2 (bool subclasses int).
+  * Is a function a variable?     -> A def binds a name to a function object.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

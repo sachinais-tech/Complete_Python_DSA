@@ -1,0 +1,1348 @@
+==============================================================================
+       PYTHON CONDITIONAL STATEMENTS, NESTED CONDITIONS AND PATTERN PROBLEMS
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Decision making lets a program choose which code to run based on a condition.
+Pattern problems combine decisions with loops to practise logic building.
+
+    A. Conditional statements  - if, elif, else, ternary, match-case
+    B. Nested conditions       - if inside if, flattening, De Morgan's laws
+    C. Pattern problems        - loop basics, method, star / number / alphabet
+                                 patterns, hollow and diagonal patterns
+    D. Pitfalls, checklist and interview questions
+
+Flow of a decision:
+
+    condition  --True-->  run block A
+        |
+      False
+        |
+        v
+    run block B (else) or continue after the if statement
+
+
+==============================================================================
+                    A. CONDITIONAL STATEMENTS
+==============================================================================
+
+2. THE if STATEMENT
+------------------------------------------------------------------------------
+Syntax:
+    if condition:
+        statements              # run only when condition is truthy
+
+Rules:
+    - The condition ends with a colon (:).
+    - The block is defined by indentation (4 spaces).
+    - The condition is any expression; Python uses its truthiness.
+    - No parentheses are needed around the condition.
+
+    age = 20
+    if age >= 18:
+        print("Adult")           # Adult
+    print("Done")                # always runs (not part of the if block)
+
+    if age >= 18: print("Adult") # single-line form (allowed, less readable)
+
+3. if - else
+------------------------------------------------------------------------------
+    if condition:
+        block_1                 # condition truthy
+    else:
+        block_2                 # condition falsy (else has NO condition)
+
+    n = 7
+    if n % 2 == 0:
+        print("Even")
+    else:
+        print("Odd")            # Odd
+
+4. if - elif - else LADDER
+------------------------------------------------------------------------------
+    if cond_1:
+        block_1
+    elif cond_2:
+        block_2
+    elif cond_3:
+        block_3
+    else:
+        block_default           # optional
+
+Rules:
+    - Conditions are tested top to bottom; the FIRST true one runs and the
+      rest are skipped.
+    - else is optional and must be last.
+    - You may have any number of elif branches.
+    - "else if" is a SyntaxError; the keyword is elif.
+    - ORDER MATTERS: put the most specific / highest condition first.
+
+    marks = 85
+    if marks >= 90:
+        grade = "A"
+    elif marks >= 80:
+        grade = "B"             # chosen
+    elif marks >= 70:
+        grade = "C"
+    else:
+        grade = "F"
+    print(grade)                # B
+
+Wrong order (bug):
+    if marks >= 50:  grade = "D"      # 85 matches here first!
+    elif marks >= 80: grade = "B"     # never reached
+
+elif ladder vs separate ifs:
+    score = 95
+    if score > 90: print("A")         # all separate ifs are tested
+    if score > 80: print("B")         # prints A and B and C
+    if score > 70: print("C")
+
+    if score > 90: print("A")         # ladder: only A is printed
+    elif score > 80: print("B")
+    elif score > 70: print("C")
+
+5. CONDITIONS: OPERATORS
+------------------------------------------------------------------------------
+Comparison (result is bool):
+    ==   equal           !=   not equal
+    <    less            >    greater
+    <=   less or equal   >=   greater or equal
+
+    5 == 5.0        # True  (values compared)
+    "a" == "A"      # False (case-sensitive)
+    "apple" < "banana"   # True  (lexicographic)
+    "10" < "9"      # True  (text order!)
+    [1, 2] == [1, 2]     # True
+    (1, 2) < (1, 3) # True
+    1 < "2"         # TypeError (int vs str)
+
+Chained comparison (each operand evaluated once):
+    1 < x < 10          # same as  1 < x and x < 10
+    a == b == c         # all three equal
+    1 < 3 > 2           # True   (1 < 3 and 3 > 2)
+    1 < 2 < 3 < 4       # True
+    5 > 3 > 1           # True
+    5 > 3 < 1           # False  (3 < 1 is False)
+
+Logical operators:
+  a      b     | a and b | a or b | not a
+  -------------|---------|--------|------
+  True  True   |  True   |  True  | False
+  True  False  |  False  |  True  | False
+  False True   |  False  |  True  | True
+  False False  |  False  |  False | True
+
+Precedence:  not  >  and  >  or   (comparisons bind tighter than all three)
+    True or False and False     # True   (and first, then or)
+    (True or False) and False   # False
+    not 0 == 1                  # True    (not applied to (0 == 1))
+
+Short-circuit evaluation:
+    - a and b : if a is falsy, b is NOT evaluated (result is a).
+    - a or b  : if a is truthy, b is NOT evaluated (result is a).
+    Use it as a guard:
+        if lst and lst[0] == 5: ...       # no IndexError on empty list
+        if x != 0 and 10 / x > 1: ...     # no ZeroDivisionError
+
+and / or return an OPERAND, not necessarily a bool:
+    0 or "a"        # 'a'
+    "" or "default" # 'default'   (common default-value idiom)
+    3 and 4         # 4
+    "" and 5        # ''
+    None or 0       # 0
+    [] or None      # None
+
+Membership and identity:
+    "a" in "cat"           # True
+    3 not in [1, 2]        # True
+    key in dict            # tests keys
+    x is None              # identity check; use for None / True / False
+    x is not None
+    x == None              # works, but "is None" is the standard
+    5 is 5                 # SyntaxWarning (is with a literal) - use ==
+
+Float comparison:
+    0.1 + 0.2 == 0.3                   # False
+    import math
+    math.isclose(0.1 + 0.2, 0.3)       # True
+    abs(a - b) < 1e-9                  # manual tolerance
+
+6. TRUTHINESS IN CONDITIONS
+------------------------------------------------------------------------------
+    FALSY : False, None, 0, 0.0, 0j, "", [], (), {}, set(), range(0)
+    TRUTHY: everything else (non-zero numbers, non-empty containers / strings)
+
+    name = ""
+    if not name:
+        print("Name is empty")        # idiomatic empty check
+    items = [3, 4]
+    if items:
+        print("has items")            # instead of  if len(items) > 0:
+    if x == True: ...                 # avoid; write  if x:
+    bool("0"), bool("False"), bool(" ")    # True True True (non-empty)
+
+When 0 or "" is a valid value, test explicitly:
+    if count is None: ...             # not   if not count:
+
+7. TERNARY (CONDITIONAL) EXPRESSION
+------------------------------------------------------------------------------
+Syntax:   value_if_true  if  condition  else  value_if_false
+
+    age = 20
+    status = "adult" if age >= 18 else "minor"      # adult
+    print("even" if 4 % 2 == 0 else "odd")          # even
+    bigger = a if a > b else b                      # same as max(a, b)
+    label = "pos" if n > 0 else "neg" if n < 0 else "zero"    # nested
+    print(f"{'Pass' if marks >= 40 else 'Fail'}")
+
+Notes:
+    - It is an expression (returns a value), so it can be used inside print,
+      f-strings, lambda and list comprehensions:
+          [("even" if x % 2 == 0 else "odd") for x in range(3)]
+    - [x for x in lst if cond]  is a filter; the ternary goes BEFORE the for.
+    - Old trick  cond and a or b  FAILS when a is falsy
+          True and 0 or 5          # 5   (expected 0) - do not use
+    - Do not nest more than one level; use if-elif instead.
+
+8. match - case (STRUCTURAL PATTERN MATCHING, Python 3.10+)
+------------------------------------------------------------------------------
+Python's switch statement. The first matching case runs; there is NO
+fall-through and no break needed.
+
+    day = 3
+    match day:
+        case 1:
+            print("Monday")
+        case 2:
+            print("Tuesday")
+        case 3:
+            print("Wednesday")                  # chosen
+        case 6 | 7:                             # | = either value
+            print("Weekend")
+        case _:                                 # wildcard (default)
+            print("Invalid")
+
+More patterns:
+    match command:
+        case "go" | "run":          ...        # several literals
+        case ["move", x, y]:        ...        # sequence, captures x and y
+        case {"type": "circle", "r": r}: ...   # mapping pattern
+        case n if n > 100:          ...        # guard (extra condition)
+        case int():                 ...        # class / type pattern
+        case None:                  ...
+        case _:                     ...
+
+Notes:
+    - case _ matches anything; it is optional.
+    - A bare name in a case is a CAPTURE variable, not a comparison:
+          case x:  matches everything and binds x.
+      To compare with a constant, use a dotted name (Color.RED) or a literal.
+    - match and case are "soft keywords" (still usable as variable names).
+    - Before 3.10 use if-elif or a dictionary.
+
+Dictionary dispatch (switch alternative that works everywhere):
+    ops = {"+": lambda a, b: a + b,
+           "-": lambda a, b: a - b,
+           "*": lambda a, b: a * b}
+    ops.get("*", lambda a, b: None)(3, 4)       # 12
+    days = {1: "Mon", 2: "Tue"}
+    days.get(5, "Invalid")                      # 'Invalid'
+
+9. OTHER USEFUL FORMS
+------------------------------------------------------------------------------
+Walrus operator := (assign inside a condition, 3.8+):
+    if (n := len(data)) > 3:
+        print(f"{n} items")
+
+Placeholders:
+    if x > 0:
+        pass                        # empty block is not allowed otherwise
+
+Avoiding if with built-ins:
+    max(a, b, c)   min(a, b, c)     # largest / smallest
+    abs(x)                          # absolute value
+    n % 2 == 1  or  n & 1           # odd test (also works for negatives)
+    sorted([a, b, c])[1]            # median of three
+    a if a > b else b               # ternary
+
+Boolean results can be returned directly:
+    def is_even(n):
+        return n % 2 == 0           # not:  if ...: return True else: ...
+
+any() / all():
+    any(x > 5 for x in lst)         # at least one is true
+    all(x > 0 for x in lst)         # every one is true
+    all([]) is True ; any([]) is False
+
+10. WORKED EXAMPLES - CONDITIONAL STATEMENTS
+------------------------------------------------------------------------------
+(1) Positive, negative or zero
+        n = int(input())
+        if n > 0:
+            print("Positive")
+        elif n < 0:
+            print("Negative")
+        else:
+            print("Zero")
+
+(2) Even or odd:   print("Even" if n % 2 == 0 else "Odd")
+    In Python -7 % 2 is 1 (result takes the sign of the divisor), so
+    n % 2 == 1 is a valid odd test even for negative n.
+
+(3) Largest of three
+        a, b, c = 4, 9, 2
+        if a >= b and a >= c:
+            print(a)
+        elif b >= c:
+            print(b)                # 9
+        else:
+            print(c)
+        # or simply  max(a, b, c)
+
+(4) Grade from marks
+        if marks >= 90:    g = "A"
+        elif marks >= 80:  g = "B"
+        elif marks >= 70:  g = "C"
+        elif marks >= 60:  g = "D"
+        else:              g = "F"
+
+(5) Leap year
+        def is_leap(y):
+            return (y % 4 == 0 and y % 100 != 0) or y % 400 == 0
+        is_leap(2024)   # True      is_leap(1900)  # False
+        is_leap(2000)   # True      is_leap(2023)  # False
+    Rule: divisible by 4, except centuries, which must be divisible by 400.
+
+(6) Vowel or consonant
+        ch = input().lower()
+        if ch in "aeiou":
+            print("Vowel")
+        elif ch.isalpha():
+            print("Consonant")
+        else:
+            print("Not a letter")
+    (Caution: "" in "aeiou" is True; check len(ch) == 1 for one char.)
+
+(7) Character type
+        if ch.isupper():     print("Uppercase")
+        elif ch.islower():   print("Lowercase")
+        elif ch.isdigit():   print("Digit")
+        else:                print("Special character")
+
+(8) FizzBuzz (check 15 FIRST)
+        for i in range(1, 16):
+            if i % 15 == 0:   print("FizzBuzz")
+            elif i % 3 == 0:  print("Fizz")
+            elif i % 5 == 0:  print("Buzz")
+            else:             print(i)
+
+(9) Voting eligibility
+        print("Eligible" if age >= 18 else "Not eligible")
+
+(10) BMI category
+        if bmi < 18.5:   cat = "Underweight"
+        elif bmi < 25:   cat = "Normal"
+        elif bmi < 30:   cat = "Overweight"
+        else:            cat = "Obese"
+
+(11) Electricity bill by slabs (first 100 units Rs 5, next 100 Rs 7, after
+     that Rs 10)
+        units = 250
+        if units <= 100:
+            bill = units * 5
+        elif units <= 200:
+            bill = 100 * 5 + (units - 100) * 7
+        else:
+            bill = 100 * 5 + 100 * 7 + (units - 200) * 10
+        print(bill)                 # 500 + 700 + 500 = 1700
+
+(12) Day name using match (see section 8) or a list:
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        print(days[n - 1] if 1 <= n <= 7 else "Invalid")
+
+(13) Calculator
+        a, op, b = 8, "/", 2
+        if op == "+":    r = a + b
+        elif op == "-":  r = a - b
+        elif op == "*":  r = a * b
+        elif op == "/":  r = a / b if b != 0 else "Cannot divide by zero"
+        else:            r = "Invalid operator"
+
+(14) Compare strings ignoring case:   if a.lower() == b.lower(): ...
+(15) Check a number is within a range: if 10 <= n <= 20: ...
+
+
+==============================================================================
+                       B. NESTED CONDITIONS
+==============================================================================
+
+11. WHAT IS A NESTED CONDITION?
+------------------------------------------------------------------------------
+An if / elif / else placed INSIDE another if / elif / else block. The inner
+statement is evaluated only when the outer condition allows it. The nesting
+level is shown by indentation.
+
+Syntax:
+    if outer_condition:
+        if inner_condition:
+            block_1
+        else:
+            block_2
+    else:
+        block_3
+
+    age, has_id = 20, True
+    if age >= 18:
+        if has_id:
+            print("Entry allowed")        # Entry allowed
+        else:
+            print("ID required")
+    else:
+        print("Too young")
+
+Dry run: age >= 18 is True -> enter the outer block -> has_id is True ->
+print "Entry allowed". Block_3 and block_2 are skipped.
+
+An inner statement can be if, if-else, elif ladder, loop, or any code:
+    if x > 0:
+        if x % 2 == 0:
+            print("positive even")
+        elif x % 3 == 0:
+            print("positive, odd, multiple of 3")
+        else:
+            print("positive, other")
+    else:
+        print("zero or negative")
+
+12. THE "DANGLING ELSE" IS DECIDED BY INDENTATION
+------------------------------------------------------------------------------
+An else belongs to the if at the SAME indentation level.
+
+    a = 5
+    if a > 0:
+        if a > 10:
+            print("big")
+        else:                       # belongs to  if a > 10
+            print("small")          # small
+
+    a = 5
+    if a > 0:
+        if a > 10:
+            print("big")
+    else:                           # belongs to  if a > 0
+        print("not positive")       # prints nothing for a = 5
+
+Same words, different indentation, different meaning.
+
+13. NESTED if vs COMBINED CONDITION (and)
+------------------------------------------------------------------------------
+    if a:                           if a and b:
+        if b:                           do()
+            do()
+
+These are equivalent ONLY when there is no else / elif / extra code between
+the two ifs. Prefer the flat form.
+
+Nested form is needed when:
+    - the outer and inner branches have DIFFERENT else actions;
+    - the inner condition depends on work done after the outer test;
+    - the inner test is expensive or unsafe unless the outer one passed
+      (or use and for short-circuit safety).
+
+    if user is not None and user.age >= 18: ...    # safe via short-circuit
+
+14. FLATTENING DEEP NESTING
+------------------------------------------------------------------------------
+Deeply nested code ("arrow code") is hard to read. Techniques:
+
+(a) Guard clauses / early return
+        # nested
+        def process(x):
+            if x is not None:
+                if x > 0:
+                    if x % 2 == 0:
+                        return "ok"
+            return "bad"
+
+        # flat
+        def process(x):
+            if x is None: return "bad"
+            if x <= 0:    return "bad"
+            if x % 2 != 0: return "bad"
+            return "ok"
+
+(b) Combine conditions with and / or
+        if x is not None and x > 0 and x % 2 == 0: return "ok"
+
+(c) Use elif instead of else + if
+        # nested                       # flat
+        else:                          elif y:
+            if y:
+                ...                        ...
+
+(d) Use a dictionary or match-case for many choices.
+(e) Move a block into a function with a good name.
+(f) Use continue / break inside loops to skip cases early.
+
+Guideline: stay within about 3 levels of nesting.
+
+15. DE MORGAN'S LAWS (SIMPLIFYING CONDITIONS)
+------------------------------------------------------------------------------
+    not (A and B)  ==  (not A) or (not B)
+    not (A or B)   ==  (not A) and (not B)
+
+    not (x > 5 and x < 10)   ==   x <= 5 or x >= 10
+    not (a == 1 or a == 2)   ==   a != 1 and a != 2
+    not x in lst             ==   x not in lst
+    not a == b               ==   a != b
+
+Negating comparisons:  < <-> >=    > <-> <=    == <-> !=
+
+Common bug - the "or" trap:
+    if x == 1 or 2:            # ALWAYS True (2 is truthy)
+    if x == 1 or x == 2:       # correct
+    if x in (1, 2):            # best
+    if name == "a" or "b":     # always True
+    if x != 1 or x != 2:       # always True for every x; use  and
+
+16. WORKED EXAMPLES - NESTED CONDITIONS
+------------------------------------------------------------------------------
+(1) Largest of three (nested)
+        if a > b:
+            if a > c:   largest = a
+            else:       largest = c
+        else:
+            if b > c:   largest = b
+            else:       largest = c
+
+(2) Leap year (nested)
+        if y % 4 == 0:
+            if y % 100 == 0:
+                if y % 400 == 0:  print("Leap")
+                else:             print("Not leap")
+            else:
+                print("Leap")
+        else:
+            print("Not leap")
+
+(3) Login check
+        if username == "admin":
+            if password == "1234":
+                print("Welcome")
+            else:
+                print("Wrong password")
+        else:
+            print("Unknown user")
+
+(4) ATM withdrawal
+        if card_inserted:
+            if pin == correct_pin:
+                if amount <= balance:
+                    balance -= amount
+                    print("Collect cash")
+                else:
+                    print("Insufficient balance")
+            else:
+                print("Wrong PIN")
+        else:
+            print("Insert card")
+
+(5) Pass / fail with attendance
+        if marks >= 40:
+            if attendance >= 75:
+                print("Pass")
+            else:
+                print("Detained: low attendance")
+        else:
+            print("Fail")
+
+(6) Quadrant of a point (x, y)
+        if x > 0 and y > 0:   print("Quadrant I")
+        elif x < 0 and y > 0: print("Quadrant II")
+        elif x < 0 and y < 0: print("Quadrant III")
+        elif x > 0 and y < 0: print("Quadrant IV")
+        elif x == 0 and y == 0: print("Origin")
+        elif x == 0:          print("On the y-axis")
+        else:                 print("On the x-axis")
+
+(7) Triangle validity and type (sides a, b, c)
+        if a + b > c and b + c > a and a + c > b:
+            if a == b == c:
+                print("Equilateral")
+            elif a == b or b == c or a == c:
+                print("Isosceles")
+            else:
+                print("Scalene")
+        else:
+            print("Not a triangle")
+    (3, 4, 5) Scalene   (5, 5, 5) Equilateral   (2, 2, 3) Isosceles
+    (1, 2, 3) Not a triangle   (a + b == c is a degenerate line)
+
+(8) Roots of a quadratic a*x^2 + b*x + c
+        if a == 0:
+            print("Not quadratic")
+        else:
+            d = b * b - 4 * a * c
+            if d > 0:
+                print("Two real roots")
+            elif d == 0:
+                print("One repeated root")
+            else:
+                print("Complex roots")
+
+(9) Loan eligibility
+        if age >= 21:
+            if income >= 30000:
+                if credit_score >= 700:   print("Approved")
+                else:                     print("Low credit score")
+            else:
+                print("Income too low")
+        else:
+            print("Too young")
+
+(10) Ticket price by age and day
+        if day in ("Sat", "Sun"):
+            price = 150 if age >= 12 else 80
+        else:
+            price = 100 if age >= 12 else 50
+
+(11) Days in a month
+        if month in (1, 3, 5, 7, 8, 10, 12):  days = 31
+        elif month in (4, 6, 9, 11):          days = 30
+        elif month == 2:
+            days = 29 if is_leap(year) else 28
+        else:
+            days = None
+
+(12) Second largest of three (sorted):  sorted([a, b, c])[-2]
+
+(13) Safe division
+        if b != 0:
+            print(a / b)
+        else:
+            print("Cannot divide by zero")
+
+(14) Password strength
+        if len(pw) >= 8:
+            if any(c.isdigit() for c in pw):
+                if any(c.isupper() for c in pw):  print("Strong")
+                else:                             print("Add an uppercase")
+            else:
+                print("Add a digit")
+        else:
+            print("Too short")
+
+Complexity: a fixed number of comparisons, so O(1) time and space.
+
+
+==============================================================================
+                         C. PATTERN PROBLEMS
+==============================================================================
+
+17. LOOP BASICS NEEDED FOR PATTERNS
+------------------------------------------------------------------------------
+for loop and range():
+    for i in range(5):          # 0 1 2 3 4
+    for i in range(1, 6):       # 1 2 3 4 5   (stop is excluded)
+    for i in range(5, 0, -1):   # 5 4 3 2 1   (negative step)
+    for i in range(2, 11, 2):   # 2 4 6 8 10
+    range(0)                    # empty: loop body never runs
+
+Nested loops: the INNER loop runs completely for EVERY iteration of the outer
+loop. Outer loop = rows, inner loop = columns (items in one row).
+
+    for i in range(3):              # rows
+        for j in range(2):          # columns
+            print(i, j)             # 0 0, 0 1, 1 0, 1 1, 2 0, 2 1
+    Total inner iterations = 3 * 2 = 6.
+
+Printing control:
+    print("*", end="")             # stay on the same line
+    print("*", end=" ")            # separated by a space (leaves a trailing
+                                   # space at the end of the line)
+    print()                        # finish the row (move to the next line)
+    print("*" * 5)                 # string repetition: *****
+    print(" " * 3 + "*")          # three spaces then a star
+    print(*range(1, 4))            # 1 2 3
+    "ab".center(6, "-")            # --ab--
+
+while equivalent of a pattern:
+    i = 1
+    while i <= 4:
+        print("*" * i)
+        i += 1
+
+Loop control: break (leave the loop), continue (skip to the next iteration),
+loop-else (runs if the loop finished without break).
+
+18. HOW TO SOLVE ANY PATTERN - STEP BY STEP
+------------------------------------------------------------------------------
+ 1. Look at the pattern with n (number of rows) and count the rows.
+    -> that decides the OUTER loop.
+ 2. For one row i, find three things:
+        a) number of leading SPACES
+        b) number of SYMBOLS (stars / digits / letters) and what they are
+        c) number of trailing spaces (usually none)
+ 3. Write each count as a formula in i and n. Make a small table.
+ 4. Decide how to print a row:
+        - string multiplication:  " " * spaces + "*" * stars
+        - or an inner loop with end="" (needed when the row has a condition)
+ 5. Call print() after each row.
+ 6. Dry-run for n = 1, 2, 3 and check the edge cases.
+
+Example - pyramid with n = 4 (rows numbered i = 1..4):
+      Row i | spaces (n - i) | stars (2i - 1)
+      ------|----------------|---------------
+        1   |       3        |       1
+        2   |       2        |       3
+        3   |       1        |       5
+        4   |       0        |       7
+
+Key formulas (rows i = 1..n):
+    right triangle stars      : i
+    inverted triangle stars   : n - i + 1
+    leading spaces (right-aligned / pyramid) : n - i
+    pyramid stars             : 2i - 1
+    inverted pyramid stars    : 2(n - i) + 1
+    widest row of pyramid     : 2n - 1
+    if rows are numbered from 0 (i = 0..n-1): replace i with i + 1.
+    Total stars: triangle n(n+1)/2 ; pyramid n^2 ; diamond (2n-1 rows)
+    2n^2 - 2n + 1.
+
+Time complexity: O(n^2) because the output itself has O(n^2) characters.
+
+19. STAR PATTERNS - BASIC (n = 4)
+------------------------------------------------------------------------------
+(1) Square
+        ****
+        ****
+        ****
+        ****
+    for i in range(n):
+        for j in range(n):
+            print("*", end="")
+        print()
+    # shortcut:  for _ in range(n): print("*" * n)
+
+(2) Rectangle (r rows, c columns)
+        for _ in range(r): print("*" * c)
+
+(3) Right triangle
+        *
+        **
+        ***
+        ****
+    for i in range(1, n + 1):
+        for j in range(i):
+            print("*", end="")
+        print()
+    # shortcut:  for i in range(1, n + 1): print("*" * i)
+
+(4) Inverted right triangle
+        ****
+        ***
+        **
+        *
+    for i in range(n, 0, -1):
+        print("*" * i)
+
+(5) Right-aligned triangle
+           *
+          **
+         ***
+        ****
+    for i in range(1, n + 1):
+        print(" " * (n - i) + "*" * i)
+
+(6) Inverted right-aligned triangle
+        ****
+         ***
+          **
+           *
+    for i in range(n, 0, -1):
+        print(" " * (n - i) + "*" * i)
+
+(7) Spaced stars (stars separated by a space)
+        *
+        * *
+        * * *
+        * * * *
+    for i in range(1, n + 1):
+        print(" ".join("*" * i))          # no trailing space
+    # or:  print(*["*"] * i)
+
+20. STAR PATTERNS - PYRAMIDS AND DIAMOND (n = 4)
+------------------------------------------------------------------------------
+(8) Pyramid
+           *
+          ***
+         *****
+        *******
+    for i in range(1, n + 1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+    # using center (also pads the right side with spaces):
+    #     print(("*" * (2*i - 1)).center(2*n - 1))
+
+(9) Inverted pyramid
+        *******
+         *****
+          ***
+           *
+    for i in range(n, 0, -1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+
+(10) Diamond (pyramid + inverted pyramid, the widest row printed once)
+           *
+          ***
+         *****
+        *******
+         *****
+          ***
+           *
+    for i in range(1, n + 1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+    for i in range(n - 1, 0, -1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+    Rows = 2n - 1 = 7.   Stars = 1+3+5+7+5+3+1 = 25.
+
+(11) Hourglass (n = 3)
+        *****
+         ***
+          *
+         ***
+        *****
+    for i in range(n, 0, -1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+    for i in range(2, n + 1):
+        print(" " * (n - i) + "*" * (2 * i - 1))
+
+(12) Butterfly (n = 3)
+        *    *
+        **  **
+        ******
+        ******
+        **  **
+        *    *
+    for i in range(1, n + 1):
+        print("*" * i + " " * (2 * (n - i)) + "*" * i)
+    for i in range(n, 0, -1):
+        print("*" * i + " " * (2 * (n - i)) + "*" * i)
+
+(13) Left half-pyramid of spaced stars (n = 4), rows centred:
+           *
+          * *
+         * * *
+        * * * *
+    for i in range(1, n + 1):
+        print(" " * (n - i) + " ".join("*" * i))
+
+21. HOLLOW AND DIAGONAL PATTERNS (CONDITIONS INSIDE LOOPS)
+------------------------------------------------------------------------------
+Use an inner loop with if / else to decide between a symbol and a space.
+Idea: print "*" on the BORDER of the shape, otherwise a space.
+
+(14) Hollow square (n = 4)
+        ****
+        *  *
+        *  *
+        ****
+    for i in range(n):
+        for j in range(n):
+            if i == 0 or i == n - 1 or j == 0 or j == n - 1:
+                print("*", end="")
+            else:
+                print(" ", end="")
+        print()
+
+(15) Hollow rectangle: same, with i < rows and j < cols.
+
+(16) Hollow right triangle (n = 4)
+        *
+        **
+        * *
+        ****
+    for i in range(1, n + 1):
+        for j in range(1, i + 1):
+            if j == 1 or j == i or i == n:
+                print("*", end="")
+            else:
+                print(" ", end="")
+        print()
+
+(17) Hollow pyramid (n = 4)
+           *
+          * *
+         *   *
+        *******
+    for i in range(1, n + 1):
+        print(" " * (n - i), end="")
+        for j in range(1, 2 * i):
+            if j == 1 or j == 2 * i - 1 or i == n:
+                print("*", end="")
+            else:
+                print(" ", end="")
+        print()
+
+(18) Hollow diamond: for the top half print the hollow pyramid rows without
+     the base line, then the mirror. Row of width w prints a star at both
+     ends and spaces in between.
+    for i in range(1, n + 1):
+        row = "*" if i == 1 else "*" + " " * (2 * i - 3) + "*"
+        print(" " * (n - i) + row)
+    for i in range(n - 1, 0, -1):
+        row = "*" if i == 1 else "*" + " " * (2 * i - 3) + "*"
+        print(" " * (n - i) + row)
+
+(19) X pattern (n = 5): stars on both diagonals
+        *   *
+         * *
+          *
+         * *
+        *   *
+    for i in range(n):
+        for j in range(n):
+            if j == i or j == n - 1 - i:
+                print("*", end="")
+            else:
+                print(" ", end="")
+        print()
+    Main diagonal   : j == i
+    Anti-diagonal   : j == n - 1 - i   (i + j == n - 1)
+    Border          : i or j equal to 0 or n - 1
+    Middle row/col  : i == n // 2 or j == n // 2
+
+(20) Plus sign (n = 5, odd):  condition  i == n // 2 or j == n // 2
+(21) Checkerboard (n = 4):    print("*" if (i + j) % 2 == 0 else " ", end="")
+(22) Hollow square with diagonals: border or j == i or j == n - 1 - i
+
+Pattern of conditions: draw the n x n grid, mark the cells to print, and find
+the relation between i and j that describes those cells.
+
+22. NUMBER PATTERNS (n = 4)
+------------------------------------------------------------------------------
+(23) Increasing numbers per row
+        1
+        12
+        123
+        1234
+    for i in range(1, n + 1):
+        for j in range(1, i + 1):
+            print(j, end="")
+        print()
+    # shortcut:  print("".join(map(str, range(1, i + 1))))
+
+(24) Row number repeated
+        1
+        22
+        333
+        4444
+    for i in range(1, n + 1):
+        print(str(i) * i)
+
+(25) Inverted numbers
+        1234
+        123
+        12
+        1
+    for i in range(n, 0, -1):
+        print("".join(str(j) for j in range(1, i + 1)))
+
+(26) Numbers separated by spaces
+        1
+        1 2
+        1 2 3
+        1 2 3 4
+    for i in range(1, n + 1):
+        print(*range(1, i + 1))
+
+(27) Floyd's triangle (consecutive numbers)
+        1
+        2 3
+        4 5 6
+        7 8 9 10
+    num = 1
+    for i in range(1, n + 1):
+        for j in range(i):
+            print(num, end=" ")          # leaves a trailing space
+            num += 1
+        print()
+    Row i has i numbers; total n(n+1)/2; the last number is n(n+1)/2.
+
+(28) Number pyramid
+           1
+          121
+         12321
+        1234321
+    for i in range(1, n + 1):
+        left = "".join(str(j) for j in range(1, i + 1))
+        right = "".join(str(j) for j in range(i - 1, 0, -1))
+        print(" " * (n - i) + left + right)
+    (Works for digits up to 9.)
+
+(29) Binary (alternating 1 and 0) triangle
+        1
+        01
+        101
+        0101
+    for i in range(1, n + 1):
+        for j in range(i):
+            print((i + j) % 2, end="")
+        print()
+
+(30) Pascal's triangle (n = 5)
+            1
+           1 1
+          1 2 1
+         1 3 3 1
+        1 4 6 4 1
+    from math import comb
+    for i in range(n):
+        row = " ".join(str(comb(i, j)) for j in range(i + 1))
+        print(" " * (n - i - 1) + row)
+
+    Without math.comb (each row from the previous one):
+    row = [1]
+    for i in range(n):
+        print(" " * (n - i - 1) + " ".join(map(str, row)))
+        row = [1] + [row[k] + row[k + 1] for k in range(len(row) - 1)] + [1]
+    Each inside value = sum of the two values above it.
+    Row i has i + 1 values; the sum of row i is 2**i.
+
+(31) Multiplication-table style grid (3 x 3)
+        1 2 3
+        2 4 6
+        3 6 9
+    for i in range(1, 4):
+        print(*[i * j for j in range(1, 4)])
+
+(32) Number square counting up
+        1 2 3
+        4 5 6
+        7 8 9
+    for i in range(3):
+        print(*range(3 * i + 1, 3 * i + 4))
+
+23. ALPHABET PATTERNS (n = 4)
+------------------------------------------------------------------------------
+Characters from numbers:  chr(65) -> 'A', chr(65 + j) -> j-th letter,
+ord("A") -> 65.  Also: from string import ascii_uppercase.
+
+(33) Alphabet triangle
+        A
+        AB
+        ABC
+        ABCD
+    for i in range(1, n + 1):
+        for j in range(i):
+            print(chr(65 + j), end="")
+        print()
+
+(34) Row letter repeated
+        A
+        BB
+        CCC
+        DDDD
+    for i in range(1, n + 1):
+        print(chr(64 + i) * i)
+
+(35) Continuous letters
+        A
+        BC
+        DEF
+        GHIJ
+    k = 0
+    for i in range(1, n + 1):
+        for _ in range(i):
+            print(chr(65 + k), end="")
+            k += 1
+        print()
+
+(36) Alphabet pyramid
+           A
+          ABA
+         ABCBA
+        ABCDCBA
+    for i in range(1, n + 1):
+        left = "".join(chr(65 + j) for j in range(i))
+        right = "".join(chr(65 + j) for j in range(i - 2, -1, -1))
+        print(" " * (n - i) + left + right)
+
+(37) Inverted alphabet triangle
+        ABCD
+        ABC
+        AB
+        A
+    for i in range(n, 0, -1):
+        print("".join(chr(65 + j) for j in range(i)))
+
+24. PATTERN CHEAT SHEET
+------------------------------------------------------------------------------
+  Pattern              | Row i (1..n) prints
+  ---------------------|----------------------------------------------------
+  Right triangle       | "*" * i
+  Inverted triangle    | "*" * (n - i + 1)
+  Right-aligned        | " " * (n - i) + "*" * i
+  Pyramid              | " " * (n - i) + "*" * (2*i - 1)
+  Inverted pyramid     | " " * (i - 1) + "*" * (2*(n - i) + 1)
+  Diamond              | pyramid rows 1..n then rows n-1..1
+  Hollow shapes        | inner loop: star on the border, else a space
+  Number triangle      | j from 1 to i
+  Repeated number      | str(i) * i
+  Floyd                | counter that never resets
+  Pascal               | comb(i, j) for j in 0..i
+  Alphabet             | chr(64 + j) with j from 1 to i
+
+Tips:
+    - Start from the simple pattern and modify it.
+    - Print the pattern for n = 1 and n = 2 first to check boundaries.
+    - Prefer string multiplication; use an inner loop when a condition
+      decides every character.
+    - Check for trailing spaces if the judge compares output exactly
+      (end=" " leaves one; " ".join() does not).
+    - Reading n:  n = int(input("Rows: "))
+
+
+==============================================================================
+                D. PITFALLS, CHECKLIST AND QUICK GUIDE
+==============================================================================
+
+25. COMMON ERRORS
+------------------------------------------------------------------------------
+  Error / symptom                         | Cause and fix
+  ----------------------------------------|---------------------------------
+  SyntaxError: invalid syntax (if x = 5:) | use == for comparison
+  SyntaxError (else if)                   | write elif
+  SyntaxError: expected ':'               | missing colon after if/else
+  IndentationError: expected an indented  | empty or unindented block; add
+  block                                   | statements or pass
+  TypeError: '>' not supported between    | comparing str from input() with
+  'str' and 'int'                         | an int; convert with int()
+  ValueError: invalid literal for int()   | bad user input
+  Wrong branch taken                      | elif order wrong
+  Always True condition                   | x == 1 or 2 instead of
+                                          | x == 1 or x == 2
+  else attached to the wrong if           | wrong indentation
+  Pattern shifted / misaligned            | wrong spaces formula (n - i)
+  Extra blank line in pattern             | extra print() or end="" misuse
+  Pattern is one row short                | range(1, n) instead of
+                                          | range(1, n + 1)
+  Pattern prints on one line              | forgot print() after the inner
+                                          | loop
+
+26. PITFALLS CHECKLIST
+------------------------------------------------------------------------------
+  1. = assigns, == compares.
+  2. input() returns str: convert before comparing numbers.
+  3. Use elif, not several ifs, when the cases are mutually exclusive.
+  4. Order of an elif ladder matters (most restrictive first).
+  5. x == 1 or 2 is always True; write x in (1, 2).
+  6. Compare with None using is / is not.
+  7. Do not compare floats with ==; use math.isclose().
+  8. Indentation decides which if an else belongs to.
+  9. Chained comparisons (1 < x < 10) are valid and evaluated once.
+ 10. and / or return one of their operands, not always True / False.
+ 11. not binds weaker than comparisons: not a == b means not (a == b).
+ 12. Strings compare by code point: "Z" < "a", "10" < "9".
+ 13. Empty string, list, dict, 0 and None are falsy; "0" and "False" are
+     truthy.
+ 14. A bare name in match-case is a capture, not a comparison.
+ 15. match-case needs Python 3.10 or newer.
+ 16. In patterns, range(1, n + 1) gives n rows; range(n) gives rows 0..n-1.
+ 17. Keep end="" for same-row output and add print() to end the row.
+ 18. Use a counter that is NOT reset inside the loop for Floyd-type patterns.
+ 19. Mixed leap-year logic: remember century years need % 400.
+ 20. Avoid more than three levels of nesting; use guard clauses.
+
+27. QUICK SELECTION GUIDE
+------------------------------------------------------------------------------
+    Two outcomes                         -> if / else  (or ternary)
+    Many exclusive ranges                -> if / elif / else
+    One variable, many exact values      -> match-case, or a dict
+    Several conditions at once           -> and / or / not
+    Value in a set of values             -> x in (a, b, c)
+    Value within a range                 -> a <= x <= b
+    Dependent checks (second only if
+      first passes)                      -> nested if, or guard clauses
+    Pick the largest / smallest          -> max() / min()
+    Pattern with rows and columns        -> nested for loops
+    Pattern shaped by borders/diagonals  -> inner if on i and j
+    Pattern with simple repeated parts   -> string multiplication
+
+
+==============================================================================
+                  E. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+Q1. What is the output?   print(1 < 2 < 3, 1 < 3 < 2)
+A.  True False   (chained comparison: 1 < 3 and 3 < 2 is False).
+
+Q2. What is the output?   print(5 > 3 > 1, 5 > 3 < 1)
+A.  True False
+
+Q3. What is the output?   print([0 or "a", "" and 5, 3 and 4, None or 0])
+A.  ['a', '', 4, 0]   (and / or return one of their operands).
+
+Q4. What is the output?   print(True or False and False)
+A.  True   (and binds tighter than or).
+
+Q5. What is the output?   print(not 0 == 1)
+A.  True   (the comparison runs first, then not).
+
+Q6. What is the output?
+        x = 5
+        if x > 3: print("A")
+        elif x > 1: print("B")
+        else: print("C")
+A.  A   (the ladder stops at the first true condition).
+
+Q7. What is wrong with   if x == 1 or 2:  ?
+A.  2 is truthy, so the condition is always True. Use x == 1 or x == 2, or
+    x in (1, 2).
+
+Q8. What is the output?   print("yes" if 0 else "no")
+A.  no
+
+Q9. What is the output?   print([] == False, not [], bool([]))
+A.  False True False   (an empty list is falsy but not EQUAL to False).
+
+Q10. What is the output?   print(None == False, None is None)
+A.  False True
+
+Q11. Is 1900 a leap year? 2000? 2024?
+A.  1900: no (century not divisible by 400). 2000: yes. 2024: yes.
+    Formula: (y % 4 == 0 and y % 100 != 0) or y % 400 == 0.
+
+Q12. What is the output?
+        a = 10
+        print(a > 5 and a < 20, a > 5 and a > 20, not a > 5)
+A.  True False False
+
+Q13. What is the output?   print("a" < "b", "A" < "a", "10" < "9")
+A.  True True True   (string comparison is by character code).
+
+Q14. What happens with   if x = 5:  ?
+A.  SyntaxError. = is assignment; use == to compare.
+
+Q15. What is the difference between elif and a second if?
+A.  elif is tested only when all earlier conditions were false, so only one
+    branch runs. Separate ifs are all tested and several can run.
+    Example: score = 95 with three separate ifs (> 90, > 80, > 70) prints A,
+    B and C; with elif it prints only A.
+
+Q16. What is the output?
+        x = 15
+        if x % 3 == 0: print("Fizz")
+        if x % 5 == 0: print("Buzz")
+A.  Fizz
+    Buzz       (two independent ifs, both true; on two lines).
+
+Q17. What is the output?
+        a = 5
+        if a > 0:
+            if a > 10:
+                print("big")
+            else:
+                print("small")
+A.  small   (the else belongs to the inner if, by indentation).
+
+Q18. What is the output?   print(bool("0"), bool(0), bool(" "), bool(0.0))
+A.  True False True False
+
+Q19. What is the output?   x = 0; print("positive" if x > 0 else "negative"
+     if x < 0 else "zero")
+A.  zero   (nested ternary).
+
+Q20. What is the output?   print(-7 % 2 == 1)
+A.  True. In Python the result of % has the sign of the divisor, so
+    n % 2 == 1 detects odd numbers, negative ones too.
+
+Q21. What is short-circuit evaluation? Give a use.
+A.  In a and b, b is skipped if a is falsy; in a or b, b is skipped if a is
+    truthy. Use: if lst and lst[0] > 5 avoids IndexError on an empty list;
+    if x != 0 and 10 / x > 1 avoids ZeroDivisionError.
+
+Q22. How do you write a switch statement in Python?
+A.  Python 3.10+: match-case (case _ is the default, no fall-through, no
+    break needed). Earlier: if-elif-else or a dictionary of values/functions.
+
+Q23. Difference between == and is in conditions?
+A.  == compares values; is compares identity (same object). Use is only for
+    None, True, False. 5 is 5 raises a SyntaxWarning for literals.
+
+Q24. How do you check that a number is between 10 and 20 inclusive?
+A.  10 <= n <= 20   (chained comparison).
+
+Q25. State De Morgan's laws.
+A.  not (A and B) == (not A) or (not B); not (A or B) == (not A) and
+    (not B). Example: not (x > 5 and x < 10) == x <= 5 or x >= 10.
+
+Q26. When is "if a: if b:" the same as "if a and b:"?
+A.  When there is no else / elif and no other statement between the two ifs.
+
+Q27. How do you reduce deep nesting?
+A.  Guard clauses with early return/continue, combine conditions with and/or,
+    use elif, a dictionary or match-case, or move code into functions.
+
+Q28. How many stars are printed?
+        for i in range(4):
+            for j in range(i):
+                print("*", end="")
+A.  6   (0 + 1 + 2 + 3).
+
+Q29. What is the output?   for i in range(1, 4): print(str(i) * i)
+A.  1
+    22
+    333
+
+Q30. What is the output?   print("*" * 3 + "-" * 2)
+A.  ***--
+
+Q31. What is the output?
+        for i in range(3): print(" " * (2 - i) + "*" * (i + 1))
+A.    *
+     **
+    ***
+    (the first row has two leading spaces)
+
+Q32. What is the output?   for i in range(1, 5): print(*range(1, i + 1))
+A.  1
+    1 2
+    1 2 3
+    1 2 3 4
+
+Q33. For a pyramid of n rows, how many spaces and stars are in row i?
+A.  n - i spaces and 2i - 1 stars (rows numbered 1..n). The total number of
+    stars is n squared.
+
+Q34. How many rows and stars does a diamond made from n = 4 have?
+A.  2n - 1 = 7 rows; stars = 1+3+5+7+5+3+1 = 25 = 2n^2 - 2n + 1.
+
+Q35. What is the time complexity of printing a pattern with n rows?
+A.  O(n^2), because the output itself has about n^2 characters.
+
+Q36. Why is print() with no arguments used in pattern loops?
+A.  After the inner loop prints a row with end="", print() moves the cursor to
+    the next line.
+
+Q37. What condition prints a hollow square of side n?
+A.  i == 0 or i == n - 1 or j == 0 or j == n - 1 (star), else a space.
+
+Q38. What conditions draw the two diagonals of an n x n grid?
+A.  Main diagonal j == i; anti-diagonal j == n - 1 - i (equivalently
+    i + j == n - 1).
+
+Q39. How many numbers does Floyd's triangle with n rows have, and what is the
+     last number?
+A.  n(n + 1) / 2 numbers; the last number is also n(n + 1) / 2. For n = 4: 10.
+
+Q40. What is the 5th row of Pascal's triangle and how is each row computed?
+A.  1 4 6 4 1 (row index 4). Each inner value is the sum of the two values
+    above it, or math.comb(row, k). The sum of row r is 2**r.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

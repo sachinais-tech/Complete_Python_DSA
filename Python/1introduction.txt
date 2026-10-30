@@ -1,0 +1,69 @@
+Introduction to Python
+======================
+
+What is Python?
+---------------
+Python is a high-level, interpreted, general-purpose programming language
+created by Guido van Rossum and first released in 1991. It is known for its
+clean, readable syntax and its "batteries included" standard library.
+
+Key Features
+------------
+1. Easy to learn and read  - syntax is close to plain English.
+2. Interpreted             - code runs line by line, no separate compile step.
+3. Dynamically typed       - no need to declare variable types.
+4. Object-oriented         - supports classes and objects, and also procedural
+                             and functional styles.
+5. Large standard library  - modules for math, files, networking, etc.
+6. Cross-platform          - runs on Windows, macOS and Linux.
+7. Huge ecosystem          - packages installable with pip (NumPy, Pandas,
+                             Django, Flask, TensorFlow, ...).
+
+Where is Python Used?
+---------------------
+- Web development (Django, Flask, FastAPI)
+- Data science and analytics (Pandas, NumPy, Matplotlib)
+- Machine learning and AI (scikit-learn, TensorFlow, PyTorch)
+- Automation and scripting
+- Game development, desktop apps, cybersecurity
+- Data Structures and Algorithms (DSA) practice and interviews
+
+Your First Python Program
+-------------------------
+    print("Hello, World!")
+
+Output:
+    Hello, World!
+
+Basic Syntax Example
+--------------------
+    name = "Alice"          # string
+    age = 25                # integer
+    height = 5.6            # float
+    is_student = True       # boolean
+
+    print("Name:", name)
+    print("Age:", age)
+
+    if age >= 18:
+        print("Adult")
+    else:
+        print("Minor")
+
+Notes:
+- Python uses indentation (4 spaces) instead of braces { } to define blocks.
+- Comments start with #.
+- Statements do not need a semicolon at the end.
+
+How to Run Python
+-----------------
+1. Interactive mode : type `python` in the terminal and enter commands.
+2. Script mode      : save code in a file (e.g. hello.py) and run
+                      `python hello.py`.
+3. IDEs/Editors     : VS Code, PyCharm, Jupyter Notebook.
+
+Why Learn Python for DSA?
+-------------------------
+- Short, readable code lets you focus on the algorithm, not the syntax.
+- Built-in data structures: list, tuple, set, dict.
+- Rich libraries such as collections, heapq, bisect and itertools.

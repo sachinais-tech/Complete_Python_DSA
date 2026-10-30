@@ -1,0 +1,1080 @@
+==============================================================================
+        PYTHON INPUT / OUTPUT, COMMENTS AND BASIC PROGRAM STRUCTURE
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Every program does three things: takes INPUT, PROCESSES it and produces
+OUTPUT. This file covers:
+
+    A. Basic program structure (statements, indentation, names, entry point)
+    B. Comments and docstrings
+    C. Output  - print(), formatting, sys.stdout
+    D. Input   - input(), sys.stdin, command-line arguments
+    E. Basic file input / output
+    F. Sample programs and a template for DSA problems
+    G. Errors, pitfalls, interview questions
+
+Smallest complete program:
+
+    print("Hello, World!")        # Hello, World!
+
+Ways to run Python code:
+    python file.py               run a script
+    python                       interactive REPL (>>> prompt)
+    python -c "print(1 + 1)"     run a one-line command
+    python -m module             run a module
+    python -i file.py            run the script, then stay in the REPL
+    Jupyter / IDE (VS Code, PyCharm)
+
+REPL vs script:
+    - REPL echoes the repr() of any expression:  >>> 2 + 3   prints  5
+    - In a script a bare expression prints NOTHING; use print().
+    - REPL keeps the last result in the variable _ .
+
+
+==============================================================================
+                    A. BASIC PROGRAM STRUCTURE
+==============================================================================
+
+2. ANATOMY OF A PYTHON PROGRAM
+------------------------------------------------------------------------------
+A typical file, top to bottom:
+
+    #!/usr/bin/env python3          # 1. shebang (optional, Linux/macOS)
+    """Module docstring: what this file does."""   # 2. module docstring
+
+    import sys                      # 3. imports
+    from math import sqrt
+
+    MAX_SIZE = 100                  # 4. constants / globals
+
+    def area(r):                    # 5. functions and classes
+        """Return the area of a circle."""
+        return 3.14159 * r * r
+
+    def main():                     # 6. main logic
+        r = float(input("Radius: "))
+        print("Area:", area(r))
+
+    if __name__ == "__main__":      # 7. entry point guard
+        main()
+
+Execution is TOP TO BOTTOM. A name must be defined (assigned, def, class,
+import) before the line that RUNS it executes; otherwise NameError.
+
+    print(x)       # NameError: name 'x' is not defined
+    x = 5
+
+    def f():
+        return g()       # fine: g is looked up when f() is CALLED
+    def g():
+        return 1
+    f()                  # 1   (works because g exists by now)
+
+3. STATEMENTS AND LINES
+------------------------------------------------------------------------------
+- One statement per line is the normal style. No semicolon is needed.
+- Semicolons allow several statements on one line (discouraged):
+      a = 1; b = 2; print(a + b)        # 3
+- Line continuation:
+      1) Implicit, inside ( ) [ ] { }  - preferred
+            total = (1 + 2 +
+                     3 + 4)
+            nums = [1, 2,
+                    3, 4]
+      2) Explicit backslash (must be the LAST character on the line)
+            total = 1 + 2 + \
+                    3 + 4
+- Compound statements end with a colon and an indented block:
+      if x > 0:
+          print("positive")
+      for i in range(3):
+          print(i)
+      while cond: ...
+      def f(): ...
+      class A: ...
+      try: ... except: ...
+      with open(p) as f: ...
+- One-line block is allowed (not for several compound statements):
+      if x > 0: print("positive")
+- Empty block placeholders:
+      pass            # do nothing statement
+      ...             # Ellipsis, also used as a placeholder
+- A blank line or comment-only line is ignored.
+- Expression statements: a bare function call such as print("a") is a
+  statement.
+
+4. INDENTATION (BLOCKS)
+------------------------------------------------------------------------------
+Python uses indentation instead of { } to define blocks.
+
+    if True:
+        print("inside")        # 4 spaces
+        print("still inside")
+    print("outside")
+
+Rules:
+    - Use 4 spaces per level (PEP 8). Do not mix tabs and spaces.
+    - All lines of one block must have the SAME indentation.
+    - A block needs at least one statement (use pass).
+    - The first line of a file / top-level code starts at column 0.
+Errors:
+    IndentationError: expected an indented block
+    IndentationError: unexpected indent
+    IndentationError: unindent does not match any outer indentation level
+    TabError: inconsistent use of tabs and spaces in indentation
+
+    if x > 0:
+    print("a")          # IndentationError: expected an indented block
+
+Indentation inside ( ) [ ] { } continuation lines does NOT matter.
+
+5. IDENTIFIERS, KEYWORDS, NAMING
+------------------------------------------------------------------------------
+Identifier rules (names of variables, functions, classes, modules):
+    - letters, digits and underscore; cannot START with a digit
+    - case-sensitive:  age, Age, AGE are three different names
+    - cannot be a keyword
+    - no spaces or symbols like - $ @ ! (my-var is subtraction, not a name)
+
+    valid  : name, _x, x1, total_sum, __init__, naïve (Unicode letters ok)
+    invalid: 1x, my-var, for, class, a b, @val
+
+Keywords (35 in recent versions; list them with the keyword module):
+    False None True and as assert async await break class continue def del
+    elif else except finally for from global if import in is lambda nonlocal
+    not or pass raise return try while with yield
+    import keyword; keyword.kwlist;  keyword.iskeyword("for")   # True
+    Soft keywords (usable as names elsewhere): match, case, _, type
+
+Built-in names (print, list, sum, max, str, ...) are NOT keywords, but
+shadowing them is a common bug:
+    list = [1, 2]
+    list("abc")        # TypeError: 'list' object is not callable
+    sum = 0            # now sum() is gone; use another name
+
+PEP 8 naming conventions:
+    variables, functions, modules : snake_case        total_marks, get_name
+    classes                       : PascalCase        BankAccount
+    constants                     : UPPER_SNAKE_CASE  MAX_SIZE, PI
+    "private" by convention       : _name
+    name mangling in classes      : __name
+    special / dunder methods      : __init__, __str__
+    throwaway variable            : _      for _ in range(3)
+
+6. VARIABLES AND ASSIGNMENT (QUICK RECAP)
+------------------------------------------------------------------------------
+No declaration and no type needed; the type belongs to the value.
+
+    x = 10                  # int
+    x = "now a string"      # rebinding is allowed
+    a = b = c = 0           # chained: same value to all
+    a, b = 1, 2             # tuple unpacking
+    a, b = b, a             # swap, no temp variable
+    first, *rest = [1, 2, 3]    # first=1, rest=[2, 3]
+    x += 1                  # augmented: -= *= /= //= %= **= &= |= ^= <<= >>=
+    del x                   # remove the name
+    type(x)                 # class of the value
+    id(x)                   # identity of the object
+
+Constants do not exist in the language; UPPER_CASE is only a convention.
+Operator precedence (high -> low): ** , unary + - ~ , * / // % , + - ,
+comparisons, not, and, or.  Use parentheses when unsure.
+
+7. THE ENTRY POINT: if __name__ == "__main__"
+------------------------------------------------------------------------------
+Every module has a built-in variable __name__.
+    - Run directly (python file.py):  __name__ == "__main__"
+    - Imported by another file:       __name__ == "file" (module name)
+
+    # greet.py
+    def hello():
+        print("Hello")
+
+    if __name__ == "__main__":
+        hello()              # runs ONLY when greet.py is run directly
+
+    # other.py
+    import greet             # does NOT print (guard is False)
+    greet.hello()            # Hello
+
+Why use it: lets a file be both a reusable module and a runnable script, and
+stops test / demo code from running on import. Without the guard, all
+top-level code runs on every import.
+
+Related:
+    sys.exit()          stop the program (SystemExit); sys.exit(1) = error
+    exit(), quit()      REPL helpers (do not rely on them in scripts)
+    sys.argv            command-line arguments (see section 21)
+    Exit status: 0 = success, non-zero = failure.
+
+8. SOURCE FILE DETAILS
+------------------------------------------------------------------------------
+    - Extension: .py   (no compile step; CPython compiles to bytecode, cached
+      in __pycache__/*.pyc, then interprets it)
+    - Default source encoding: UTF-8 (Python 3). The old
+      "# -*- coding: utf-8 -*-" line is optional.
+    - Shebang "#!/usr/bin/env python3" is a comment for Unix to find the
+      interpreter; ignored by Python.
+    - Python 2 vs 3: print was a statement in 2 (print "hi"); in 3 it is a
+      function. print "hi" in Python 3 -> SyntaxError: Missing parentheses.
+      raw_input() of Python 2 is input() in Python 3.
+
+
+==============================================================================
+                    B. COMMENTS AND DOCSTRINGS
+==============================================================================
+
+9. SINGLE-LINE COMMENTS
+------------------------------------------------------------------------------
+A comment starts with # and runs to the end of the line. The interpreter
+ignores it completely (it is dropped by the tokenizer, so it costs nothing
+at run time).
+
+    # This is a full-line comment
+    x = 5          # inline comment (after code)
+    # x = 6        <- commented-out code is not executed
+
+PEP 8 style:
+    - Put a space after #  ("# text", not "#text").
+    - Inline comments: at least TWO spaces before the #.
+    - Explain WHY, not WHAT:
+          i += 1        # increment i          (useless)
+          i += 1        # skip the header row  (useful)
+    - Keep comments up to date; keep lines under 79 characters.
+
+Gotchas:
+    - # inside a string is not a comment:
+          print("a # b")       # prints:  a # b
+    - Comments do not nest and do not continue with a backslash.
+    - A comment cannot appear after a line-continuation backslash.
+    - Editors: VS Code Ctrl + /  toggles comments on selected lines.
+
+10. MULTI-LINE COMMENTS
+------------------------------------------------------------------------------
+Python has NO real multi-line comment syntax. Two options:
+
+ (a) Several # lines (the recommended way):
+         # line one
+         # line two
+
+ (b) A triple-quoted string that is not assigned:
+         """
+         This is a string expression that is evaluated and thrown away.
+         Often used as a block comment, but it is NOT a comment.
+         """
+     - It is compiled as a constant, so it is not free like a # comment
+       (although unused string statements are optimised away).
+     - If it is the FIRST statement of a module / function / class, it becomes
+       the docstring instead.
+
+11. DOCSTRINGS
+------------------------------------------------------------------------------
+A docstring is a string literal that is the first statement of a module,
+function, class or method. It documents the object and is stored in __doc__.
+
+    def add(a, b):
+        """Return the sum of a and b."""
+        return a + b
+
+    add.__doc__          # 'Return the sum of a and b.'
+    help(add)            # prints formatted help
+    print(add.__doc__)   # Return the sum of a and b.
+
+Multi-line docstring (Google style):
+
+    def divide(a, b):
+        """Divide a by b.
+
+        Args:
+            a (float): numerator.
+            b (float): denominator, must not be 0.
+
+        Returns:
+            float: the quotient.
+
+        Raises:
+            ZeroDivisionError: if b is 0.
+        """
+        return a / b
+
+Styles: Google, NumPy, reStructuredText (Sphinx). PEP 257 is the convention.
+Use """triple double quotes""" even for one-liners.
+
+Docstring vs comment:
+    #  comment : for maintainers reading the code; NOT available at run time
+    docstring  : for users of the code; available through __doc__ / help()
+
+12. SPECIAL COMMENTS AND TOOL DIRECTIVES
+------------------------------------------------------------------------------
+    #!/usr/bin/env python3          shebang
+    # -*- coding: utf-8 -*-         encoding declaration (optional)
+    # TODO: handle empty input      markers searched by editors
+    # FIXME:  # NOTE:  # XXX:
+    # noqa                          tell flake8 to ignore this line
+    # type: ignore                  tell a type checker to ignore this line
+    # pylint: disable=unused-import
+    # fmt: off / # fmt: on          tell black not to reformat a region
+    # pragma: no cover              exclude from coverage reports
+
+Type hints are NOT comments, but they document code:
+    def greet(name: str) -> str: ...      (not enforced at run time)
+
+
+==============================================================================
+                           C. OUTPUT
+==============================================================================
+
+13. print() - SYNTAX AND PARAMETERS
+------------------------------------------------------------------------------
+    print(*objects, sep=" ", end="\n", file=sys.stdout, flush=False)
+
+  Parameter | Meaning                                    | Default
+  ----------|--------------------------------------------|---------------
+  *objects  | any number of values, each converted by str()| (nothing)
+  sep       | string put BETWEEN objects                 | " "  (space)
+  end       | string put AFTER the last object           | "\n" (newline)
+  file      | any object with a write() method          | sys.stdout
+  flush     | force the buffer to be written now         | False
+
+print() returns None.
+
+    print("Hello")                  # Hello
+    print("Hello", "World")         # Hello World
+    print("a", 1, 2.5, True, None)  # a 1 2.5 True None
+    print()                         # blank line
+    print("")                       # blank line
+    print(2 + 3)                    # 5
+    print("2 + 3")                  # 2 + 3
+    print("Sum:", 2 + 3)            # Sum: 5
+    print([1, "a"], (1,), {1: 2})   # [1, 'a'] (1,) {1: 2}
+    print("a" "b")                  # ab   (adjacent literals join)
+    print("ab" * 3)                 # ababab
+    print("-" * 20)                 # --------------------
+
+sep:
+    print(1, 2, 3, sep="-")         # 1-2-3
+    print(1, 2, 3, sep="")          # 123
+    print(1, 2, 3, sep="\n")        # each on its own line
+    print("a", sep="-")             # a   (sep needs 2+ objects)
+
+end:
+    print("Hello", end="")          # no newline
+    print("World")                  # HelloWorld
+    for i in range(3):
+        print(i, end=" ")           # 0 1 2   (note trailing space)
+    print()                         # finish the line
+    print("A", end="\t")
+    print("done", end="!\n")        # done!
+
+Printing sequences with unpacking:
+    nums = [1, 2, 3]
+    print(*nums)                    # 1 2 3
+    print(*nums, sep=", ")          # 1, 2, 3
+    print(*nums, sep="\n")          # one per line
+    print(*"abc", sep="-")          # a-b-c
+    print(nums)                     # [1, 2, 3]  (the list's repr)
+    print(", ".join(map(str, nums)))    # 1, 2, 3
+
+Using + vs comma:
+    print("Age:", 25)               # Age: 25    (comma: str() each, adds sep)
+    print("Age: " + 25)             # TypeError: can only concatenate str
+    print("Age: " + str(25))        # Age: 25
+
+What print shows for common values:
+    print(10 / 2)         # 5.0
+    print(10 // 2)        # 5
+    print(0.1 + 0.2)      # 0.30000000000000004
+    print(1 / 3)          # 0.3333333333333333
+    print(1e20)           # 1e+20
+    print(10 ** 20)       # 100000000000000000000
+    print(1e-5)           # 1e-05
+    print(True, None)     # True None
+    print("a\tb")         # a    b   (tab)
+    print(repr("a\tb"))   # 'a\tb'
+    print(print("x"))     # x  then  None
+
+14. ESCAPE SEQUENCES AND RAW / MULTILINE STRINGS
+------------------------------------------------------------------------------
+    \n newline      \t tab          \\ backslash    \' single quote
+    \" double quote \r carriage return    \b backspace    \0 null
+    \xHH hex char   \uXXXX Unicode  \N{DEGREE SIGN}   \a bell
+
+    print("Line1\nLine2")           # two lines
+    print("Name\tAge")              # Name    Age
+    print("He said \"Hi\"")         # He said "Hi"
+    print('It\'s')                  # It's
+    print("It's")                   # It's  (use the other quote type)
+    print("C:\\new")                # C:\new
+    print("C:\new")                 # C: and a new line, then "ew"
+    print(r"C:\new")                # C:\new  (raw string: \ is literal)
+    print("""Line1
+    Line2""")                       # triple quotes keep line breaks
+    print("\u00e9")                 # é
+    print("tick \u2713")            # tick (check mark)
+
+Raw strings cannot end with an odd number of backslashes: r"C:\" is a
+SyntaxError.
+
+15. FORMATTED OUTPUT
+------------------------------------------------------------------------------
+Four ways; the f-string (3.6+) is preferred.
+
+(1) f-strings
+    name, age, pi = "Sachin", 25, 3.14159
+    print(f"{name} is {age}")             # Sachin is 25
+    print(f"{age + 1}")                    # 26      expressions allowed
+    print(f"{name.upper()}")               # SACHIN
+    print(f"{age=}")                       # age=25  (3.8+, debugging)
+    print(f"{pi:.2f}")                     # 3.14
+    print(f"{{literal braces}}")           # {literal braces}
+    print(f"{'quoted'}")                   # quoted
+    print(f"{name!r}")                     # 'Sachin'  (!r repr, !s str)
+    w = 8
+    print(f"{pi:{w}.2f}")                  # '    3.14' (nested width)
+    print(f"{ 'a' if age > 18 else 'b' }") # a
+    (3.12+ allows reusing the same quote type inside an f-string)
+
+(2) str.format()
+    "{} is {}".format("Sachin", 25)        # Sachin is 25
+    "{0} {1} {0}".format("a", "b")         # a b a
+    "{name} {age}".format(name="X", age=3) # X 3
+    "{:.2f}".format(2.5)                   # 2.50
+    "{:>5}".format(7)                      # '    7'
+
+(3) % operator (old style)
+    "%s is %d" % ("Sachin", 25)            # Sachin is 25
+    "%.2f" % 3.14159                       # 3.14
+    "%5d|%-5d|%05d" % (42, 42, 42)         # '   42|42   |00042'
+    "%x %o %e" % (255, 8, 12345.678)       # ff 10 1.234568e+04
+    "%c" % 65                              # A
+    "%d%%" % 50                            # 50%
+    "%s" % [1, 2]                          # [1, 2]
+    "%d" % 3.9                             # 3  (truncates)
+    "%d %d" % (1,)                         # TypeError: not enough arguments
+
+(4) Concatenation / join / str()
+    "Hi " + name                           # only str + str
+    ", ".join(["a", "b"])                  # a, b
+
+Format specification:  {value : [[fill]align][sign][#][0][width][,][.prec][type]}
+  align : <  left   >  right   ^  center   =  sign-aware padding for numbers
+  sign  : +  always show   -  only negative (default)   (space)
+  type  : d int  f fixed  e sci  g general  % percent  b o x X base  s str
+          c char  , or _ thousands separator
+
+    f"{'hi':>6}|"        # '    hi|'
+    f"{'hi':<6}|"        # 'hi    |'
+    f"{'hi':^6}|"        # '  hi  |'
+    f"{'hi':*^7}"        # '**hi***'   (extra pad goes to the right)
+    f"{'hi':->8}"        # '------hi'
+    f"{42:05d}"          # '00042'
+    f"{42:+d}"           # '+42'
+    f"{3.14159:8.3f}"    # '   3.142'
+    f"{1234567:,}"       # '1,234,567'
+    f"{1234567.891:,.2f}"# '1,234,567.89'
+    f"{0.256:.1%}"       # '25.6%'
+    f"{1e6:e}"           # '1.000000e+06'
+    f"{255:b}"           # '11111111'
+    f"{255:#b}"          # '0b11111111'
+    f"{255:08b}"         # '11111111'
+    f"{255:x} {255:X} {255:o}"   # ff FF 377
+    f"{10:5}|{'a':5}|"   # '   10|a    |'  (numbers right, text left default)
+    format(3.14159, ".3f")       # '3.142'
+
+Printing a simple table:
+    rows = [("Amit", 85), ("Bina", 92)]
+    print(f"{'Name':<10}{'Marks':>6}")
+    for n, m in rows:
+        print(f"{n:<10}{m:>6}")
+    # Name       Marks
+    # Amit          85
+    # Bina          92
+
+str methods for alignment: "x".ljust(5)  rjust(5)  center(5, "*")  zfill(5)
+
+16. sys.stdout, sys.stderr AND OTHER OUTPUT TOOLS
+------------------------------------------------------------------------------
+    import sys
+    sys.stdout.write("Hello\n")      # no automatic newline or conversion
+    sys.stdout.write("a")            # returns the number of chars written
+    sys.stdout.write(5)              # TypeError: write() argument must be
+                                     # str, not int
+    sys.stdout.write(str(5) + "\n")  # ok
+    sys.stdout.flush()               # push buffered text out now
+    print("error!", file=sys.stderr) # error stream (kept apart from output)
+    sys.stderr.write("warning\n")
+
+Buffering and flush:
+    - stdout is buffered; text may appear late when it is not a terminal.
+    - print("Loading...", end="", flush=True) shows the text immediately.
+
+Printing to a file:
+    with open("out.txt", "w") as f:
+        print("hello", file=f)        # written to the file, not the screen
+        f.write("line\n")
+
+print vs sys.stdout.write:
+    print        : takes many objects, calls str(), adds sep and end
+    stdout.write : takes ONE str, adds nothing, slightly faster
+
+Pretty output:
+    from pprint import pprint
+    pprint({"b": [1, 2], "a": {"x": 1}})      # nicely wrapped / sorted
+    import json
+    print(json.dumps(data, indent=2))         # readable JSON
+
+Fast output for many lines (competitive programming):
+    res = [str(x) for x in range(5)]
+    print("\n".join(res))        # one print call instead of many
+
+Other facts:
+    - print() uses str(); in the REPL a bare expression uses repr().
+    - Unicode output on a Windows console can raise UnicodeEncodeError; fix
+      with  chcp 65001  or  set PYTHONIOENCODING=utf-8 .
+    - Module logging is better than print for real applications.
+    - Redirect in the shell:  python a.py > out.txt   (stdout to file)
+                              python a.py 2> err.txt  (stderr to file)
+
+
+==============================================================================
+                           D. INPUT
+==============================================================================
+
+17. input() - KEYBOARD INPUT
+------------------------------------------------------------------------------
+    input(prompt="")
+
+    - Writes the prompt (if given, no newline added) and waits for a line.
+    - Reads one LINE and removes the trailing newline.
+    - ALWAYS returns a str, whatever the user types.
+    - Execution pauses until Enter is pressed.
+
+    name = input("Enter your name: ")      # user types: Sachin
+    print("Hello,", name)                  # Hello, Sachin
+
+    n = input("Enter a number: ")          # user types: 5
+    type(n)                                # <class 'str'>
+    n + 1                                  # TypeError
+    n * 2                                  # '55'   (string repetition!)
+    int(n) * 2                             # 10
+
+Converting input:
+    age   = int(input("Age: "))            # " 21 " works (spaces stripped)
+    price = float(input("Price: "))
+    ok    = input("Continue (y/n)? ").strip().lower() == "y"
+
+    int("12.5")          # ValueError  -> use int(float(...))
+    int("")              # ValueError  (user pressed only Enter)
+    int("5 6")           # ValueError  (two numbers on a line)
+
+Exceptions from input():
+    EOFError            no more input (end of file / Ctrl+D on Linux/macOS,
+                        Ctrl+Z then Enter on Windows)
+    KeyboardInterrupt   user pressed Ctrl+C
+
+Validation loop:
+    while True:
+        s = input("Enter an integer: ")
+        try:
+            n = int(s)
+            break
+        except ValueError:
+            print("Invalid, try again")
+
+Python 2 note: raw_input() (returns str) became input() in Python 3.
+Python 2's input() evaluated the text as code, which Python 3 removed.
+Never use eval(input()) on untrusted input.
+
+18. READING MULTIPLE VALUES FROM ONE LINE
+------------------------------------------------------------------------------
+Input line:  10 20 30
+
+    s = input()                            # '10 20 30'
+    parts = s.split()                      # ['10', '20', '30']  (any spaces)
+    a, b, c = input().split()              # strings '10' '20' '30'
+    a, b, c = map(int, input().split())    # ints 10 20 30
+    nums = list(map(int, input().split())) # [10, 20, 30]
+    nums = [int(x) for x in input().split()]
+    t = tuple(map(int, input().split()))
+    x, y = map(float, input().split())
+
+Comma separated:  "1,2,3"
+    nums = list(map(int, input().split(",")))     # [1, 2, 3]
+    nums = [int(x) for x in input().split(",")]
+
+Unpacking size errors:
+    a, b = input().split()      # user types "1 2 3"
+    # ValueError: too many values to unpack (expected 2)
+    # user types "1"  ->  ValueError: not enough values to unpack
+    #                     (expected 2, got 1)
+
+Unknown count, first item separate:
+    first, *rest = map(int, input().split())
+
+Characters:
+    chars = list(input())                  # "abc" -> ['a', 'b', 'c']
+    digits = list(map(int, input()))       # "123" -> [1, 2, 3]
+    digits = [int(c) for c in input().strip()]
+
+map() returns an iterator; wrap with list() / tuple() to reuse values.
+
+19. READING MANY LINES
+------------------------------------------------------------------------------
+First line n, next n lines one integer each:
+    n = int(input())
+    arr = [int(input()) for _ in range(n)]
+
+n lines of space separated numbers (matrix):
+    n = int(input())
+    matrix = [list(map(int, input().split())) for _ in range(n)]
+    # rows, cols on one line:
+    r, c = map(int, input().split())
+    grid = [list(map(int, input().split())) for _ in range(r)]
+
+Strings per line:
+    words = [input().strip() for _ in range(n)]
+
+Read until the end of input (EOF):
+    while True:
+        try:
+            line = input()
+        except EOFError:
+            break
+        print(line.upper())
+
+    import sys
+    for line in sys.stdin:             # each line includes the "\n"
+        print(line.rstrip("\n"))
+
+Multi-line pasted input in a terminal: finish with Ctrl+D / Ctrl+Z+Enter.
+
+20. sys.stdin - FAST INPUT (COMPETITIVE PROGRAMMING)
+------------------------------------------------------------------------------
+    import sys
+    line = sys.stdin.readline()        # includes trailing "\n"; '' at EOF
+    line = sys.stdin.readline().strip()
+    data = sys.stdin.read()            # everything as ONE string
+    tokens = sys.stdin.read().split()  # all whitespace-separated tokens
+    lines = sys.stdin.readlines()      # list of lines (with "\n")
+
+Speed-up idiom (input() is slow for 10^5+ lines):
+    import sys
+    input = sys.stdin.readline         # now input() keeps the "\n"
+    n = int(input())                   # int() ignores the newline
+    arr = list(map(int, input().split()))
+    s = input().strip()                # strip the newline for strings
+
+Read all tokens once:
+    import sys
+    data = sys.stdin.read().split()
+    n = int(data[0])
+    arr = list(map(int, data[1:1 + n]))
+
+input() vs sys.stdin.readline():
+  Feature          | input()                | sys.stdin.readline()
+  -----------------|------------------------|----------------------------
+  Prompt           | optional               | none
+  Trailing newline | removed                | kept
+  At end of input  | raises EOFError        | returns '' (empty string)
+  Speed            | slower                 | faster
+  Typical use      | interactive programs   | large inputs
+
+21. OTHER INPUT SOURCES
+------------------------------------------------------------------------------
+Command-line arguments (strings):
+    # python prog.py 5 hello
+    import sys
+    sys.argv              # ['prog.py', '5', 'hello']
+    sys.argv[0]           # script name
+    n = int(sys.argv[1])  # IndexError if the argument is missing
+    len(sys.argv)         # 3
+
+    argparse module: professional option parsing (--name, -v, help text).
+
+Password without echo:
+    from getpass import getpass
+    pw = getpass("Password: ")
+
+Environment variables:
+    import os
+    os.environ.get("HOME")
+
+Files, pipes and redirection:
+    python prog.py < input.txt        # stdin comes from a file
+    echo 5 | python prog.py           # stdin comes from a pipe
+    input() and sys.stdin read from whichever source is attached.
+
+
+==============================================================================
+                      E. BASIC FILE INPUT / OUTPUT
+==============================================================================
+
+22. open() AND MODES
+------------------------------------------------------------------------------
+    f = open("data.txt", "r", encoding="utf-8")
+    ...
+    f.close()                         # always close (or use "with")
+
+  Mode | Meaning
+  -----|-------------------------------------------------------------
+  r    | read (default); error if the file does not exist
+  w    | write; creates the file or ERASES existing content
+  a    | append; writes at the end, creates if missing
+  x    | create; error if the file already exists
+  r+   | read and write (file must exist)
+  w+   | write and read (erases content)
+  a+   | append and read
+  b    | binary mode (rb, wb ...) - bytes, not str
+  t    | text mode (default)
+
+23. READING AND WRITING FILES
+------------------------------------------------------------------------------
+Use the with statement - the file is closed automatically, even on errors:
+
+    with open("data.txt", "r", encoding="utf-8") as f:
+        text = f.read()               # whole file as one str
+    with open("data.txt") as f:
+        first = f.readline()          # one line (with "\n")
+        rest = f.readlines()          # list of remaining lines
+    with open("data.txt") as f:
+        for line in f:                # best for big files (lazy)
+            print(line.rstrip("\n"))
+    f.read(5)                         # read 5 characters
+
+    with open("out.txt", "w", encoding="utf-8") as f:
+        f.write("Hello\n")            # returns the number of chars written
+        f.write("World\n")            # write() does not add "\n"
+        f.writelines(["a\n", "b\n"])  # does not add "\n" either
+        print("via print", file=f)    # print adds the newline
+
+    with open("log.txt", "a") as f:
+        f.write("new line\n")
+
+Useful:
+    f.tell()          current position        f.seek(0)    go to the start
+    f.closed          True after closing      f.name, f.mode
+    import os; os.path.exists("data.txt");  os.remove("data.txt")
+    from pathlib import Path; Path("data.txt").read_text()
+
+Errors:
+    FileNotFoundError   opening a missing file for "r"
+    PermissionError     no access
+    FileExistsError     mode "x" on an existing file
+    UnicodeDecodeError  wrong encoding
+    ValueError: I/O operation on closed file
+
+    try:
+        with open("missing.txt") as f:
+            data = f.read()
+    except FileNotFoundError:
+        print("File not found")
+
+
+==============================================================================
+                  F. SAMPLE PROGRAMS AND PROGRAM TEMPLATES
+==============================================================================
+
+24. SMALL PROGRAMS
+------------------------------------------------------------------------------
+(1) Add two numbers
+        a = int(input("First: "))
+        b = int(input("Second: "))
+        print("Sum =", a + b)
+
+(2) Swap two numbers
+        a, b = 3, 7
+        a, b = b, a
+        print(a, b)                  # 7 3
+
+(3) Area of a circle
+        import math
+        r = float(input("Radius: "))
+        print(f"Area = {math.pi * r ** 2:.2f}")
+
+(4) Simple interest
+        p, r, t = map(float, input("P R T: ").split())
+        print("SI =", p * r * t / 100)
+
+(5) Even or odd
+        n = int(input())
+        print("Even" if n % 2 == 0 else "Odd")
+
+(6) Celsius to Fahrenheit
+        c = float(input())
+        print(f"{c * 9 / 5 + 32:.1f} F")
+
+(7) Quotient and remainder
+        a, b = map(int, input().split())
+        q, r = divmod(a, b)
+        print(q, r)
+
+(8) Sum of digits
+        n = input().strip()
+        print(sum(int(ch) for ch in n))
+
+(9) Average of numbers on one line
+        nums = list(map(float, input().split()))
+        print(sum(nums) / len(nums))
+
+(10) Greeting with formatted output
+        name = input("Name: ")
+        age = int(input("Age: "))
+        print(f"Hello {name}! Next year you will be {age + 1}.")
+
+25. TEMPLATES FOR DSA / COMPETITIVE PROBLEMS
+------------------------------------------------------------------------------
+Template 1 - simple script:
+
+    def solve(arr):
+        return sum(arr)
+
+    if __name__ == "__main__":
+        n = int(input())
+        arr = list(map(int, input().split()))
+        print(solve(arr))
+
+Template 2 - fast input, many test cases:
+
+    import sys
+    input = sys.stdin.readline
+
+    def main():
+        t = int(input())
+        out = []
+        for _ in range(t):
+            n = int(input())
+            arr = list(map(int, input().split()))
+            out.append(str(sum(arr)))
+        print("\n".join(out))
+
+    main()
+
+Template 3 - read everything at once:
+
+    import sys
+    def main():
+        data = sys.stdin.read().split()
+        n = int(data[0])
+        arr = list(map(int, data[1:1 + n]))
+        print(max(arr))
+    main()
+
+Tips:
+    - Put code inside functions; local variable access is faster than global.
+    - Match the required output format exactly (spaces, newlines, case).
+    - Avoid printing debug text in the final answer.
+    - Use sys.setrecursionlimit(n) only when deep recursion is really needed.
+
+
+==============================================================================
+                  G. ERRORS, PITFALLS AND CHECKLIST
+==============================================================================
+
+26. COMMON ERRORS RELATED TO THIS TOPIC
+------------------------------------------------------------------------------
+  Error / symptom                        | Cause and fix
+  ---------------------------------------|---------------------------------
+  SyntaxError: Missing parentheses       | Python 2 style print "x";
+                                         | write print("x")
+  SyntaxError: unterminated string       | missing closing quote
+  SyntaxError: invalid syntax            | missing colon, bracket, etc.
+  IndentationError                       | wrong / mixed indentation
+  NameError: name 'x' is not defined     | used before assignment / typo /
+                                         | wrong case
+  TypeError: can only concatenate str    | "a" + 5; use str(5) or commas
+  TypeError: unsupported operand         | input() returned str; convert
+  ValueError: invalid literal for int()  | int("abc"), int(""), int("3.5")
+  ValueError: too many values to unpack  | split() gave more items than names
+  EOFError: EOF when reading a line      | no more input to read
+  IndexError: list index out of range    | sys.argv[1] with no argument
+  FileNotFoundError                      | wrong path / name
+  UnicodeEncodeError (Windows console)   | set PYTHONIOENCODING=utf-8
+
+27. PITFALLS CHECKLIST
+------------------------------------------------------------------------------
+  1. input() always returns str:  input() + input() with 3 and 4 gives '34'.
+  2. print("Total: " + 5) fails; use print("Total:", 5) or an f-string.
+  3. print adds a newline; use end="" to stay on the same line.
+  4. sep only applies between two or more objects.
+  5. print returns None: x = print("a") makes x None.
+  6. "C:\new" contains a newline; use a raw string or double the backslash.
+  7. # inside quotes is text, not a comment.
+  8. Triple-quoted strings are not comments; the first one in a body is a
+     docstring.
+  9. Mixing tabs and spaces causes TabError; use 4 spaces.
+ 10. Variables used before assignment give NameError (code runs top-down).
+ 11. Naming a variable list, str, sum, max, input, print hides the built-in.
+ 12. sys.stdin.readline() keeps "\n"; strip it for strings (int() ignores it).
+ 13. sys.stdout.write needs a str and adds no newline.
+ 14. input() raises EOFError at the end of input; readline returns ''.
+ 15. File mode "w" erases the file; use "a" to add.
+ 16. write() / writelines() do not add newlines.
+ 17. Always use with open(...) so the file is closed.
+ 18. Code at top level of a module runs on import unless guarded by
+     if __name__ == "__main__".
+ 19. print(f"{x}") shows str(x); print(f"{x!r}") shows repr(x).
+ 20. Floats print in full: print(0.1 + 0.2) -> 0.30000000000000004;
+     format with :.2f for display.
+
+
+==============================================================================
+                  H. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+Q1. What is the output?   print("a", "b", sep="-")
+A.  a-b
+
+Q2. What is the output?
+    for i in range(3): print(i, end=" ")
+    print()
+A.  0 1 2   (a trailing space, then the final print() ends the line).
+
+Q3. What is the output?   print(print("hi"))
+A.  hi
+    None
+    The inner print writes hi and returns None, which the outer print shows.
+
+Q4. What is the output?   print("5" + "3", 5 + 3, "5" * 3)
+A.  53 8 555
+
+Q5. What type does input() return? What is the output when the user types
+    3 and then 4?    print(input() + input())
+A.  Always str. The output is 34 (string concatenation, not 7).
+
+Q6. How do you read two integers separated by a space?
+A.  a, b = map(int, input().split())
+
+Q7. How do you read a list of integers from one line?
+A.  nums = list(map(int, input().split()))
+
+Q8. What is the output?   print(*[1, 2, 3], sep=", ")
+A.  1, 2, 3   (the * unpacks the list into separate arguments).
+
+Q9. What is the output?   print("C:\new")   and   print(r"C:\new")
+A.  The first prints C: then a new line then ew (\n is a newline). The raw
+    string prints C:\new.
+
+Q10. What is the output?   print("a # b")
+A.  a # b   (# inside a string is ordinary text).
+
+Q11. What is the output?   print(f"{3.14159:.2f}", f"{5:03d}", f"{255:x}")
+A.  3.14 005 ff
+
+Q12. What is the output?   print("%d %s %.1f" % (5, "x", 2.5))
+A.  5 x 2.5
+
+Q13. What is the output?   print(f"{'hi':>5}|{'hi':<5}|{'hi':^5}|")
+A.  "   hi|hi   | hi  |"   (centre puts the extra space on the right).
+
+Q14. What happens with   a, b = input().split()   when the user types 1 2 3?
+A.  ValueError: too many values to unpack (expected 2).
+
+Q15. Difference between input() and sys.stdin.readline()?
+A.  input() accepts a prompt, strips the trailing newline and raises EOFError
+    at end of input. readline() keeps the newline, returns '' at EOF and is
+    much faster, so it is preferred for large inputs.
+
+Q16. Difference between print() and sys.stdout.write()?
+A.  print accepts many objects of any type, converts with str(), adds sep and
+    end. write takes exactly one str, adds nothing and returns the number of
+    characters written.
+
+Q17. How do you print without a newline? How do you change the separator?
+A.  print(x, end="") and print(a, b, sep="...").
+
+Q18. How do you print to the error stream?
+A.  print("msg", file=sys.stderr)  or  sys.stderr.write("msg\n").
+
+Q19. What does flush=True do?
+A.  It forces buffered output to be written immediately, e.g.
+    print("Loading...", end="", flush=True) appears at once.
+
+Q20. How are comments written in Python? Is there a multi-line comment?
+A.  With #. There is no real multi-line comment; use several # lines. A
+    triple-quoted string is a string literal (a docstring when first in a
+    body), not a comment.
+
+Q21. What is a docstring? How do you read it?
+A.  A string literal that is the first statement of a module, function or
+    class, used for documentation. Read it with obj.__doc__ or help(obj).
+
+Q22. Difference between a comment and a docstring?
+A.  A comment is ignored by the interpreter and is invisible at run time. A
+    docstring is stored in __doc__ and is available at run time.
+
+Q23. What is if __name__ == "__main__": and why is it used?
+A.  __name__ is "__main__" when the file is run directly, and the module name
+    when it is imported. The guard makes code run only on direct execution,
+    so the file can also be imported without side effects.
+
+Q24. What does print(__name__) show when the file is run directly?
+A.  __main__
+
+Q25. How does Python define blocks? What happens if indentation is wrong?
+A.  By indentation (4 spaces by convention). Wrong indentation raises
+    IndentationError (or TabError when tabs and spaces are mixed).
+
+Q26. How do you continue a statement on the next line?
+A.  Inside ( ), [ ] or { } it continues automatically; otherwise end the line
+    with a backslash \ (it must be the last character on the line).
+
+Q27. Can two statements be on one line?
+A.  Yes, separated by a semicolon:  a = 1; b = 2  (discouraged by PEP 8).
+
+Q28. What is the output?   print(10 / 2, 10 // 2, 2 ** 3, 7 % 3)
+A.  5.0 5 8 1
+
+Q29. What is the output?   a, b = 1, 2; a, b = b, a; print(a, b)
+A.  2 1
+
+Q30. What is the output?   print(bool(input()))   if the user types 0?
+     And if the user only presses Enter?
+A.  True for "0" (non-empty string); False for Enter (empty string).
+
+Q31. What is the output?   print("Hi" "there", "Hi" + "there")
+A.  Hithere Hithere
+
+Q32. What is the output?   print(1 + 2, "1" + "2")
+A.  3 12
+
+Q33. Is Python case-sensitive? What is the output?
+    name = "A"; print(Name)
+A.  Yes. NameError: name 'Name' is not defined.
+
+Q34. How do you read input until the end of the file?
+A.  for line in sys.stdin:  ...   or a loop with try: input() except
+    EOFError: break.
+
+Q35. What is the difference between Python 2 and Python 3 for print and
+     input?
+A.  Python 2: print was a statement (print "x") and raw_input() read a string
+    while input() evaluated code. Python 3: print() is a function and
+    input() returns a string.
+
+Q36. How do you read command-line arguments?
+A.  sys.argv (a list of strings; sys.argv[0] is the script name), or the
+    argparse module.
+
+Q37. What are the file modes r, w, a, x? Which erases content?
+A.  r read (must exist), w write (creates / ERASES), a append, x create
+    (error if it exists). Mode w erases an existing file.
+
+Q38. Why use  with open(...) as f ?
+A.  It closes the file automatically, even if an exception occurs.
+
+Q39. What is the output?   x = print("a"); print(x)
+A.  a
+    None
+
+Q40. How can you speed up input and output for large data?
+A.  Use sys.stdin.readline (or read the whole input with sys.stdin.read()
+    and split), and collect results in a list, then print once with
+    "\n".join(...) instead of calling print many times.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

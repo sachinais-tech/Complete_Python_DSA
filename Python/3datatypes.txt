@@ -1,0 +1,995 @@
+==============================================================================
+                         PYTHON DATA TYPES - COMPLETE NOTES
+==============================================================================
+
+
+1. WHAT IS A DATA TYPE?
+------------------------------------------------------------------------------
+A data type defines the kind of value an object holds and which operations are
+allowed on it. In Python every value is an object and every object has a type
+(a class). type(obj) tells you the class of the object.
+
+    type(10)          # <class 'int'>
+    type("hi")        # <class 'str'>
+    type([1, 2])      # <class 'list'>
+
+Python is dynamically typed: the type belongs to the value, checked at runtime.
+
+
+2. CLASSIFICATION OF BUILT-IN DATA TYPES
+------------------------------------------------------------------------------
+  Category        | Types
+  ----------------|------------------------------------------------------
+  Numeric         | int, float, complex
+  Boolean         | bool
+  Text            | str
+  Sequence        | list, tuple, range  (also str, bytes, bytearray)
+  Mapping         | dict
+  Set             | set, frozenset
+  Binary          | bytes, bytearray, memoryview
+  None type       | NoneType
+
+Mutable   (changeable in place) : list, dict, set, bytearray
+Immutable (not changeable)      : int, float, complex, bool, str, tuple, range,
+                                  frozenset, bytes, NoneType
+Ordered   : str, list, tuple, range, bytes, bytearray, dict (insertion order,
+            3.7+)
+Unordered : set, frozenset (no index, no guaranteed order)
+Hashable  : immutable types (usable as dict keys / set elements)
+
+
+==============================================================================
+                               A. NUMERIC TYPES
+==============================================================================
+
+3. int  (INTEGER)
+------------------------------------------------------------------------------
+Definition: whole numbers, positive, negative or zero, with no fractional
+part. Size is unlimited (arbitrary precision).
+
+    a = 10
+    b = -25
+    c = 0
+    big = 2 ** 200                 # no overflow
+    n = 1_000_000                  # underscores for readability
+
+Number systems:
+    0b1010   # binary       -> 10
+    0o17     # octal        -> 15
+    0xFF     # hexadecimal  -> 255
+
+Conversion to other bases:
+    bin(10)      # '0b1010'
+    oct(15)      # '0o17'
+    hex(255)     # '0xff'
+    int("1010", 2)   # 10
+    int("ff", 16)    # 255
+    int("17", 8)     # 15
+
+Arithmetic operators:
+    7 + 2    # 9
+    7 - 2    # 5
+    7 * 2    # 14
+    7 / 2    # 3.5   (true division, always float)
+    7 // 2   # 3     (floor division)
+    -7 // 2  # -4    (floors toward negative infinity)
+    7 % 2    # 1     (modulus)
+    -7 % 2   # 1     (result has the sign of the divisor)
+    2 ** 10  # 1024  (power)
+    divmod(7, 2)   # (3, 1)
+
+Bitwise operators:
+    5 & 3    # 1   AND
+    5 | 3    # 7   OR
+    5 ^ 3    # 6   XOR
+    ~5       # -6  NOT
+    5 << 1   # 10  left shift
+    5 >> 1   # 2   right shift
+
+Useful methods / functions:
+    abs(-5)                 # 5
+    pow(2, 3)               # 8
+    pow(2, 3, 5)            # 3  (2**3 % 5)
+    round(7)                # 7
+    (255).bit_length()      # 8
+    (10).to_bytes(2, "big") # b'\x00\n'
+    int.from_bytes(b"\x01\x00", "big")   # 256
+    (10).is_integer()       # (3.12+) True
+    max(1, 5), min(1, 5), sum([1, 2, 3])
+
+Cases / gotchas:
+    - int(3.9) = 3 (truncates toward zero), int(-3.9) = -3
+    - int("12.5") -> ValueError  (use int(float("12.5")))
+    - int(" 42 ") = 42 (whitespace stripped)
+    - int(True) = 1, int(False) = 0
+    - Division by zero: 5 / 0 -> ZeroDivisionError ; 5 // 0 and 5 % 0 too
+    - Very long int to str conversion is limited (default 4300 digits,
+      sys.set_int_max_str_digits)
+    - Small ints (-5..256) are cached in CPython.
+
+
+4. float  (FLOATING POINT)
+------------------------------------------------------------------------------
+Definition: real numbers with a decimal point, stored as 64-bit IEEE 754
+double precision (about 15-17 significant digits).
+
+    a = 3.14
+    b = -0.5
+    c = 2.          # 2.0
+    d = .5          # 0.5
+    e = 1.5e3       # 1500.0   scientific notation
+    f = 2e-4        # 0.0002
+
+Special values:
+    float("inf")     # infinity
+    float("-inf")    # negative infinity
+    float("nan")     # Not a Number
+    import math
+    math.isinf(x), math.isnan(x)
+    float("nan") == float("nan")   # False (NaN is never equal to anything)
+
+Precision issue:
+    0.1 + 0.2                 # 0.30000000000000004
+    0.1 + 0.2 == 0.3          # False
+    math.isclose(0.1 + 0.2, 0.3)   # True
+    from decimal import Decimal
+    Decimal("0.1") + Decimal("0.2")   # Decimal('0.3')
+    from fractions import Fraction
+    Fraction(1, 3) + Fraction(1, 6)   # Fraction(1, 2)
+
+Methods / functions:
+    round(3.14159, 2)   # 3.14
+    round(2.5)          # 2   (banker's rounding: ties go to even)
+    round(3.5)          # 4
+    math.floor(3.7)     # 3
+    math.ceil(3.2)      # 4
+    math.trunc(-3.7)    # -3
+    (3.5).is_integer()  # False
+    (0.5).as_integer_ratio()   # (1, 2)
+    (255.0).hex()
+    sys.float_info          # limits (max, min, epsilon)
+
+Cases:
+    float(5)            # 5.0
+    float("3.5")        # 3.5
+    float("1e3")        # 1000.0
+    float("abc")        # ValueError
+    1e308 * 10          # inf   (overflow gives inf, not an error)
+    2.0 ** 1024         # OverflowError  (the ** operator raises)
+    int + float -> float :  1 + 2.0 = 3.0
+
+
+5. complex
+------------------------------------------------------------------------------
+Definition: numbers of the form  a + bj  (real part a, imaginary part b).
+Python uses 'j' (not 'i').
+
+    z = 3 + 4j
+    z2 = complex(2, -1)        # (2-1j)
+    z.real          # 3.0
+    z.imag          # 4.0
+    z.conjugate()   # (3-4j)
+    abs(z)          # 5.0  (magnitude)
+
+    (1 + 2j) + (3 + 4j)    # (4+6j)
+    (1 + 2j) * (3 + 4j)    # (-5+10j)
+    (1 + 2j) / (3 + 4j)    # (0.44+0.08j)
+    (2j) ** 2              # (-4+0j)
+    complex("1+2j")        # (1+2j)
+
+Cases:
+    - real and imag are always floats.
+    - Comparison < > not supported (TypeError); == works.
+    - import cmath for complex math: cmath.sqrt(-1) -> 1j
+    - complex("1 + 2j") with spaces -> ValueError
+
+
+==============================================================================
+                               B. BOOLEAN TYPE
+==============================================================================
+
+6. bool
+------------------------------------------------------------------------------
+Definition: represents truth values, only two: True and False.
+bool is a subclass of int: True == 1 and False == 0.
+
+    a = True
+    b = False
+    type(a)                   # <class 'bool'>
+    True + True               # 2
+    True * 10                 # 10
+    isinstance(True, int)     # True
+    sum([True, False, True])  # 2   (count of True)
+
+Logical operators:
+    True and False    # False
+    True or False     # True
+    not True          # False
+    Short-circuit: "a" or "b" -> 'a' ; 0 or "b" -> 'b' ; "" and 5 -> ''
+
+Comparison results are bool:
+    5 > 3      # True
+    5 == 5.0   # True
+    "a" < "b"  # True
+
+Truthiness (bool(x)):
+  FALSY  : False, None, 0, 0.0, 0j, "", [], (), {}, set(), range(0),
+           b"", Decimal(0), Fraction(0), objects with __bool__ -> False or
+           __len__ -> 0
+  TRUTHY : everything else (non-zero numbers, non-empty containers/strings)
+
+    bool("False")   # True  (non-empty string!)
+    bool(" ")       # True
+    bool([0])       # True
+    bool(0.0)       # False
+    bool(None)      # False
+
+Membership/identity also return bool:  "a" in "cat",  x is None
+
+
+==============================================================================
+                                C. TEXT TYPE
+==============================================================================
+
+7. str  (STRING)
+------------------------------------------------------------------------------
+Definition: immutable ordered sequence of Unicode characters.
+
+Creation:
+    s1 = 'single quotes'
+    s2 = "double quotes"
+    s3 = '''triple
+    single'''
+    s4 = """triple
+    double"""
+    s5 = "It's"            or   'He said "hi"'
+    s6 = 'It\'s'           # escaping
+    s7 = r"C:\new\table"   # raw string (backslash is literal)
+    s8 = u"unicode"        # u prefix allowed
+    s9 = ""                # empty string
+    str(123)               # '123'
+
+Escape sequences:
+    \n newline   \t tab   \\ backslash   \' \"   \r carriage return
+    \b backspace \0 null  \xHH hex       \uXXXX unicode   \N{name}
+
+Indexing and slicing:
+    s = "Python"
+        # P  y  t  h  o  n
+        # 0  1  2  3  4  5
+        #-6 -5 -4 -3 -2 -1
+    s[0]       # 'P'
+    s[-1]      # 'n'
+    s[1:4]     # 'yth'
+    s[:3]      # 'Pyt'
+    s[3:]      # 'hon'
+    s[::2]     # 'Pto'
+    s[::-1]    # 'nohtyP'   (reverse)
+    s[10]      # IndexError   but   s[10:20] -> '' (slices never fail)
+
+Operators:
+    "ab" + "cd"       # 'abcd'
+    "ab" * 3          # 'ababab'
+    "a" in "cat"      # True
+    "cat" == "cat"    # True
+    "apple" < "banana" # True (lexicographic by Unicode code point)
+    "5" + 5           # TypeError
+
+Immutability:
+    s[0] = "J"        # TypeError
+    s = "J" + s[1:]   # new string
+
+Methods (all return NEW strings):
+  Case:       upper() lower() title() capitalize() swapcase() casefold()
+  Search:     find(sub) rfind() index() rindex() count(sub)
+              startswith(x) endswith(x)
+  Test:       isalpha() isdigit() isnumeric() isdecimal() isalnum()
+              isspace() isupper() islower() istitle() isidentifier()
+              isprintable() isascii()
+  Modify:     replace(old, new[, n]) strip() lstrip() rstrip() removeprefix()
+              removesuffix()
+  Split/join: split(sep) rsplit() splitlines() partition(sep) rpartition()
+              "-".join(["a", "b"])  # 'a-b'
+  Align:      center(w) ljust(w) rjust(w) zfill(w)
+  Other:      expandtabs() translate() maketrans() encode()
+
+Examples:
+    "  hi  ".strip()              # 'hi'
+    "a,b,c".split(",")            # ['a', 'b', 'c']
+    "hello".replace("l", "L")     # 'heLLo'
+    "hello".find("z")             # -1   (index() raises ValueError)
+    "hello world".title()         # 'Hello World'
+    "42".zfill(5)                 # '00042'
+    "abc".partition("b")          # ('a', 'b', 'c')
+    "a b  c".split()              # ['a', 'b', 'c']  (any whitespace)
+    "x".join("abc")               # 'axbxc'
+    "Hello".center(11, "*")       # '***Hello***'
+
+Formatting:
+    name, age = "Sachin", 25
+    f"{name} is {age}"            # f-string (3.6+)
+    f"{age=}"                     # 'age=25'
+    f"{3.14159:.2f}"              # '3.14'
+    f"{255:b} {255:x} {255:o}"    # binary, hex, octal
+    f"{1234567:,}"                # '1,234,567'
+    f"{'hi':>10}|{'hi':<10}|{'hi':^10}"
+    f"{0.256:.1%}"                # '25.6%'
+    "{} {}".format("a", "b")
+    "{1} {0}".format("a", "b")
+    "{n}".format(n=5)
+    "%s is %d" % ("x", 5)         # old style
+
+Other facts:
+    len("héllo")              # 5   (characters, not bytes)
+    ord("A") -> 65 ; chr(65) -> 'A'
+    "é".encode("utf-8")       # b'\xc3\xa9'
+    Strings are iterable: for ch in "abc"
+    Multiline adjacent literal concatenation: "a" "b" -> 'ab'
+    Comparison with == not is.
+    str(None) -> 'None'; str([1]) -> '[1]'; repr("a") -> "'a'"
+    isdigit vs isnumeric: "²".isdigit() True, "²".isdecimal() False
+
+
+==============================================================================
+                              D. SEQUENCE TYPES
+==============================================================================
+
+8. list
+------------------------------------------------------------------------------
+Definition: ordered, MUTABLE collection that allows duplicates and mixed types.
+
+Creation:
+    a = [1, 2, 3]
+    b = []                       # or list()
+    c = [1, "a", 3.5, True, None, [1, 2]]   # heterogeneous, nested
+    d = list("abc")              # ['a', 'b', 'c']
+    e = list(range(5))           # [0, 1, 2, 3, 4]
+    f = [0] * 5                  # [0, 0, 0, 0, 0]
+    g = [x * x for x in range(5)]  # list comprehension
+
+Access:
+    a[0], a[-1], a[1:3], a[::-1]
+    a[10]            # IndexError
+    matrix = [[1, 2], [3, 4]]
+    matrix[1][0]     # 3
+
+Modify:
+    a[0] = 99
+    a[1:3] = [7, 8, 9]          # slice assignment (size may change)
+    del a[0]
+    del a[1:3]
+
+Methods:
+    append(x)        add at end
+    extend(iter)     add all items of iterable
+    insert(i, x)     insert at index
+    remove(x)        remove first occurrence (ValueError if missing)
+    pop([i])         remove & return (default last; IndexError if empty)
+    clear()          remove all
+    index(x)         first position (ValueError if missing)
+    count(x)         occurrences
+    sort(key=, reverse=)   in place, returns None
+    reverse()        in place
+    copy()           shallow copy
+
+Examples:
+    a = [3, 1, 2]
+    a.append(4)             # [3, 1, 2, 4]
+    a.extend([5, 6])        # [3, 1, 2, 4, 5, 6]
+    a.insert(0, 9)
+    a.pop()                 # 6
+    a.sort()                # ascending
+    a.sort(reverse=True)
+    a.sort(key=len)         # for list of strings
+    sorted(a)               # returns NEW list
+    list(reversed(a))
+    a + [1]                 # concatenation -> new list
+    a * 2                   # repetition
+    3 in a
+    len(a), min(a), max(a), sum(a)
+
+Cases / gotchas:
+    - append vs extend:  [1].append([2]) -> [1, [2]] ; [1].extend([2]) -> [1, 2]
+    - list * n with nested lists shares the inner object:
+          m = [[0] * 3] * 3     # all rows are the SAME list (bug)
+          m = [[0] * 3 for _ in range(3)]   # correct
+    - sort() returns None:  a = a.sort()  makes a None
+    - Removing while iterating skips elements; iterate over a copy.
+    - Sorting mixed types ([1, "a"]) -> TypeError
+    - Shallow vs deep copy for nested lists (copy.deepcopy)
+    - Lists are unhashable (cannot be dict keys / set members).
+    - Stack usage: append/pop. Queue: use collections.deque.
+
+Unpacking:
+    x, y, z = [1, 2, 3]
+    first, *rest = [1, 2, 3]
+
+
+9. tuple
+------------------------------------------------------------------------------
+Definition: ordered, IMMUTABLE collection; allows duplicates and mixed types.
+
+Creation:
+    t = (1, 2, 3)
+    t = 1, 2, 3              # parentheses optional (packing)
+    one = (5,)               # single element needs trailing comma
+    not_tuple = (5)          # just int 5
+    empty = ()               # or tuple()
+    tuple([1, 2])            # (1, 2)
+    tuple("abc")             # ('a', 'b', 'c')
+
+Access: same as list (indexing, slicing, negative index).
+    t[0], t[-1], t[1:], t[::-1]
+
+Methods (only two):
+    t.count(x)
+    t.index(x)
+
+Operations:
+    t1 + t2, t * 2, x in t, len(t), min, max, sum, sorted(t) -> list
+
+Cases:
+    t[0] = 9                  # TypeError
+    t = ([1, 2], 3)
+    t[0].append(5)            # allowed: inner list is mutable
+    a, b = (1, 2)             # unpacking
+    a, b = b, a               # swap
+    def f(): return 1, 2      # returns a tuple
+    Tuples are hashable if all elements are hashable:
+        d = {(1, 2): "point"}
+    Comparison is lexicographic: (1, 2) < (1, 3) True
+    Faster and smaller than lists; used for fixed data.
+    namedtuple (collections): Point = namedtuple("Point", "x y")
+    del t   # whole tuple can be deleted, items cannot
+
+
+10. range
+------------------------------------------------------------------------------
+Definition: immutable sequence of integers, generated lazily (memory
+efficient). Syntax: range(stop), range(start, stop[, step]).
+
+    range(5)            # 0 1 2 3 4
+    range(2, 6)         # 2 3 4 5
+    range(0, 10, 2)     # 0 2 4 6 8
+    range(10, 0, -2)    # 10 8 6 4 2
+    range(5, 0)         # empty
+    list(range(3))      # [0, 1, 2]
+
+Operations:
+    r = range(10)
+    len(r), r[0], r[-1], r[2:5] (-> range(2, 5)), 5 in r, r.index(3), r.count(3)
+    r.start, r.stop, r.step
+
+Cases:
+    - stop is excluded.
+    - step cannot be 0 -> ValueError
+    - range accepts only integers: range(2.5) -> TypeError
+    - 10**12 in range(10**15) is instant (O(1) membership for ints).
+    - range objects can be compared: range(3) == range(0, 3) True.
+
+
+==============================================================================
+                      E. MAPPING TYPE and SET TYPES
+==============================================================================
+
+11. dict  (DICTIONARY)
+------------------------------------------------------------------------------
+Definition: mutable collection of key : value pairs. Keys are unique and
+hashable (immutable); values can be any type. Keeps insertion order (3.7+).
+
+Creation:
+    d = {"name": "Sachin", "age": 25}
+    d = {}                        # empty (NOT a set)
+    d = dict(name="A", age=1)
+    d = dict([("a", 1), ("b", 2)])
+    d = dict(zip(["a", "b"], [1, 2]))
+    d = dict.fromkeys(["a", "b"], 0)   # {'a': 0, 'b': 0}
+    d = {k: k * k for k in range(4)}   # dict comprehension
+
+Access:
+    d["name"]               # 'Sachin'   (KeyError if missing)
+    d.get("x")              # None
+    d.get("x", "default")   # 'default'
+    d.setdefault("x", 0)    # return value, insert if missing
+
+Modify:
+    d["city"] = "Delhi"     # add or update
+    d.update({"age": 26, "z": 1})
+    d.update(a=1)
+    del d["city"]           # KeyError if missing
+    d.pop("age")            # remove and return
+    d.pop("zz", None)       # no error
+    d.popitem()             # remove last inserted pair (3.7+)
+    d.clear()
+
+Views and iteration:
+    d.keys()    d.values()    d.items()      (dynamic views)
+    for k in d: ...
+    for k, v in d.items(): ...
+    list(d)                  # list of keys
+    len(d), "k" in d         # membership tests KEYS
+
+Merge (3.9+):
+    d1 | d2                  # new dict (right wins on conflicts)
+    d1 |= d2
+    {**d1, **d2}             # older way
+
+Nested:
+    data = {"a": {"b": 1}}
+    data["a"]["b"]
+
+Other:
+    d.copy()   (shallow)      copy.deepcopy(d)
+    sorted(d)  sorted(d.items(), key=lambda kv: kv[1])
+    max(d, key=d.get)
+    collections: defaultdict, Counter, OrderedDict
+
+Cases:
+    - Duplicate keys: last value wins  {"a": 1, "a": 2} -> {'a': 2}
+    - Keys must be hashable: {[1]: 2} -> TypeError: unhashable type: 'list'
+    - Valid keys: int, float, str, bool, tuple (of hashables), frozenset, None
+    - 1, 1.0 and True are the SAME key:  {1: "a", True: "b"} -> {1: 'b'}
+    - Changing dict size during iteration -> RuntimeError
+    - d[missing] -> KeyError (use get / in)
+    - Lookup is average O(1).
+
+
+12. set
+------------------------------------------------------------------------------
+Definition: mutable, UNORDERED collection of UNIQUE, hashable elements.
+
+Creation:
+    s = {1, 2, 3}
+    s = set()                  # empty (NOT {} which is a dict)
+    s = set([1, 1, 2])         # {1, 2}   removes duplicates
+    s = set("hello")           # {'h', 'e', 'l', 'o'}
+    s = {x for x in range(5)}  # set comprehension
+
+Modify:
+    s.add(4)
+    s.update([5, 6], {7})
+    s.remove(1)                # KeyError if absent
+    s.discard(99)              # no error
+    s.pop()                    # removes an arbitrary element
+    s.clear()
+
+Set operations:
+    A = {1, 2, 3}; B = {3, 4}
+    A | B        A.union(B)                    # {1, 2, 3, 4}
+    A & B        A.intersection(B)             # {3}
+    A - B        A.difference(B)               # {1, 2}
+    A ^ B        A.symmetric_difference(B)     # {1, 2, 4}
+    A <= B       A.issubset(B)
+    A >= B       A.issuperset(B)
+    A.isdisjoint(B)
+    A |= B, A &= B, A -= B, A ^= B             # in-place; also *_update()
+
+Cases:
+    - No indexing/slicing: s[0] -> TypeError
+    - Elements must be hashable: {[1, 2]} -> TypeError; {(1, 2)} fine
+    - {1, True, 1.0} -> {1}  (all equal)
+    - Order not guaranteed (but stable within a run)
+    - Membership test is average O(1)
+    - Commonly used to remove duplicates:  list(set(lst))  (loses order)
+      order-preserving: list(dict.fromkeys(lst))
+
+
+13. frozenset
+------------------------------------------------------------------------------
+Definition: immutable version of set; hashable.
+
+    fs = frozenset([1, 2, 3])
+    fs.add(4)                       # AttributeError
+    fs | {5}                        # allowed -> new frozenset
+    d = {frozenset([1, 2]): "pair"} # valid dict key
+    s = {frozenset([1]), frozenset([2])}   # set of frozensets
+    Supports all non-mutating set methods (union, intersection, difference,
+    issubset, ...). Result type follows the left operand.
+
+
+==============================================================================
+                               F. BINARY TYPES
+==============================================================================
+
+14. bytes
+------------------------------------------------------------------------------
+Definition: immutable sequence of bytes (integers 0-255).
+
+    b1 = b"hello"
+    b2 = bytes([65, 66, 67])        # b'ABC'
+    b3 = bytes(5)                   # b'\x00\x00\x00\x00\x00'
+    b4 = "héllo".encode("utf-8")    # str -> bytes
+    b4.decode("utf-8")              # bytes -> str
+    b1[0]        # 104 (an int, not a char)
+    b1[0:2]      # b'he' (slice is bytes)
+    b1.hex() ; bytes.fromhex("6869")
+    Supports many str-like methods (upper, split, replace, find, ...)
+
+Cases:
+    - Only ASCII literals allowed in b"": b"é" -> SyntaxError
+    - b"a" + "a" -> TypeError (cannot mix bytes and str)
+    - Immutable: b1[0] = 1 -> TypeError
+    - bytes([256]) -> ValueError (values must be 0..255)
+    - Wrong decoding -> UnicodeDecodeError; use errors="ignore"/"replace".
+
+
+15. bytearray
+------------------------------------------------------------------------------
+Definition: MUTABLE version of bytes.
+
+    ba = bytearray(b"hello")
+    ba[0] = 72                 # b'Hello'
+    ba.append(33)
+    ba.extend(b"??")
+    ba.pop()
+    bytearray(5)               # 5 zero bytes
+    bytes(ba)                  # convert back to immutable
+
+
+16. memoryview
+------------------------------------------------------------------------------
+Definition: gives access to the memory of another binary object without
+copying it.
+
+    data = bytearray(b"abcdef")
+    mv = memoryview(data)
+    mv[0]               # 97
+    mv[1:3].tobytes()   # b'bc'
+    mv[0] = 65          # modifies the original bytearray
+    memoryview(b"abc")[0] = 1   # TypeError (underlying bytes is immutable)
+
+
+==============================================================================
+                               G. NONE TYPE
+==============================================================================
+
+17. NoneType  (None)
+------------------------------------------------------------------------------
+Definition: a singleton object representing "no value" / absence of a value.
+
+    x = None
+    type(x)              # <class 'NoneType'>
+    x is None            # True  (use "is", not "==")
+    bool(None)           # False
+    str(None)            # 'None'
+
+Cases:
+    - A function with no return statement returns None.
+    - list.sort(), list.append(), list.reverse() etc. return None.
+    - print(print("a")) prints "a" then None.
+    - None + 1 -> TypeError;  None < 1 -> TypeError
+    - len(None) -> TypeError
+    - Only one None object exists; None == None True.
+    - Default value placeholder for optional parameters.
+
+
+==============================================================================
+                          H. TYPE CHECKING
+==============================================================================
+
+18. FINDING AND CHECKING TYPES
+------------------------------------------------------------------------------
+    type(5)                     # <class 'int'>
+    type(5) == int              # True (does not accept subclasses)
+    isinstance(5, int)          # True (preferred)
+    isinstance(5, (int, float)) # True if any matches
+    isinstance(True, int)       # True (bool is a subclass of int)
+    type(True) == int           # False
+    issubclass(bool, int)       # True
+    type(type(5))               # <class 'type'>
+
+    callable(f), hasattr(x, "append")
+
+    Collections ABC:
+    from collections.abc import Sequence, Mapping, Iterable
+    isinstance([1], Sequence)   # True
+    isinstance("a", Iterable)   # True
+
+
+==============================================================================
+                       I. TYPE CONVERSION (TYPE CASTING)
+==============================================================================
+
+19. IMPLICIT CONVERSION (automatic)
+------------------------------------------------------------------------------
+Python promotes numeric types to the wider type in mixed expressions:
+    bool -> int -> float -> complex
+    1 + 2.5          # 3.5      (int -> float)
+    True + 2         # 3
+    1 + 2j           # (1+2j)
+    5 / 2            # 2.5      (/ always gives float)
+No implicit conversion between str and number: "5" + 5 -> TypeError.
+
+20. EXPLICIT CONVERSION (casting functions)
+------------------------------------------------------------------------------
+    int(x)      int(3.9) 3 | int("42") 42 | int("101", 2) 5 | int(True) 1
+                int("3.5") ValueError | int(None) TypeError
+                int(float("inf")) OverflowError | int(float("nan")) ValueError
+    float(x)    float(3) 3.0 | float("2.5") | float("inf") | float("abc") Err
+    complex(x)  complex(3) (3+0j) | complex("1+2j") | complex(1, 2)
+    bool(x)     see truthiness table in section 6
+    str(x)      str(10) '10' | str(3.0) '3.0' | str([1, 2]) '[1, 2]'
+                str(None) 'None' | str(b"a") "b'a'"
+    list(x)     list("abc") ['a','b','c'] | list((1,2)) [1,2]
+                list({1,2}) | list({"a":1}) ['a'] (keys) | list(range(3))
+                list(5) TypeError (int not iterable)
+    tuple(x)    tuple([1, 2]) (1, 2) | tuple("ab") ('a', 'b')
+    set(x)      set([1, 1, 2]) {1, 2} | set("aab") {'a','b'}
+                set([[1]]) TypeError (unhashable)
+    frozenset(x)
+    dict(x)     dict([("a", 1)]) | dict(zip(keys, vals)) | dict([1, 2]) Error
+    bytes(x)    bytes("hi", "utf-8") | bytes([65]) | bytes(3)
+    bytearray(x)
+    chr(65) 'A' | ord("A") 65
+    bin(), oct(), hex() ints -> strings
+    repr(x)     developer-oriented string
+    eval("5 + 3") evaluates a string expression (unsafe on untrusted input);
+    ast.literal_eval("[1, 2]") safely parses literals.
+
+Summary table of key conversions:
+    "123"   -> int      int("123")
+    123     -> str      str(123)
+    "3.5"   -> float    float("3.5")
+    3.9     -> int      int(3.9) = 3  (truncation)
+    "abc"   -> list     list("abc")
+    [1, 2]  -> tuple    tuple([1, 2])
+    [1, 1]  -> set      set([1, 1])
+    [(a,b)] -> dict     dict([("a", 1)])
+    "1,2,3" -> list     "1,2,3".split(",")
+    ["a","b"] -> str    "".join(["a", "b"])
+
+
+==============================================================================
+                       J. MUTABLE vs IMMUTABLE TYPES
+==============================================================================
+
+21. SUMMARY
+------------------------------------------------------------------------------
+  Type        | Mutable | Ordered | Duplicates | Indexed | Hashable
+  ------------|---------|---------|------------|---------|----------------
+  int         |   No    |   -     |    -       |   -     | Yes
+  float       |   No    |   -     |    -       |   -     | Yes
+  complex     |   No    |   -     |    -       |   -     | Yes
+  bool        |   No    |   -     |    -       |   -     | Yes
+  str         |   No    |  Yes    |   Yes      |  Yes    | Yes
+  list        |  Yes    |  Yes    |   Yes      |  Yes    | No
+  tuple       |   No    |  Yes    |   Yes      |  Yes    | Yes*
+  range       |   No    |  Yes    |   No**     |  Yes    | Yes
+  dict        |  Yes    |  Yes*** | keys: No   |  By key | No
+  set         |  Yes    |   No    |   No       |   No    | No
+  frozenset   |   No    |   No    |   No       |   No    | Yes
+  bytes       |   No    |  Yes    |   Yes      |  Yes    | Yes
+  bytearray   |  Yes    |  Yes    |   Yes      |  Yes    | No
+  NoneType    |   No    |   -     |    -       |   -     | Yes
+
+  *   tuple is hashable only if all its elements are hashable.
+  **  range values are unique by nature.
+  *** dict keeps insertion order from Python 3.7.
+
+Immutable example:
+    s = "abc";  id(s);  s += "d";  id(s)   # id changes (new object)
+Mutable example:
+    l = [1];    id(l);  l.append(2);  id(l)  # same id (modified in place)
+
+
+==============================================================================
+                 K. COMMON OPERATIONS ACROSS DATA TYPES
+==============================================================================
+
+22. OPERATIONS TABLE
+------------------------------------------------------------------------------
+  Operation        | str | list | tuple | range | dict   | set | bytes
+  -----------------|-----|------|-------|-------|--------|-----|------
+  len()            | Yes | Yes  | Yes   | Yes   | Yes    | Yes | Yes
+  Indexing [i]     | Yes | Yes  | Yes   | Yes   | [key]  | No  | Yes
+  Slicing [a:b]    | Yes | Yes  | Yes   | Yes   | No     | No  | Yes
+  Concatenate (+)  | Yes | Yes  | Yes   | No    | No(|)  | No  | Yes
+  Repeat (*)       | Yes | Yes  | Yes   | No    | No     | No  | Yes
+  in               | Yes | Yes  | Yes   | Yes   | keys   | Yes | Yes
+  Iteration        | Yes | Yes  | Yes   | Yes   | keys   | Yes | Yes
+  min / max / sum  | min,max | Yes | Yes | Yes | keys  | Yes | Yes
+  sorted()         | Yes | Yes  | Yes   | Yes   | keys   | Yes | Yes
+
+Useful built-ins that work on iterables:
+    len, min, max, sum, sorted, reversed, enumerate, zip, any, all,
+    map, filter, iter, next
+    any([0, 1])  True ; all([1, 0]) False ; all([]) True ; any([]) False
+    list(enumerate("ab"))   # [(0, 'a'), (1, 'b')]
+    list(zip([1, 2], "ab")) # [(1, 'a'), (2, 'b')]
+
+
+==============================================================================
+                   L. SPECIAL / STANDARD-LIBRARY NUMERIC TYPES
+==============================================================================
+
+23. decimal.Decimal  - exact decimal arithmetic
+------------------------------------------------------------------------------
+    from decimal import Decimal, getcontext
+    Decimal("0.1") + Decimal("0.2")     # Decimal('0.3')
+    Decimal(0.1)     # shows the float's exact binary value (avoid) ;
+                     # always construct from strings
+    getcontext().prec = 10              # precision
+    Use for money/financial calculations.
+
+24. fractions.Fraction - exact rational numbers
+------------------------------------------------------------------------------
+    from fractions import Fraction
+    Fraction(3, 6)             # Fraction(1, 2)
+    Fraction("0.25")           # Fraction(1, 4)
+    Fraction(1, 2) + Fraction(1, 3)   # Fraction(5, 6)
+    float(Fraction(1, 4))      # 0.25
+
+25. collections types (specialised containers)
+------------------------------------------------------------------------------
+    from collections import namedtuple, deque, Counter, defaultdict, \
+                            OrderedDict, ChainMap
+    deque([1, 2, 3])           # fast append/pop at both ends
+    Counter("aabbc")           # Counter({'a': 2, 'b': 2, 'c': 1})
+    defaultdict(list)          # dict with default factory
+    namedtuple("P", "x y")(1, 2)
+
+Others: datetime.date / datetime / timedelta, enum.Enum, array.array,
+        uuid.UUID, pathlib.Path.
+
+
+==============================================================================
+                      M. QUICK DATATYPE SELECTION GUIDE
+==============================================================================
+
+    Whole number                     -> int
+    Decimal number                   -> float (Decimal for money)
+    True/False                       -> bool
+    Text                             -> str
+    Ordered, changeable collection   -> list
+    Ordered, fixed collection        -> tuple
+    Sequence of integers             -> range
+    Key-value lookup                 -> dict
+    Unique items / set maths         -> set
+    Unique, hashable, fixed items    -> frozenset
+    Raw binary data                  -> bytes / bytearray
+    No value                         -> None
+
+
+==============================================================================
+                       N. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+Q1. Name the built-in data types in Python.
+A.  int, float, complex, bool, str, list, tuple, range, dict, set, frozenset,
+    bytes, bytearray, memoryview, NoneType.
+
+Q2. Which data types are mutable and which are immutable?
+A.  Mutable: list, dict, set, bytearray. Immutable: int, float, complex, bool,
+    str, tuple, range, frozenset, bytes, NoneType.
+
+Q3. Difference between list and tuple?
+A.  list is mutable, uses [], has many methods, is unhashable. tuple is
+    immutable, uses (), is lighter/faster, has 2 methods, and is hashable if
+    its elements are hashable.
+
+Q4. Difference between list and set?
+A.  list: ordered, indexed, allows duplicates. set: unordered, no indexing,
+    unique hashable elements, fast membership.
+
+Q5. How do you create an empty set?
+A.  set(). {} creates an empty dict.
+
+Q6. How do you create a tuple with one element?
+A.  (5,) or 5, - the comma makes the tuple. (5) is just an int.
+
+Q7. What is the output?   print(type({}), type(()), type({1}), type({1: 2}))
+A.  <class 'dict'> <class 'tuple'> <class 'set'> <class 'dict'>
+
+Q8. What is the output?   print(0.1 + 0.2 == 0.3)
+A.  False, because of binary floating point representation. Use
+    math.isclose() or Decimal.
+
+Q9. What is the output?   print(10 / 2, 10 // 3, -10 // 3, 10 % 3, -10 % 3)
+A.  5.0 3 -4 1 2
+
+Q10. What is the output?   print(round(2.5), round(3.5), round(-2.5))
+A.  2 4 -2   (banker's rounding to nearest even)
+
+Q11. What is the output?   print(True + True + True)
+A.  3. bool is a subclass of int.
+
+Q12. What is the output?   print(bool("False"), bool(""), bool([]), bool([0]))
+A.  True False False True
+
+Q13. What is the output?   print({1, True, 1.0})
+A.  {1}. They are equal and have the same hash.
+
+Q14. What is the output?   d = {1: "a", True: "b", 1.0: "c"}; print(d)
+A.  {1: 'c'}   (same key; key stays first one, value is overwritten)
+
+Q15. Why can't a list be a dict key?
+A.  Keys must be hashable; lists are mutable and unhashable
+    (TypeError: unhashable type: 'list'). Use a tuple instead.
+
+Q16. How do you remove duplicates from a list while keeping order?
+A.  list(dict.fromkeys(lst))
+
+Q17. Difference between append() and extend()?
+A.  append adds one object as a single element; extend adds each element of an
+    iterable.  [1].append([2, 3]) -> [1, [2, 3]]; [1].extend([2, 3]) -> [1, 2, 3]
+
+Q18. Difference between sort() and sorted()?
+A.  sort() sorts the list in place and returns None (list only). sorted()
+    works on any iterable and returns a new list.
+
+Q19. Difference between remove(), pop(), del?
+A.  remove(x): by value, first match. pop(i): by index, returns the item.
+    del a[i] or a[i:j]: by index/slice, returns nothing.
+
+Q20. What is the output?   a = [[0] * 2] * 2; a[0][0] = 1; print(a)
+A.  [[1, 0], [1, 0]]  - both rows are the same list object.
+
+Q21. What is the output?   print("abc" * 2, [1, 2] * 2, (1,) * 3)
+A.  abcabc [1, 2, 1, 2] (1, 1, 1)
+
+Q22. Difference between == and is for data types?
+A.  == compares values; is compares object identity. Use is only with None.
+
+Q23. Difference between shallow and deep copy?
+A.  Shallow copy copies the container but shares nested objects; deep copy
+    (copy.deepcopy) copies recursively.
+
+Q24. What is the output?   print(type(5 / 2), type(5 // 2), type(5 // 2.0))
+A.  <class 'float'> <class 'int'> <class 'float'>
+
+Q25. What is the output?   print(int("10", 2), int(3.99), int(-3.99))
+A.  2 3 -3
+
+Q26. What is the output?   print("Hello"[1:4], "Hello"[::-1], "Hello"[-3:])
+A.  ell olleH llo
+
+Q27. What is the output?   print(len({"a": 1, "a": 2}))
+A.  1  (duplicate key; last value wins).
+
+Q28. What is the difference between bytes and bytearray?
+A.  bytes is immutable; bytearray is mutable. Both hold values 0-255.
+
+Q29. What is the difference between set and frozenset?
+A.  set is mutable and unhashable; frozenset is immutable and hashable, so it
+    can be a dict key or a member of a set.
+
+Q30. Why is range memory efficient?
+A.  It stores only start, stop, step and computes values on demand, so
+    range(10**9) takes constant memory.
+
+Q31. What does type() vs isinstance() do?
+A.  type() returns the exact class; isinstance() checks class or subclass and
+    is preferred. isinstance(True, int) is True; type(True) == int is False.
+
+Q32. What is the output?   print(1 in {1: "a"}, "a" in {1: "a"})
+A.  True False   (membership on dict tests keys).
+
+Q33. What is the output?   t = (1, [2, 3]); t[1].append(4); print(t)
+A.  (1, [2, 3, 4]). The tuple is immutable but its list element is mutable.
+
+Q34. What is the output?   print(any([]), all([]))
+A.  False True
+
+Q35. What is the output?   print(list("abc") == ["a", "b", "c"], set("abc") == {"c", "b", "a"})
+A.  True True
+
+Q36. What is the output?   print(None == False, None is None, bool(None))
+A.  False True False
+
+Q37. How are strings compared?
+A.  Lexicographically by Unicode code point: "Z" < "a" is True,
+    "apple" < "apricot" is True.
+
+Q38. What is the output?   print(max("apple", "banana"), max([1, 5, 3]), max({"a": 3, "b": 1}))
+A.  banana 5 b   (dict max compares keys).
+
+Q39. How do you convert a list of strings to ints?
+A.  [int(x) for x in lst]  or  list(map(int, lst))
+
+Q40. What is the output?   print(sum([0.1] * 10) == 1.0, sum([0.1] * 10))
+A.  False 0.9999999999999999. Use math.fsum() for accurate float sums
+    (math.fsum([0.1] * 10) == 1.0 -> True).
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

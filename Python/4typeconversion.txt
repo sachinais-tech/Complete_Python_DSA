@@ -1,0 +1,931 @@
+==============================================================================
+                     PYTHON TYPE CONVERSION - COMPLETE NOTES
+==============================================================================
+
+
+1. WHAT IS TYPE CONVERSION?
+------------------------------------------------------------------------------
+Type conversion (type casting) is changing a value from one data type to
+another, e.g. the string "42" to the integer 42. Python never changes the type
+of an existing object: a conversion always creates a NEW object of the target
+type (the original is untouched).
+
+    x = "42"
+    y = int(x)         # new int object
+    type(x), type(y)   # (<class 'str'>, <class 'int'>)
+
+Why it matters:
+    - input() always returns str, so numbers must be converted.
+    - Mixed-type arithmetic, formatting output, parsing files / JSON / CSV.
+    - Choosing the right container (list -> set to remove duplicates, etc.).
+
+Python is strongly typed: it will not silently convert unrelated types
+("5" + 5 is a TypeError). It only converts automatically between numbers.
+
+
+2. TYPES OF CONVERSION
+------------------------------------------------------------------------------
+  Kind       | Done by            | Example
+  -----------|--------------------|-----------------------------------------
+  Implicit   | Python (automatic) | 1 + 2.5 -> 3.5   (int promoted to float)
+  Explicit   | Programmer (cast)  | int("42"), str(5), list("abc")
+
+Casting functions (constructors):
+    int()  float()  complex()  bool()  str()  list()  tuple()  set()
+    frozenset()  dict()  bytes()  bytearray()  range()
+Helpers: chr() ord() bin() oct() hex() repr() format() ascii()
+
+
+==============================================================================
+                          A. IMPLICIT CONVERSION
+==============================================================================
+
+3. NUMERIC PROMOTION (the numeric tower)
+------------------------------------------------------------------------------
+In a mixed numeric expression Python converts to the "wider" type:
+
+    bool  ->  int  ->  float  ->  complex
+
+    1 + 2.5          # 3.5      int -> float
+    True + 2         # 3        bool -> int
+    2 + 3j           # (2+3j)
+    1 + 2.0 + 3j     # (3+3j)
+    5 / 2            # 2.5      / ALWAYS returns float
+    4 / 2            # 2.0      (float even when exact)
+    5 // 2           # 2        int
+    5 // 2.0         # 2.0      float (one operand is float)
+    2 ** -1          # 0.5      negative int exponent -> float
+    2 ** 0.5         # 1.4142135623730951
+    sum([1, 2.5])    # 3.5
+    max(2, 2.0)      # 2        (first of equal values is returned)
+
+Result type table (+ - * for numbers):
+    int   op int      -> int
+    int   op float    -> float
+    float op complex  -> complex
+    bool  op bool     -> int      (True + True = 2)
+
+4. OTHER PLACES WHERE IMPLICIT CONVERSION HAPPENS
+------------------------------------------------------------------------------
+  Conditions (if / while / and / or / not) use truthiness bool(x):
+      if "abc": ...        # non-empty string is truthy
+      if []: ...           # empty list is falsy
+
+  Comparisons between numbers compare by VALUE across types:
+      1 == 1.0 == True     # True
+      hash(1) == hash(1.0) # True  (so {1, 1.0, True} == {1})
+      1 < 2.5              # True
+
+  print() and f-strings call str() / format() on objects:
+      print(10, 2.5, [1], None)      # 10 2.5 [1] None
+      f"{10}{True}"                  # '10True'
+
+  Sequence repetition needs an int (no float):
+      "ab" * 3        # 'ababab'
+      "ab" * 2.0      # TypeError
+
+  Lists/tuples/sets/dicts can hold mixed types; nothing converts:
+      [1, "1", 1.0]   # three different objects
+
+5. NO IMPLICIT CONVERSION BETWEEN UNRELATED TYPES
+------------------------------------------------------------------------------
+    "5" + 5          # TypeError: can only concatenate str to str
+    5 + "5"          # TypeError: unsupported operand type(s)
+    [1] + (2,)       # TypeError: can only concatenate list to list
+    {1} | [2]        # TypeError
+    1 < "2"          # TypeError: '<' not supported between int and str
+    "1" == 1         # False (no error, no conversion)
+    Decimal("1") + 1.5     # TypeError (Decimal does not mix with float)
+    Decimal("1") + 1       # Decimal('2')  (Decimal mixes with int)
+    Fraction(1, 2) + 0.5   # 1.0  (Fraction + float -> float)
+    Fraction(1, 2) + 1     # Fraction(3, 2)
+
+Fix: convert explicitly -> int("5") + 5 = 10  or  "5" + str(5) = '55'.
+
+
+==============================================================================
+                       B. EXPLICIT NUMERIC CONVERSION
+==============================================================================
+
+6. int()
+------------------------------------------------------------------------------
+Syntax: int(x)   |   int(string, base)    base is 0 or 2..36 (default 10)
+
+From number / bool:
+    int(3.9)          # 3     truncates toward ZERO (not floor, not round)
+    int(-3.9)         # -3
+    int(True)         # 1
+    int(False)        # 0
+    int(Decimal("3.9"))      # 3
+    int(Fraction(7, 2))      # 3
+
+From string:
+    int("42")         # 42
+    int("  42  ")     # 42    surrounding whitespace is stripped
+    int("-7")         # -7
+    int("+7")         # 7
+    int("1_000")      # 1000  single underscores between digits allowed
+    int("012")        # 12    leading zeros fine in base 10
+    int("3.5")        # ValueError (use int(float("3.5")))
+    int("1e3")        # ValueError (use int(float("1e3")) -> 1000)
+    int("")           # ValueError
+    int("12abc")      # ValueError
+    int("--5")        # ValueError
+    int("1,000")      # ValueError (commas not allowed)
+
+With a base:
+    int("1010", 2)    # 10
+    int("17", 8)      # 15
+    int("ff", 16)     # 255
+    int("FF", 16)     # 255   case-insensitive
+    int("0xff", 16)   # 255   matching prefix is allowed
+    int("z", 36)      # 35
+    int("0b101", 0)   # 5     base 0 -> guess from the prefix
+    int("0o17", 0)    # 15
+    int("0xff", 0)    # 255
+    int("012", 0)     # ValueError (base 0 rejects leading zeros)
+    int("12", 1)      # ValueError (base must be 0 or 2..36)
+    int(3.5, 10)      # TypeError  (explicit base needs a string/bytes)
+
+Errors by input type:
+    int(None)            # TypeError
+    int([1, 2])          # TypeError
+    int(1 + 2j)          # TypeError (complex cannot be converted)
+    int(float("nan"))    # ValueError: cannot convert float NaN to integer
+    int(float("inf"))    # OverflowError: cannot convert float infinity
+
+Notes:
+    - int() accepts any Unicode decimal digit: int("٣") -> 3 (Arabic-Indic).
+    - int(huge_string) with more than 4300 digits -> ValueError
+      (limit can be changed by sys.set_int_max_str_digits).
+    - "5".isdigit() is a quick check, but it misses negatives ("-5") and
+      accepts "²" which int() then rejects. Prefer try / except.
+    - Float precision before truncation matters:
+          int(19.99 * 100)       # 1998 (19.99*100 = 1998.9999999999998)
+          int(round(19.99 * 100))  # 1999
+
+7. float()
+------------------------------------------------------------------------------
+    float(5)              # 5.0
+    float(True)           # 1.0
+    float("3.14")         # 3.14
+    float("  3.14\n")     # 3.14   whitespace stripped
+    float("-.5")          # -0.5
+    float("5.")           # 5.0
+    float("1e3")          # 1000.0
+    float("1_000.5")      # 1000.5
+    float("inf")          # inf        also "Infinity", "-inf"
+    float("nan")          # nan        case-insensitive "NaN"
+    float("abc")          # ValueError
+    float("1,5")          # ValueError
+    float("")             # ValueError
+    float(None)           # TypeError
+    float(1 + 2j)         # TypeError
+    float(Fraction(1, 4)) # 0.25
+    float(Decimal("0.1")) # 0.1
+    float(10 ** 400)      # OverflowError: int too large to convert to float
+
+Precision:
+    float(2 ** 53 + 1)               # 9007199254740992.0 (loses the +1)
+    float(2 ** 53 + 1) == 2 ** 53 + 1  # False (int vs float compared exactly)
+    0.1 + 0.2                        # 0.30000000000000004
+
+8. complex()
+------------------------------------------------------------------------------
+    complex(3)            # (3+0j)
+    complex(3, 4)         # (3+4j)
+    complex("3+4j")       # (3+4j)
+    complex("3 + 4j")     # ValueError (no spaces inside the string)
+    complex("4j")         # 4j
+    complex(True)         # (1+0j)
+    abs(3 + 4j)           # 5.0
+    int(3+4j)             # TypeError
+    float(3+4j)           # TypeError
+    (3+4j).real           # 3.0   (use .real / .imag to extract a part)
+
+9. bool()
+------------------------------------------------------------------------------
+bool(x) is False for "empty / zero / None", True for everything else.
+
+  FALSY : False, None, 0, 0.0, 0j, "", [], (), {}, set(), range(0), b"",
+          Decimal("0"), Fraction(0)
+          objects whose __bool__ returns False or __len__ returns 0
+  TRUTHY: everything else
+
+    bool("False")        # True   (non-empty string!)
+    bool("0")            # True
+    bool(" ")            # True
+    bool([0])            # True   (non-empty list)
+    bool(float("nan"))   # True
+    bool(-1)             # True
+    bool(0.0)            # False
+    bool(None)           # False
+
+Converting TEXT to a boolean needs your own rule:
+    def to_bool(s):
+        return s.strip().lower() in ("true", "1", "yes", "y", "on")
+
+    int("True")          # ValueError (bool text is not a number)
+    str(True)            # 'True'
+    int(True) + int(False)   # 1
+
+10. ROUNDING / TRUNCATION (float -> int)
+------------------------------------------------------------------------------
+  Expression        | 3.7 | -3.7 | 2.5 | -2.5 | Returns
+  ------------------|-----|------|-----|------|-----------------------
+  int(x)            |  3  |  -3  |  2  |  -2  | int, toward zero
+  math.trunc(x)     |  3  |  -3  |  2  |  -2  | int, toward zero
+  math.floor(x)     |  3  |  -4  |  2  |  -3  | int, toward -infinity
+  math.ceil(x)      |  4  |  -3  |  3  |  -2  | int, toward +infinity
+  round(x)          |  4  |  -4  |  2  |  -2  | int, ties to EVEN
+  round(x, 0)       | 4.0 | -4.0 | 2.0 | -2.0 | float
+  x // 1            | 3.0 | -4.0 | 2.0 | -3.0 | float, floor
+
+    round(3.14159, 2)    # 3.14
+    round(1234, -2)      # 1200   (negative digits round to tens, hundreds)
+    round(0.5), round(1.5), round(2.5)   # 0 2 2   (banker's rounding)
+    round(2.675, 2)      # 2.67   (binary float is slightly below 2.675)
+
+11. EXACT TYPES: Decimal and Fraction
+------------------------------------------------------------------------------
+    from decimal import Decimal
+    from fractions import Fraction
+
+    Decimal(0.1)        # Decimal('0.1000000000000000055511151231257827...')
+    Decimal("0.1")      # Decimal('0.1')     ALWAYS build from a string
+    Decimal("0.1") + Decimal("0.2")   # Decimal('0.3')
+    float(Decimal("0.1"))             # 0.1
+    str(Decimal("0.10"))              # '0.10'
+    Fraction(0.5)       # Fraction(1, 2)
+    Fraction("3/4")     # Fraction(3, 4)
+    Fraction("0.25")    # Fraction(1, 4)
+    Fraction(1, 3)      # Fraction(1, 3)
+    float(Fraction(1, 3))   # 0.3333333333333333
+    int(Fraction(7, 2))     # 3
+    Decimal(1) / Decimal(3) # Decimal('0.3333333333333333333333333333')
+    Decimal("abc")          # decimal.InvalidOperation (NOT a ValueError;
+                            # catch decimal.InvalidOperation)
+
+
+==============================================================================
+                         C. STRING CONVERSION
+==============================================================================
+
+12. str(), repr(), format(), ascii()
+------------------------------------------------------------------------------
+str(x) gives a readable string for users; repr(x) gives an unambiguous
+string for developers (often valid Python source).
+
+    str(10)           # '10'
+    str(3.0)          # '3.0'
+    str(1e16)         # '1e+16'
+    str(True)         # 'True'
+    str(None)         # 'None'
+    str([1, "a"])     # "[1, 'a']"      elements shown with repr
+    str((1,))         # '(1,)'
+    str({1: "a"})     # "{1: 'a'}"
+    str(b"hi")        # "b'hi'"
+    str(3 + 4j)       # '(3+4j)'
+    str("a")          # 'a'
+    repr("a")         # "'a'"
+    repr("it's")      # '"it\'s"'  (shown as "it's": repr picks the quotes)
+    ascii("é")        # "'\\xe9'"
+
+Formatting numbers into strings (results are str, not numbers):
+    f"{3.14159:.2f}"     # '3.14'
+    f"{5:03d}"           # '005'
+    f"{255:b}"           # '11111111'
+    f"{255:x}"           # 'ff'
+    f"{1234567:,}"       # '1,234,567'
+    f"{0.256:.1%}"       # '25.6%'
+    format(10, "08b")    # '00001010'
+    "%d items" % 5       # '5 items'
+    "{}".format(5)       # '5'
+
+Concatenating needs str: "Age: " + str(25)   or   f"Age: {25}".
+Joining needs str items: ",".join([1, 2])  -> TypeError
+    ",".join(map(str, [1, 2]))              # '1,2'
+    ",".join(str(x) for x in [1, 2])        # '1,2'
+
+13. STRING -> NUMBER (parsing input)
+------------------------------------------------------------------------------
+input() ALWAYS returns str:
+    n = int(input())                       # "7"      -> 7
+    x = float(input())                     # "2.5"    -> 2.5
+    a, b = map(int, input().split())       # "3 4"    -> a=3, b=4
+    nums = list(map(int, input().split())) # "1 2 3"  -> [1, 2, 3]
+    nums = [int(t) for t in "1,2,3".split(",")]   # [1, 2, 3]
+
+Safe parsing:
+    def to_int(s, default=None):
+        try:
+            return int(s)
+        except (ValueError, TypeError):
+            return default
+
+    to_int("12")      # 12
+    to_int("x")       # None
+    to_int(None)      # None (TypeError caught)
+
+Checking first (limited):
+    "12".isdigit()    # True        "-12".isdigit()   # False
+    "1.5".isdigit()   # False       "²".isdigit()     # True, int("²") fails
+    "12".isdecimal()  # True        (isdecimal is the safest of the three)
+    Use try / except instead of isdigit for real validation.
+
+Strings with thousands separators / currency:
+    int("1,234".replace(",", ""))          # 1234
+    float("$9.99".lstrip("$"))             # 9.99
+
+14. NUMBER BASES
+------------------------------------------------------------------------------
+Number -> string:
+    bin(10)         # '0b1010'      oct(10)   # '0o12'      hex(255)  # '0xff'
+    bin(10)[2:]     # '1010'        (drop the prefix)
+    format(10, "b") # '1010'        format(255, "X")  # 'FF'
+    f"{10:08b}"     # '00001010'    f"{255:#x}"       # '0xff'
+    bin(-5)         # '-0b101'
+
+String -> number:
+    int("1010", 2)  # 10        int("ff", 16)   # 255      int("17", 8)  # 15
+    int(bin(10), 2) # 10        (round trip)
+    int("0b101", 2) # 5         (matching prefix is accepted)
+
+Literals in source code:
+    0b1010 -> 10     0o17 -> 15     0xFF -> 255     1_000_000 -> 1000000
+
+Any base up to 36:
+    int("zz", 36)   # 1295
+    (no built-in int -> base-n string for bases other than 2, 8, 16)
+
+15. CHARACTERS <-> NUMBERS
+------------------------------------------------------------------------------
+    ord("A")            # 65         character -> Unicode code point
+    ord("a")            # 97
+    ord("é")            # 233
+    chr(65)             # 'A'        code point -> character
+    chr(0x1F600)        # a smiley emoji
+    chr(ord("a") + 1)   # 'b'        next letter
+    ord("7") - ord("0") # 7          digit char -> int without int()
+    int("7")            # 7
+    ord("ab")           # TypeError (exactly one character)
+    chr(-1)             # ValueError
+    chr(1114112)        # ValueError (max is 0x10FFFF)
+    [ord(c) for c in "abc"]       # [97, 98, 99]
+    "".join(chr(n) for n in [72, 105])   # 'Hi'
+
+
+==============================================================================
+                    D. COLLECTION (CONTAINER) CONVERSION
+==============================================================================
+
+16. list()
+------------------------------------------------------------------------------
+list(iterable) makes a NEW list (shallow copy) from any iterable.
+
+    list("abc")                 # ['a', 'b', 'c']
+    list((1, 2, 3))             # [1, 2, 3]
+    list({1, 2, 3})             # [1, 2, 3]   (set order not guaranteed)
+    list({"a": 1, "b": 2})      # ['a', 'b']  keys only
+    list({"a": 1}.values())     # [1]
+    list({"a": 1}.items())      # [('a', 1)]
+    list(range(3))              # [0, 1, 2]
+    list(b"AB")                 # [65, 66]
+    list(map(str, [1, 2]))      # ['1', '2']
+    list(zip("ab", [1, 2]))     # [('a', 1), ('b', 2)]
+    list(enumerate("ab"))       # [(0, 'a'), (1, 'b')]
+    list(reversed([1, 2]))      # [2, 1]
+    list()                      # []
+    list(5)                     # TypeError: 'int' object is not iterable
+    list(None)                  # TypeError
+    list("12 34")               # ['1', '2', ' ', '3', '4']  (NOT split)
+
+17. tuple()
+------------------------------------------------------------------------------
+    tuple([1, 2])             # (1, 2)
+    tuple("ab")               # ('a', 'b')
+    tuple({"a": 1})           # ('a',)
+    tuple(x * x for x in range(3))   # (0, 1, 4)
+    tuple([[1], [2]])         # ([1], [2])  inner lists stay lists
+    tuple(map(tuple, [[1, 2], [3, 4]]))    # ((1, 2), (3, 4))
+    (5,)  vs  (5)             # tuple vs plain int
+    Use: make a list hashable -> d[tuple(lst)] = value
+
+18. set() and frozenset()
+------------------------------------------------------------------------------
+    set([1, 1, 2])         # {1, 2}          removes duplicates
+    set("hello")           # {'h', 'e', 'l', 'o'}   (any order)
+    set({"a": 1})          # {'a'}           keys
+    set()                  # empty set; {} is an empty DICT
+    set([[1], [2]])        # TypeError: unhashable type: 'list'
+    set([(1, 2)])          # {(1, 2)}        tuples are fine
+    set(5)                 # TypeError
+    frozenset([1, 2])      # frozenset({1, 2})  immutable & hashable
+
+Remove duplicates:
+    list(set(lst))              # loses order
+    list(dict.fromkeys(lst))    # keeps first-seen order
+
+Note: set/dict treat 1, 1.0 and True as the SAME element:
+    set([1, 1.0, True])         # {1}
+
+19. dict()
+------------------------------------------------------------------------------
+Needs key/value PAIRS:
+    dict([("a", 1), ("b", 2)])        # {'a': 1, 'b': 2}
+    dict(zip(["a", "b"], [1, 2]))     # {'a': 1, 'b': 2}
+    dict(a=1, b=2)                    # {'a': 1, 'b': 2}
+    dict.fromkeys(["a", "b"], 0)      # {'a': 0, 'b': 0}
+    dict({"a": 1})                    # copy
+    dict(enumerate("ab"))             # {0: 'a', 1: 'b'}
+    {v: k for k, v in d.items()}      # invert a dict
+
+Gotchas:
+    dict([1, 2])        # TypeError: cannot convert dictionary update
+                        # sequence element #0 to a sequence
+    dict(["ab", "cd"])  # {'a': 'b', 'c': 'd'}  (2-char strings are pairs!)
+    dict(["abc"])       # ValueError: dictionary update sequence element #0
+                        # has length 3; 2 is required
+    dict([[1, 2], [3, 4]])   # {1: 2, 3: 4}  (pairs may be lists too)
+    dict([([1], 2)])    # TypeError: unhashable type: 'list'  (bad key)
+
+dict -> other:
+    list(d)  list(d.keys())  list(d.values())  list(d.items())
+    sorted(d)                           # sorted list of keys
+    sorted(d.items(), key=lambda kv: kv[1])   # list of pairs by value
+    dict(sorted(d.items()))             # dict sorted by key
+
+20. STRING <-> LIST
+------------------------------------------------------------------------------
+    "a,b,c".split(",")        # ['a', 'b', 'c']
+    "a b  c".split()          # ['a', 'b', 'c']   any whitespace
+    "abc".split("")           # ValueError: empty separator
+    list("abc")               # ['a', 'b', 'c']   characters
+    "".join(["a", "b"])       # 'ab'
+    "-".join(["a", "b"])      # 'a-b'
+    "".join(sorted("cba"))    # 'abc'   (sorted returns a list)
+    "".join(reversed("abc"))  # 'cba'
+    "abc"[::-1]               # 'cba'
+    "".join(map(str, [1, 2, 3]))       # '123'
+    int("".join(map(str, [1, 2, 3])))  # 123
+    [int(c) for c in str(123)]         # [1, 2, 3]   digits of a number
+    sum(int(c) for c in str(2 ** 10))  # 7           digit sum of 1024
+    str(["a"])                # "['a']"  (NOT the same as join)
+
+21. ITERATORS, MAP, FILTER, ZIP (lazy objects)
+------------------------------------------------------------------------------
+In Python 3 map(), filter(), zip(), reversed(), enumerate(), range() and
+dict views do NOT return lists. Convert to see or reuse values:
+
+    m = map(int, ["1", "2"])
+    print(m)                  # <map object at 0x...>
+    list(m)                   # [1, 2]
+    list(m)                   # []   iterator is exhausted after one pass
+    tuple(filter(None, [0, 1, 2]))   # (1, 2)
+    sum(map(int, "123"))      # 6
+    sorted(map(int, "312"))   # [1, 2, 3]
+    d = {"a": 1}
+    d.keys()                  # dict_keys(['a'])  a view, not a list
+    d.keys()[0]               # TypeError (not indexable)
+    list(d.keys())[0]         # 'a'
+
+22. sorted(), reversed() AND RETURN TYPES
+------------------------------------------------------------------------------
+    sorted("cba")             # ['a', 'b', 'c']    ALWAYS a list
+    sorted({3, 1, 2})         # [1, 2, 3]
+    sorted((3, 1))            # [1, 3]
+    sorted({"b": 1, "a": 2})  # ['a', 'b']
+    tuple(sorted((3, 1)))     # (1, 3)
+    reversed([1, 2])          # <list_reverseiterator object>
+    list(reversed("ab"))      # ['b', 'a']
+
+Sorting numeric strings: compare as numbers, not text.
+    sorted(["10", "9", "2"])            # ['10', '2', '9']  (text order)
+    sorted(["10", "9", "2"], key=int)   # ['2', '9', '10']
+    max("10", "9")                      # '9'
+    max("10", "9", key=int)             # '10'
+    "10" < "9"                          # True
+    int("10") < int("9")                # False
+
+23. NESTED / DEEP CONVERSION NOTES
+------------------------------------------------------------------------------
+    - list(x), tuple(x), set(x), dict(x) convert only the OUTER level.
+    - Inner objects are shared (shallow). Use copy.deepcopy for deep copies.
+    - Matrix list -> tuple:  tuple(tuple(row) for row in m)
+    - Transpose with zip:    list(zip(*[[1, 2], [3, 4]]))  # [(1,3), (2,4)]
+                             [list(r) for r in zip(*m)]    # lists again
+    - Flatten:  [x for row in m for x in row]
+    - dict values that are lists stay lists:
+          dict([("a", [1, 2])])   # {'a': [1, 2]}
+
+
+==============================================================================
+                        E. BINARY / ENCODING CONVERSION
+==============================================================================
+
+24. str <-> bytes <-> bytearray <-> int
+------------------------------------------------------------------------------
+Text and bytes are DIFFERENT types; convert through an encoding.
+
+    "héllo".encode("utf-8")        # b'h\xc3\xa9llo'
+    "héllo".encode("ascii")        # UnicodeEncodeError
+    "héllo".encode("ascii", "ignore")    # b'hllo'
+    "héllo".encode("ascii", "replace")   # b'h?llo'
+    b"h\xc3\xa9llo".decode("utf-8")      # 'héllo'
+    b"\xff".decode("utf-8")        # UnicodeDecodeError
+    b"\xff".decode("utf-8", "replace")   # a replacement character
+    bytes("hi", "utf-8")           # b'hi'
+    bytes("hi")                    # TypeError: string argument without an
+                                   #            encoding
+    str(b"hi", "utf-8")            # 'hi'
+    str(b"hi")                     # "b'hi'"   (NOT decoding!)
+    b"a" + "a"                     # TypeError (cannot mix)
+
+Bytes with numbers:
+    bytes([65, 66])                # b'AB'
+    bytes(3)                       # b'\x00\x00\x00'  (3 zero bytes)
+    bytes([256])                   # ValueError (0..255 only)
+    list(b"AB")                    # [65, 66]
+    b"A"[0]                        # 65  (indexing gives int)
+    bytes([65, 66]).hex()          # '4142'
+    bytes.fromhex("4142")          # b'AB'
+    bytearray(b"ab")               # mutable copy
+    bytes(bytearray(b"ab"))        # b'ab'
+
+int <-> bytes:
+    (258).to_bytes(2, "big")               # b'\x01\x02'
+    (258).to_bytes(2, "little")            # b'\x02\x01'
+    int.from_bytes(b"\x01\x02", "big")     # 258
+    (300).to_bytes(1, "big")               # OverflowError (does not fit)
+
+
+==============================================================================
+                          F. ADVANCED CONVERSIONS
+==============================================================================
+
+25. eval() vs ast.literal_eval()
+------------------------------------------------------------------------------
+Both turn a STRING containing Python code into an object.
+
+    eval("5 + 3")                  # 8
+    eval("[1, 2]")                 # [1, 2]
+    eval("__import__('os')...")    # DANGEROUS: runs arbitrary code
+
+    import ast
+    ast.literal_eval("[1, 2, 3]")        # [1, 2, 3]
+    ast.literal_eval("{'a': (1, 2)}")    # {'a': (1, 2)}
+    ast.literal_eval("3.5")              # 3.5
+    ast.literal_eval("5 + 3")            # ValueError (only literals, no
+                                         # arithmetic; "1+2j" is allowed)
+    ast.literal_eval("abc")              # ValueError (a name, not a literal)
+
+Rule: NEVER use eval() on user input. Use ast.literal_eval or json.loads.
+
+26. JSON AND DATE/TIME
+------------------------------------------------------------------------------
+    import json
+    json.dumps({"a": 1, "b": [True, None]})   # '{"a": 1, "b": [true, null]}'
+    json.loads('{"a": 1}')                    # {'a': 1}
+    json.loads("[1, 2.5, \"x\", null, true]") # [1, 2.5, 'x', None, True]
+    json.dumps((1, 2))                        # '[1, 2]'  tuple -> array
+    json.loads(json.dumps((1, 2)))            # [1, 2]    comes back as list
+    json.dumps({1: "a"})                      # '{"1": "a"}'  key -> str
+    json.dumps({1, 2})                        # TypeError (set not allowed)
+    json.dumps(list({1, 2}))                  # fine
+
+    from datetime import datetime
+    datetime.strptime("2024-01-31", "%Y-%m-%d")    # str -> datetime
+    datetime(2024, 1, 31).strftime("%d/%m/%Y")     # datetime -> '31/01/2024'
+    datetime.fromtimestamp(0)                      # int/float -> datetime
+    datetime(2024, 1, 31).timestamp()              # datetime -> float
+    str(datetime(2024, 1, 31))                     # '2024-01-31 00:00:00'
+
+27. CUSTOM CLASSES: DUNDER (MAGIC) METHODS
+------------------------------------------------------------------------------
+Casting functions call special methods you can define on your own class:
+
+  Function / use    | Method called
+  ------------------|----------------------------------------------------
+  str(x), print(x)  | __str__     (falls back to __repr__ if missing)
+  repr(x)           | __repr__
+  int(x)            | __int__     (or __index__)
+  float(x)          | __float__   (or __index__)
+  complex(x)        | __complex__
+  bool(x), if x:    | __bool__    (falls back to __len__)
+  bytes(x)          | __bytes__
+  list(x), for      | __iter__    (or __getitem__ with 0,1,2...)
+  len(x)            | __len__
+  format(x, spec)   | __format__
+  hex/bin/oct, a[x] | __index__   (lossless int, used for slicing)
+
+    class Temp:
+        def __init__(self, c):
+            self.c = c
+        def __str__(self):
+            return f"{self.c} C"
+        def __int__(self):
+            return int(self.c)
+        def __float__(self):
+            return float(self.c)
+        def __bool__(self):
+            return self.c != 0
+
+    t = Temp(36.6)
+    str(t)      # '36.6 C'
+    int(t)      # 36
+    float(t)    # 36.6
+    bool(Temp(0))   # False
+
+28. TRY / EXCEPT PATTERN FOR SAFE CASTING
+------------------------------------------------------------------------------
+    def safe_cast(value, to_type, default=None):
+        try:
+            return to_type(value)
+        except (ValueError, TypeError):
+            return default
+
+    safe_cast("10", int)         # 10
+    safe_cast("x", int, 0)       # 0
+    safe_cast(None, float)       # None
+    safe_cast("3.5", int)        # None  (int("3.5") fails)
+    safe_cast([1, 2], tuple)     # (1, 2)
+
+Check before converting:
+    isinstance(x, str)           isinstance(x, (int, float))
+    type(x).__name__             # 'int', 'str', ...
+Type hints (x: int) do NOT convert or enforce anything at runtime.
+
+
+==============================================================================
+                    G. ERRORS, PITFALLS AND PRECISION
+==============================================================================
+
+29. WHICH EXCEPTION AND WHEN
+------------------------------------------------------------------------------
+  Exception      | Raised when                | Examples
+  ---------------|----------------------------|-----------------------------
+  ValueError     | right TYPE, bad VALUE      | int("abc"), float(""),
+                 |                            | int("3.5"), chr(-1),
+                 |                            | int(float("nan")),
+                 |                            | dict(["abc"])
+  TypeError      | WRONG type for the         | int(None), int([1]),
+                 | conversion / operation     | float(1+2j), list(5),
+                 |                            | "5" + 5, bytes("hi"),
+                 |                            | set([[1]])
+  OverflowError  | number too big for target  | float(10**400),
+                 |                            | int(float("inf")),
+                 |                            | (300).to_bytes(1, "big"),
+                 |                            | 2.0 ** 1024
+  UnicodeError   | encode / decode failure    | "é".encode("ascii")
+  KeyError       | missing dict key           | d["x"]
+  decimal.InvalidOperation | bad Decimal text | Decimal("abc")
+
+30. COMMON PITFALLS (CHECKLIST)
+------------------------------------------------------------------------------
+  1. input() returns str:  input() + 1 is a TypeError; "2" + "3" = "23".
+  2. int() truncates toward zero; use round()/floor()/ceil() on purpose.
+  3. int("3.7") fails; chain int(float("3.7")) -> 3.
+  4. bool("False") is True; only the empty string is falsy.
+  5. 0.1 + 0.2 != 0.3; compare with math.isclose() or use Decimal.
+  6. Decimal(0.1) captures the float's error; use Decimal("0.1").
+  7. list("12 34") gives characters, not numbers; use split() + map(int).
+  8. sorted() / max() on numeric STRINGS compare text, not numbers; use
+     key=int.
+  9. map / filter / zip are single-use iterators; wrap with list().
+ 10. dict(["ab", "cd"]) silently builds {'a': 'b', 'c': 'd'}.
+ 11. set([1, 1.0, True]) == {1}; 1, 1.0 and True are the same element.
+ 12. list(set(x)) loses order; use dict.fromkeys(x) to keep it.
+ 13. str(b"hi") is "b'hi'"; use b"hi".decode().
+ 14. str(list) is NOT join; "".join(["a", "b"]) vs str(["a", "b"]).
+ 15. ",".join(numbers) fails; map(str, numbers) first.
+ 16. json turns tuples into lists, int keys into str, and fails on sets.
+ 17. eval(user_input) is a security hole; use ast.literal_eval / json.loads.
+ 18. float(int) can lose precision above 2**53; int stays exact.
+ 19. str.isdigit() is not a safe validator; use try / except around int().
+ 20. Rounding: round(2.5) = 2, round(3.5) = 4 (ties to even).
+
+
+==============================================================================
+                      H. CONVERSION MATRIX (FROM -> TO)
+==============================================================================
+
+31. QUICK REFERENCE
+------------------------------------------------------------------------------
+   From \ To   | int          | float       | str        | bool       |
+   ------------|--------------|-------------|------------|------------|
+   int         | -            | float(5)    | str(5)     | bool(5)    |
+   float       | int(3.9)=3   | -           | str(3.5)   | bool(0.0)  |
+   str (num)   | int("5")     | float("5")  | -          | bool("5")  |
+   bool        | int(True)=1  | float(True) | str(True)  | -          |
+   list        | TypeError    | TypeError   | str(lst)   | bool(lst)  |
+   None        | TypeError    | TypeError   | 'None'     | False      |
+
+   From \ To   | list        | tuple        | set         | dict         |
+   ------------|-------------|--------------|-------------|--------------|
+   str         | list("ab")  | tuple("ab")  | set("ab")   | needs pairs  |
+   list        | -           | tuple(l)     | set(l)      | dict(pairs)  |
+   tuple       | list(t)     | -            | set(t)      | dict(pairs)  |
+   set         | list(s)     | tuple(s)     | -           | needs pairs  |
+   dict        | list(d)     | tuple(d)     | set(d)      | -            |
+   range       | list(r)     | tuple(r)     | set(r)      | no           |
+   int         | TypeError   | TypeError    | TypeError   | TypeError    |
+
+   dict gives KEYS for list/tuple/set; use .values() or .items() otherwise.
+
+Everyday conversions:
+    "123"      -> int        int("123")
+    123        -> str        str(123)
+    "3.5"      -> float      float("3.5")
+    3.9        -> int        int(3.9) = 3  (truncation)
+    "abc"      -> list       list("abc")
+    "1,2,3"    -> list       "1,2,3".split(",")
+    ["a","b"]  -> str        "".join(["a", "b"])
+    [1, 2, 3]  -> str        "".join(map(str, [1, 2, 3]))
+    [1, 1, 2]  -> set        set([1, 1, 2])
+    [(k, v)]   -> dict       dict([("a", 1)])
+    dict       -> pairs      list(d.items())
+    str        -> bytes      s.encode("utf-8")
+    bytes      -> str        b.decode("utf-8")
+    int        -> binary str bin(n)[2:]  or  format(n, "b")
+    binary str -> int        int("1010", 2)
+    char       -> code       ord("a")
+    code       -> char       chr(97)
+
+
+==============================================================================
+                    I. QUICK CONVERSION SELECTION GUIDE
+==============================================================================
+
+    Read a number from input             -> int(input()) / float(input())
+    Read many numbers on one line        -> list(map(int, input().split()))
+    Drop the fractional part             -> int(x) (toward zero), math.floor
+    Round to n places                    -> round(x, n)
+    Exact money / decimal maths          -> Decimal("...") from strings
+    Exact fractions                      -> Fraction
+    Text to boolean                      -> s.lower() in ("true", "1", "yes")
+    Number to padded / formatted text    -> f-string / format()
+    Remove duplicates                    -> set(x)  or  dict.fromkeys(x)
+    Make a list usable as a dict key     -> tuple(lst)
+    Build a dict from two lists          -> dict(zip(keys, values))
+    Chars to string                      -> "".join(chars)
+    Text to bytes / bytes to text        -> encode() / decode()
+    Parse literal text safely            -> ast.literal_eval / json.loads
+    See values of map / zip / filter     -> list(...)
+
+
+==============================================================================
+                     J. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+Q1. What is type conversion? Name its two kinds.
+A.  Changing a value from one data type to another. Implicit conversion is
+    done automatically by Python (int -> float in 1 + 2.5); explicit
+    conversion (casting) is done by the programmer with int(), str(), etc.
+
+Q2. Does int(x) change x?
+A.  No. It returns a new object. Python objects never change type in place.
+
+Q3. What is the output?   print(int(3.99), int(-3.99), round(3.99))
+A.  3 -3 4   (int truncates toward zero; round goes to the nearest).
+
+Q4. What is the output?   print(round(2.5), round(3.5), round(-2.5))
+A.  2 4 -2   (banker's rounding: ties go to the nearest even number).
+
+Q5. What is the output?   print(int("101", 2), int("ff", 16), int("0b101", 0))
+A.  5 255 5
+
+Q6. What is the output?   print("5" + "5", "5" * 3, int("5") + int("5"))
+A.  55 555 10
+
+Q7. What is the output?   print(1 + True, 1 + 2.0, 2 + 3j)
+A.  2 3.0 (2+3j)   (promotion: bool -> int -> float -> complex).
+
+Q8. What is the output?
+    print(type(5 / 1), type(5 // 1), type(5 // 1.0), type(2 ** -1))
+A.  <class 'float'> <class 'int'> <class 'float'> <class 'float'>
+
+Q9. Why does int("3.5") fail and how do you fix it?
+A.  int() accepts only integer-formatted strings (ValueError). Use
+    int(float("3.5")), which gives 3.
+
+Q10. What is the output?
+     print(bool("False"), bool(0.0), bool([0]), bool(None))
+A.  True False True False   (a non-empty string or list is always truthy).
+
+Q11. How do you convert the text "yes" or "true" to a boolean?
+A.  bool() cannot do it ("False" is truthy). Use your own rule:
+    s.strip().lower() in ("true", "yes", "1").
+
+Q12. What is the output?   print(list("123"), list(map(int, "123")))
+A.  ['1', '2', '3'] [1, 2, 3]
+
+Q13. What is the output?   print(str([1, 2]), str((1,)), str({1: 'a'}))
+A.  [1, 2] (1,) {1: 'a'}
+
+Q14. What is the difference between str() and repr()?
+A.  str() is meant for end users (readable); repr() is for developers
+    (unambiguous, often valid code). str("a") is a; repr("a") is 'a'
+    (with quotes). Containers use repr for their elements.
+
+Q15. What is the output?   print(dict(["ab", "cd"]))
+A.  {'a': 'b', 'c': 'd'}   (each 2-character string is read as a key/value
+    pair). dict([1, 2]) would raise TypeError.
+
+Q16. What is the output?
+     print(list({"a": 1, "b": 2}), list({"a": 1}.items()))
+A.  ['a', 'b'] [('a', 1)]   (a dict converts to its keys).
+
+Q17. What is the output?   print(int(19.99 * 100))
+A.  1998. 19.99 * 100 is 1998.9999999999998 and int() truncates. Use
+    round(19.99 * 100) or Decimal for money.
+
+Q18. What is the output?   print(0.1 + 0.2 == 0.3)
+A.  False. Binary floating point cannot store 0.1 or 0.2 exactly. Use
+    math.isclose() or Decimal("0.1") + Decimal("0.2") == Decimal("0.3").
+
+Q19. Why use Decimal("0.1") instead of Decimal(0.1)?
+A.  Decimal(0.1) copies the inexact float value
+    (0.1000000000000000055511...). The string form is exact.
+
+Q20. What is the output?   print(float(2 ** 53 + 1) == 2 ** 53 + 1)
+A.  False. float(2**53 + 1) is 9007199254740992.0; floats lose integer
+    precision beyond 2**53, while Python ints are exact.
+
+Q21. What is the output?   print(chr(ord("a") + 1), ord("A"), chr(97))
+A.  b 65 a
+
+Q22. What is the output?   print(bin(10), oct(10), hex(255), int(bin(10), 2))
+A.  0b1010 0o12 0xff 10
+
+Q23. What is the output?   print(sorted(["10", "9", "2"]))
+     and how do you sort numerically?
+A.  ['10', '2', '9'] (text order). Numerically: sorted(lst, key=int)
+    gives ['2', '9', '10'].
+
+Q24. What is the output?   print(max("10", "9"), max(10, 9))
+A.  9 10   (strings compare character by character: "9" > "1").
+
+Q25. What is the output?   print("3" == 3, 3 == 3.0, "3" == str(3))
+A.  False True True
+
+Q26. Why does ",".join([1, 2, 3]) fail? How do you fix it?
+A.  join() accepts only strings (TypeError). Use
+    ",".join(map(str, [1, 2, 3])) which gives '1,2,3'.
+
+Q27. What does input() return, and how do you read two ints on one line?
+A.  Always a str. a, b = map(int, input().split())
+
+Q28. What is the output?   print(str(b"hi"), b"hi".decode())
+A.  b'hi' hi   (str(bytes) does not decode; decode() does).
+
+Q29. How do you convert between str and bytes?
+A.  s.encode("utf-8") gives bytes; b.decode("utf-8") gives str. Also
+    bytes(s, "utf-8") and str(b, "utf-8"). bytes("hi") alone is a TypeError.
+
+Q30. What is the output?
+     print(int(True) + int(False), sum([True, True, False]))
+A.  1 2   (bool is a subclass of int).
+
+Q31. What is the output?
+     print(set([1, 1.0, True]), len({1: "a", True: "b"}))
+A.  {1} 1   (1, 1.0 and True are equal with the same hash).
+
+Q32. How do you remove duplicates from a list and keep the order?
+A.  list(dict.fromkeys(lst)). set() would lose the order.
+
+Q33. Why does set([[1], [2]]) raise an error? What works instead?
+A.  Lists are mutable, so unhashable (TypeError). Convert inner lists to
+    tuples: set(map(tuple, [[1], [2]])).
+
+Q34. What is the output?
+    m = map(int, ["1", "2"]); print(list(m)); print(list(m))
+A.  [1, 2] then []   (a map object is an iterator and is exhausted after
+    one pass).
+
+Q35. What is the difference between int(), math.floor(), round() for -3.5?
+A.  int(-3.5) = -3 (toward zero); math.floor(-3.5) = -4 (toward -infinity);
+    round(-3.5) = -4 (ties to even). math.ceil(-3.5) = -3.
+
+Q36. What does 7 / 2 return, and how do you get an integer result?
+A.  3.5 (always float). Use 7 // 2 for 3 (floor division, int when both
+    operands are int), or int(7 / 2).
+
+Q37. What is the difference between eval() and ast.literal_eval()?
+A.  eval runs any Python expression (unsafe on untrusted input).
+    literal_eval parses only literals (numbers, strings, lists, tuples,
+    dicts, sets, booleans, None) and is safe.
+
+Q38. What is the output?
+    import json; print(json.loads(json.dumps((1, 2))), json.dumps({1: "a"}))
+A.  [1, 2] {"1": "a"}   (tuple becomes list, integer key becomes string).
+
+Q39. Which exception is raised: int("abc"), int(None), float(10**400)?
+A.  ValueError, TypeError, OverflowError respectively.
+
+Q40. How can your own class support int(), str() and bool()?
+A.  Define the dunder methods __int__, __str__ (or __repr__) and __bool__
+    (or __len__). The built-in casting functions call them.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

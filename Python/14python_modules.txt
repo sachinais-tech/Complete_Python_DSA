@@ -1,0 +1,1351 @@
+==============================================================================
+     PYTHON MODULES: MODULES, PACKAGES, REGEX, DATETIME AND TYPE HINTS
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Real programs are split into reusable pieces and use ready-made libraries.
+
+    A. Modules      - a .py file you can import; the standard library
+    B. Packages     - folders of modules; pip and virtual environments
+    C. Regex        - pattern matching in text with the re module
+    D. Datetime     - dates, times, durations and time zones
+    E. Type hints   - optional annotations that describe types
+    F. Pitfalls, checklist and interview questions
+
+Terms:
+    Module   : one Python file (math.py, utils.py)
+    Package  : a directory of modules (with __init__.py)
+    Library  : a collection of packages/modules (the "requests" library)
+    Standard library : modules that ship with Python ("batteries included")
+    Third-party : installed with pip from PyPI (requests, numpy, pandas)
+
+
+==============================================================================
+                           A. MODULES
+==============================================================================
+
+2. WHAT IS A MODULE? WAYS TO IMPORT
+------------------------------------------------------------------------------
+A module is a file of Python code (functions, classes, variables). Importing
+it lets you reuse that code. The module name is the file name without .py.
+
+    import math                      # import the whole module
+    math.sqrt(16)                    # 4.0   use the module name as prefix
+
+    import math as m                 # alias
+    m.sqrt(16)                       # 4.0
+
+    from math import sqrt            # import one name
+    sqrt(16)                         # 4.0   no prefix
+
+    from math import sqrt, pi        # several names
+    from math import sqrt as root    # name with an alias
+    from math import *               # ALL public names (avoid: pollutes the
+                                     # namespace, hides clashes)
+    import os.path                   # submodule of a package
+    from os import path
+
+  Form                      | Pros / cons
+  --------------------------|---------------------------------------------
+  import module             | clear origin (module.name); no name clashes
+  from module import name   | short names; may shadow existing names
+  import module as alias    | convenient for long names (import numpy as np)
+  from module import *      | discouraged; honours __all__ if defined
+
+What import does (first time only):
+    1. Looks in sys.modules (a cache). If found, reuses it.
+    2. Otherwise finds the file along sys.path, compiles it (cached in
+       __pycache__/name.cpython-XY.pyc) and RUNS the module's top-level code
+       once.
+    3. Binds the module object to a name in the current namespace.
+So importing the same module again does not run it again.
+
+    import math
+    import math                      # no effect, already loaded
+    import sys
+    "math" in sys.modules            # True
+    import importlib
+    importlib.reload(mymodule)       # force re-execution (for development)
+
+3. CREATING AND USING YOUR OWN MODULE
+------------------------------------------------------------------------------
+File  mymath.py :
+    """Small math helpers."""
+    PI = 3.14159
+
+    def square(x):
+        return x * x
+
+    def area(r):
+        return PI * square(r)
+
+    if __name__ == "__main__":       # runs only when executed directly
+        print("self test:", area(1))
+
+File  main.py (same folder) :
+    import mymath
+    print(mymath.square(5))          # 25
+    print(mymath.area(2))            # 12.56636
+    from mymath import PI, area
+    print(PI)                        # 3.14159
+
+Notes:
+    - A module name must be a valid identifier and must not clash with a
+      standard module. A file named random.py or math.py in your folder
+      SHADOWS the real one and breaks imports (a classic bug).
+    - Top-level code in a module runs on import; keep it to definitions, or
+      guard test code with if __name__ == "__main__".
+    - Run a module as a script:  python mymath.py   or   python -m mymath
+
+__name__:
+    run directly      -> __name__ == "__main__"
+    imported          -> __name__ == "mymath" (the module name)
+
+Useful module attributes:
+    mymath.__name__   mymath.__file__   mymath.__doc__
+    dir(mymath)       # names defined in the module
+    help(mymath)      # documentation
+    mymath.__all__    # list of public names (if defined)
+
+__all__ controls from module import *:
+    __all__ = ["square", "area"]     # PI is not exported by import *
+    A leading underscore (_helper) also marks a name as internal.
+
+4. WHERE PYTHON LOOKS FOR MODULES (sys.path)
+------------------------------------------------------------------------------
+Search order:
+    1. sys.modules (already imported)
+    2. built-in modules (sys, builtins, ...)
+    3. every directory in sys.path:
+         - the directory of the script being run (or "" for the REPL)
+         - directories listed in the PYTHONPATH environment variable
+         - the standard library directories
+         - site-packages (where pip installs third-party packages)
+
+    import sys
+    sys.path                         # list of search directories
+    sys.path.append("/my/libs")      # add one at run time (prefer proper
+                                     # packaging / PYTHONPATH)
+    import math; math.__file__       # where a module lives
+
+Errors:
+    import nomodule                  # ModuleNotFoundError: No module named
+                                     # 'nomodule'
+    from math import nothing         # ImportError: cannot import name
+                                     # 'nothing' from 'math'
+
+Circular imports: module a imports b and b imports a at top level, so one of
+them is used before it has finished loading (ImportError / AttributeError).
+Fixes: move the import inside the function that needs it, import the module
+(not names) and use it later, or restructure the shared code into a third
+module.
+
+Dynamic import:
+    import importlib
+    mod = importlib.import_module("json")
+    mod.dumps({"a": 1})              # '{"a": 1}'
+
+Import style (PEP 8): put imports at the top, one per line, grouped as
+    1) standard library   2) third-party   3) your own modules
+with a blank line between groups; prefer absolute imports.
+
+5. THE STANDARD LIBRARY (QUICK MAP)
+------------------------------------------------------------------------------
+  Area             | Modules
+  -----------------|-----------------------------------------------------
+  Math / numbers   | math, cmath, random, statistics, decimal, fractions,
+                   | secrets
+  Text             | re, string, textwrap, difflib, unicodedata
+  Data structures  | collections, heapq, bisect, queue, array, enum,
+                   | dataclasses, copy, itertools, functools
+  Files / OS       | os, os.path, pathlib, shutil, glob, tempfile, fnmatch,
+                   | sys, subprocess
+  Data formats     | json, csv, pickle, sqlite3, xml, configparser, zipfile
+  Date and time    | datetime, time, calendar, zoneinfo
+  Networking / web | urllib, http, socket, email, smtplib, ssl
+  Concurrency      | threading, multiprocessing, asyncio, concurrent.futures
+  Development      | logging, unittest, doctest, pdb, timeit, typing, abc,
+                   | argparse, inspect, warnings
+  Security / ids   | hashlib, hmac, uuid, base64, secrets
+
+6. THREE MODULES YOU USE EVERYWHERE
+------------------------------------------------------------------------------
+math
+    import math
+    math.sqrt(16)            # 4.0          math.isqrt(17)    # 4
+    math.pi                  # 3.141592653589793
+    math.e                   # 2.718281828459045
+    math.ceil(2.1)           # 3            math.floor(2.9)   # 2
+    math.trunc(-2.7)         # -2
+    math.factorial(5)        # 120          math.gcd(12, 18)  # 6
+    math.lcm(4, 6)           # 12 (3.9+)    math.comb(5, 2)   # 10
+    math.perm(5, 2)          # 20           math.pow(2, 3)    # 8.0
+    math.log(8, 2)           # 3.0          math.log10(1000)  # 3.0
+    math.log(math.e)         # 1.0          math.exp(0)       # 1.0
+    math.hypot(3, 4)         # 5.0          math.fabs(-3)     # 3.0
+    math.sin(math.pi / 2)    # 1.0          math.degrees(math.pi)  # 180.0
+    math.radians(180)        # 3.141592653589793
+    math.isclose(0.1 + 0.2, 0.3)             # True
+    math.fsum([0.1] * 10)    # 1.0   (exact float sum)
+    math.inf   math.nan   math.isnan(x)   math.isinf(x)
+    math.sqrt(-1)            # ValueError: math domain error
+    (cmath.sqrt(-1) gives 1j)
+
+random
+    import random
+    random.seed(42)                 # reproducible sequence
+    random.random()                 # float in [0.0, 1.0)
+    random.randint(1, 6)            # integer 1..6, BOTH ends included
+    random.randrange(0, 10, 2)      # 0, 2, 4, 6, 8 (stop excluded)
+    random.uniform(1.5, 4.5)        # float in the range
+    random.choice([10, 20, 30])     # one item
+    random.choices([1, 2, 3], k=5)  # k items WITH replacement
+    random.sample(range(10), 3)     # 3 DISTINCT items (no replacement)
+    random.shuffle(lst)             # shuffles IN PLACE, returns None
+    random.gauss(0, 1)              # normal distribution
+    Not for passwords or tokens: use the secrets module
+    (secrets.token_hex(16), secrets.choice(...)).
+
+sys / os / time (basics)
+    sys.argv  sys.exit(1)  sys.path  sys.version  sys.platform
+    sys.getsizeof(x)  sys.stdin / stdout / stderr  sys.maxsize
+    os.getcwd()  os.listdir(".")  os.environ.get("HOME")  os.cpu_count()
+    time.time()                # seconds since the epoch (1970-01-01 UTC)
+    time.sleep(0.5)            # pause
+    time.perf_counter()        # precise timer for measuring durations
+    time.strftime("%H:%M:%S")  # format the current local time
+
+statistics
+    import statistics as st
+    st.mean([1, 2, 3, 4])      # 2.5          st.median([1, 2, 3, 4])   # 2.5
+    st.mode([1, 1, 2])         # 1
+    st.stdev([2, 4, 4, 4, 5, 5, 7, 9])     # sample standard deviation
+
+7. THIRD-PARTY MODULES AND pip
+------------------------------------------------------------------------------
+    pip install requests            # install from PyPI
+    pip install requests==2.31.0    # exact version
+    pip install -U requests         # upgrade
+    pip uninstall requests
+    pip list                        # installed packages
+    pip show requests               # details
+    pip freeze > requirements.txt   # save exact versions
+    pip install -r requirements.txt # restore them
+    python -m pip install requests  # run pip of THIS interpreter (safer)
+
+Virtual environments isolate each project's packages:
+    python -m venv .venv                    # create
+    .venv\Scripts\activate                  # activate on Windows
+    source .venv/bin/activate               # activate on Linux / macOS
+    deactivate                              # leave it
+    (never install project packages into the system Python)
+
+Popular libraries: requests (HTTP), numpy, pandas, matplotlib, flask,
+django, fastapi, pytest, beautifulsoup4, sqlalchemy, pydantic.
+
+
+==============================================================================
+                           B. PACKAGES
+==============================================================================
+
+8. WHAT IS A PACKAGE?
+------------------------------------------------------------------------------
+A package is a directory of modules that can be imported as a unit. It
+normally contains an __init__.py file, which runs when the package is
+imported (and may be empty).
+
+    mypkg/
+        __init__.py
+        core.py
+        utils/
+            __init__.py
+            helpers.py
+            text.py
+
+    mypkg/__init__.py :
+        """Top-level package."""
+        from .core import run             # re-export for convenience
+        __version__ = "1.0"
+        __all__ = ["run"]
+
+    mypkg/core.py :
+        from .utils.helpers import clean
+        def run():
+            return clean("  hi  ")
+
+    mypkg/utils/helpers.py :
+        def clean(s):
+            return s.strip()
+
+Importing:
+    import mypkg                              # runs mypkg/__init__.py
+    mypkg.run()                               # 'hi'   (re-exported name)
+    import mypkg.utils.helpers
+    mypkg.utils.helpers.clean(" x ")          # must use the full path
+    from mypkg.utils import helpers
+    helpers.clean(" x ")
+    from mypkg.utils.helpers import clean
+    import mypkg.utils.helpers as h
+    h.clean(" x ")
+    from mypkg import *                       # only names listed in __all__
+
+Facts:
+    - Packages can nest (subpackages): mypkg.utils.helpers.
+    - __init__.py can hold initialisation code, version info, and public
+      imports that shorten user code (from mypkg import run).
+    - Since Python 3.3 a folder without __init__.py can still be imported as
+      a "namespace package", but add __init__.py for normal packages.
+    - Importing a package does NOT automatically import its submodules unless
+      __init__.py does it.
+    - __path__ is the list of directories of a package.
+
+9. ABSOLUTE AND RELATIVE IMPORTS
+------------------------------------------------------------------------------
+    Absolute (preferred): full path from the top-level package
+        from mypkg.utils.helpers import clean
+    Relative: relative to the current module's package (only inside packages)
+        from . import core               # same package
+        from .core import run            # module in the same package
+        from .utils import helpers       # subpackage of this package
+        from .. import other             # parent package
+        from ..sibling.mod import f      # module in a sibling package
+
+Rules:
+    - "." means the current package, ".." the parent, "..." the grandparent.
+    - Relative imports work only in modules that are part of a package.
+    - Running such a module directly as a script fails:
+          python mypkg/core.py
+          ImportError: attempted relative import with no known parent package
+      Run it as a module from the project root instead:
+          python -m mypkg.core
+    - Prefer absolute imports for clarity; use relative imports inside a
+      package so it can be renamed or moved easily.
+
+__main__.py : makes a package runnable with  python -m mypkg .
+
+10. PROJECT LAYOUT AND PACKAGING
+------------------------------------------------------------------------------
+Typical project:
+    myproject/
+        pyproject.toml          project metadata, dependencies, build config
+        README.md
+        requirements.txt
+        src/
+            mypkg/
+                __init__.py
+                core.py
+        tests/
+            test_core.py
+
+    pyproject.toml (minimal):
+        [project]
+        name = "mypkg"
+        version = "1.0"
+        dependencies = ["requests"]
+
+    pip install -e .            # editable install: imports your source
+    python -m build             # build a wheel / sdist
+    twine upload dist/*         # publish to PyPI
+
+Other: importlib.resources (read data files inside a package), entry points
+(console scripts), setup.py (older style), wheels (.whl) and sdists.
+
+11. MODULE AND PACKAGE GOTCHAS
+------------------------------------------------------------------------------
+ 1. A local file named like a library (random.py, json.py, test.py) shadows
+    it - rename your file.
+ 2. Importing runs the module's top-level code once; print statements at
+    module level show up on import.
+ 3. from module import * can overwrite names; avoid it.
+ 4. from x import name copies the reference: later changes of x.name are not
+    seen through the imported name; use import x and x.name for shared state.
+ 5. Circular imports: restructure or import inside functions.
+ 6. Relative import errors appear when running a package file as a script.
+ 7. Forgetting to activate the virtual environment: "No module named ..."
+    even though pip installed it (it went to another interpreter).
+ 8. importlib.reload reloads only that module, not names already imported
+    with from ... import.
+ 9. Missing __init__.py in some tools/older workflows breaks discovery.
+10. Do not modify sys.path as a permanent fix; install the package.
+
+
+==============================================================================
+                      C. REGULAR EXPRESSIONS (re)
+==============================================================================
+
+12. WHAT IS A REGEX?
+------------------------------------------------------------------------------
+A regular expression (regex) is a pattern that describes a set of strings.
+Used to search, validate, extract and replace text.
+
+    import re
+    re.search(r"\d+", "order 66")      # finds the digits
+    Always write patterns as RAW strings r"..." so backslashes reach the
+    regex engine untouched:  r"\d" is the 2 characters \ d  (while "\d" is
+    an invalid escape warning and "\b" would be a backspace).
+
+13. THE re FUNCTIONS
+------------------------------------------------------------------------------
+  Function                      | Purpose                    | Returns
+  ------------------------------|----------------------------|--------------
+  re.search(p, s)               | first match ANYWHERE       | Match / None
+  re.match(p, s)                | match at the START only    | Match / None
+  re.fullmatch(p, s)            | WHOLE string must match    | Match / None
+  re.findall(p, s)              | all matches                | list
+  re.finditer(p, s)             | all matches, lazily        | iterator of
+                                |                            | Match
+  re.sub(p, repl, s, count=0)   | replace matches            | new string
+  re.subn(p, repl, s)           | replace + count            | (str, n)
+  re.split(p, s, maxsplit=0)    | split at matches           | list
+  re.compile(p, flags)          | precompile a pattern       | Pattern
+  re.escape(s)                  | escape special characters  | str
+
+    re.search(r"\d+", "abc 123 def 45")        # Match: span=(4, 7), '123'
+    re.match(r"\d+", "abc 123")                # None (no digits at the start)
+    re.match(r"abc", "abc 123")                # Match
+    re.fullmatch(r"\d+", "123")                # Match
+    re.fullmatch(r"\d+", "123a")               # None
+    re.findall(r"\d+", "a1 b22 c333")          # ['1', '22', '333']
+    [m.span() for m in re.finditer(r"\d+", "a12b345")]   # [(1, 3), (4, 7)]
+    re.sub(r"\s+", " ", "a   b \n c")          # 'a b c'
+    re.sub(r"\d", "#", "a1b22")                # 'a#b##'
+    re.sub(r"\d", "#", "a1b22", count=1)       # 'a#b22'
+    re.subn(r"a", "X", "banana")               # ('bXnXnX', 3)
+    re.split(r"[,;]\s*", "a, b;c")             # ['a', 'b', 'c']
+    re.split(r"(,)", "a,b")                    # ['a', ',', 'b']  (group kept)
+    re.escape("a.b*c")                         # 'a\\.b\\*c'
+
+Check a result before using it:
+    m = re.search(r"\d+", text)
+    if m:                       # a Match object is truthy, None is falsy
+        print(m.group())
+    m.group()  # when m is None -> AttributeError: 'NoneType' object has no
+               # attribute 'group'
+
+match vs search vs fullmatch:
+    re.match(r"b", "abc")        # None  (must start at position 0)
+    re.search(r"b", "abc")       # Match (anywhere)
+    re.match(r"a", "abc")        # Match (only checks the start)
+    re.fullmatch(r"abc", "abcd") # None  (the whole string must match)
+
+14. THE MATCH OBJECT
+------------------------------------------------------------------------------
+    m = re.match(r"(\d{3})-(\d{4})", "555-1234 end")
+    m.group()        # '555-1234'   whole match (same as group(0))
+    m.group(1)       # '555'
+    m.group(2)       # '1234'
+    m.groups()       # ('555', '1234')
+    m.start(), m.end(), m.span()     # 0 8 (0, 8)
+    m.string         # the searched string        m.re   # the pattern
+
+Named groups:
+    m = re.search(r"(?P<year>\d{4})-(?P<month>\d{2})", "on 2024-05-17")
+    m.group("year")      # '2024'
+    m["month"]           # '05'
+    m.groupdict()        # {'year': '2024', 'month': '05'}
+    m.lastgroup, m.lastindex
+
+Unmatched optional group returns None: re.match(r"(a)?b", "b").group(1)->None.
+
+15. PATTERN SYNTAX
+------------------------------------------------------------------------------
+Characters and classes:
+    abc     literal characters
+    .       any character EXCEPT newline (any, with re.S)
+    \d      digit [0-9]                 \D   non-digit
+    \w      word char [A-Za-z0-9_]      \W   non-word char
+    \s      whitespace (space, tab, \n) \S   non-whitespace
+    [abc]   one of a, b, c              [^abc]  anything except a, b, c
+    [a-z]   range                       [A-Za-z0-9_] custom set
+    \.  \*  \\  \(  escape a metacharacter (. * + ? ^ $ ( ) [ ] { } | \)
+
+Anchors and boundaries (zero-width):
+    ^       start of string (start of each line with re.M)
+    $       end of string, or before a trailing newline (each line: re.M)
+    \A      start of string only         \Z   end of string only
+    \b      word boundary                \B   not a word boundary
+
+Quantifiers (apply to the item before them):
+    *       0 or more                   +    1 or more
+    ?       0 or 1 (optional)           {n}  exactly n
+    {n,}    n or more                   {n,m} between n and m
+    Greedy by default (take as much as possible). Add ? for LAZY (as little
+    as possible):  *?   +?   ??   {n,m}?
+
+Alternation and groups:
+    a|b         a or b
+    (abc)       capturing group (numbered from 1)
+    (?:abc)     non-capturing group
+    (?P<n>abc)  named group           (?P=n) or \1  backreference
+    (?=x)       lookahead: followed by x       (?!x)  NOT followed by x
+    (?<=x)      lookbehind: preceded by x      (?<!x) NOT preceded by x
+    (?i)        inline flag (here: ignore case)
+
+Flags:
+  re.I / re.IGNORECASE   case-insensitive
+  re.M / re.MULTILINE    ^ and $ match at every line
+  re.S / re.DOTALL       . also matches newline
+  re.X / re.VERBOSE      allow whitespace and comments in the pattern
+  re.A / re.ASCII        \w \d \s match ASCII only
+  Combine with |:  re.I | re.M
+
+16. GREEDY vs LAZY, GROUPS, LOOKAROUND (WITH OUTPUT)
+------------------------------------------------------------------------------
+Greedy vs lazy:
+    re.search(r"<.+>", "<a><b>").group()      # '<a><b>'  (greedy)
+    re.search(r"<.+?>", "<a><b>").group()     # '<a>'     (lazy)
+
+findall with groups returns the GROUPS, not the whole match:
+    re.findall(r"\d+", "a1 b22")                       # ['1', '22']
+    re.findall(r"(\w+)@(\w+)\.com", "a@x.com b@y.com")
+    # [('a', 'x'), ('b', 'y')]
+    re.findall(r"(?:ab)+", "ababab ab")                # ['ababab', 'ab']
+
+Replacement with groups and functions:
+    re.sub(r"(\d+)", r"<\1>", "a1b22")         # 'a<1>b<22>'
+    re.sub(r"(?P<w>\w+)@", r"\g<w> at ", "me@x")   # 'me at x'
+    re.sub(r"\d", lambda m: str(int(m.group()) * 2), "a1b2")   # 'a2b4'
+    re.sub(r"(\w+) (\w+)", r"\2 \1", "hello world")    # 'world hello'
+
+Backreference (repeat what a group matched):
+    re.search(r"(\w)\1", "hello").group()      # 'll'
+    re.findall(r"\b(\w+) \1\b", "it is is a a test")     # ['is', 'a']
+
+Lookahead / lookbehind:
+    re.findall(r"\w+(?=@)", "me@x.com you@y.com")   # ['me', 'you']
+    re.findall(r"(?<=\$)\d+", "cost $50 and $7")    # ['50', '7']
+    re.findall(r"foo(?!bar)", "foobar foobaz")      # ['foo']  (second only)
+    re.findall(r"\b\w+(?<!ing)\b", "run running")   # ['run'] (not ending ing)
+
+Flags in action:
+    re.findall(r"cat", "Cat cat CAT", re.I)         # ['Cat', 'cat', 'CAT']
+    re.findall(r"^\w+", "a b\nc d", re.M)           # ['a', 'c']
+    re.search(r"a.b", "a\nb")                       # None
+    re.search(r"a.b", "a\nb", re.S)                 # Match
+    pat = re.compile(r"""
+        (\d{3})   # area code
+        [-\s]?    # separator
+        (\d{4})   # number
+    """, re.X)
+    pat.match("555-1234").groups()                  # ('555', '1234')
+
+compile() for repeated use:
+    pat = re.compile(r"\d+")
+    pat.findall("a1b2")         # ['1', '2']
+    pat.sub("#", "a1b2")        # 'a#b#'
+    pat.search("x 9").group()   # '9'
+    (re caches recent patterns, but compile makes intent clear and speeds
+    loops.)
+
+Word boundary:
+    re.findall(r"\bcat\b", "cat concatenate cat.")    # ['cat', 'cat']
+
+Empty matches:
+    re.findall(r"a*", "baac")        # ['', 'aa', '', '']
+
+17. COMMON PATTERNS
+------------------------------------------------------------------------------
+  Task                 | Pattern
+  ---------------------|----------------------------------------------------
+  Digits only          | r"\d+"                  fullmatch for validation
+  Integer / decimal    | r"-?\d+(?:\.\d+)?"
+  Word                 | r"\b\w+\b"
+  Email (simple)       | r"[\w.+-]+@[\w-]+\.[\w.-]+"
+  Phone (10 digits)    | r"\b\d{10}\b"
+  Date YYYY-MM-DD      | r"\d{4}-\d{2}-\d{2}"
+  Time HH:MM           | r"([01]\d|2[0-3]):[0-5]\d"
+  URL                  | r"https?://[^\s]+"
+  IPv4 (loose)         | r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
+  Hex colour           | r"#(?:[0-9a-fA-F]{3}){1,2}\b"
+  Hashtag              | r"#\w+"
+  Username             | r"^[A-Za-z]\w{2,15}$"
+  Strong password      | r"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$"
+  Extra spaces         | r"\s+"  (replace with a single space)
+  Non-alphanumeric     | r"[^\w\s]"
+
+    re.findall(r"-?\d+(?:\.\d+)?", "a -3.5, 42 and 7.25")
+    # ['-3.5', '42', '7.25']
+    re.findall(r"#\w+", "Love #python and #coding!")
+    # ['#python', '#coding']
+    re.sub(r"[^\w\s]", "", "Hi, there! 5%")                 # 'Hi there 5'
+    bool(re.fullmatch(r"[\w.+-]+@[\w-]+\.[\w.-]+", "a.b@mail.com"))   # True
+    bool(re.match(r"^(?=.*[A-Z])(?=.*\d).{8,}$", "Passw0rdX"))        # True
+    bool(re.match(r"^(?=.*[A-Z])(?=.*\d).{8,}$", "password"))         # False
+    re.findall(r"\b[A-Z][a-z]+\b", "Alice met Bob in Paris")
+    # ['Alice', 'Bob', 'Paris']   (capitalised words)
+    ' '.join(re.findall(r"\w+", "Hi, it's me")) # 'Hi it s me'
+    Real email/URL validation is much more complex; use a library for strict
+    needs.
+
+Log parsing example:
+    line = "2024-05-17 10:15:00 ERROR disk full"
+    m = re.match(r"(?P<date>\S+) (?P<time>\S+) (?P<level>[A-Z]+) (?P<msg>.*)",
+                 line)
+    m.groupdict()
+    # {'date': '2024-05-17', 'time': '10:15:00', 'level': 'ERROR',
+    #  'msg': 'disk full'}
+
+18. REGEX GOTCHAS AND ADVICE
+------------------------------------------------------------------------------
+ 1. Use raw strings r"..." for patterns.
+ 2. re.match only checks the start (not "the whole string"); use fullmatch
+    to validate.
+ 3. $ also matches just before a trailing newline:
+        bool(re.match(r"\d+$", "123\n"))        # True
+    Use \Z or fullmatch for strict endings.
+ 4. . does not match a newline unless re.S is set.
+ 5. Quantifiers are greedy; use ? for the shortest match.
+ 6. findall returns tuples when the pattern has several groups, and only the
+    group when it has one.
+ 7. A search that fails returns None: check before .group().
+ 8. Escape metacharacters in user text with re.escape.
+ 9. \d, \w also match non-ASCII digits/letters (Unicode); use re.A or
+    explicit classes [0-9] when needed.
+10. Alternation has the lowest precedence: r"^a|b$" means (^a) or (b$);
+    write r"^(?:a|b)$".
+11. Nested quantifiers like (a+)+ can cause catastrophic backtracking (very
+    slow on non-matching input).
+12. Do not parse HTML/XML with regex; use an HTML parser.
+13. Simple tasks may not need regex: str.startswith, in, split, replace,
+    isdigit are clearer and faster.
+14. sub replacement strings treat backslashes specially (\1, \g<name>); use a
+    function for literal text.
+15. Test patterns on examples, including edge cases (empty string, no match,
+    many matches).
+
+
+==============================================================================
+                            D. DATETIME
+==============================================================================
+
+19. THE datetime MODULE: CLASSES
+------------------------------------------------------------------------------
+    from datetime import date, time, datetime, timedelta, timezone
+
+  Class      | Holds                         | Example
+  -----------|-------------------------------|------------------------------
+  date       | year, month, day              | date(2024, 5, 17)
+  time       | hour, minute, second, micro   | time(14, 30, 45)
+  datetime   | date + time (+ tzinfo)        | datetime(2024, 5, 17, 14, 30)
+  timedelta  | a DURATION                    | timedelta(days=7, hours=3)
+  timezone   | fixed UTC offset              | timezone.utc
+  tzinfo     | base class for time zones     | ZoneInfo("Asia/Kolkata")
+
+Objects are IMMUTABLE and hashable: operations return new objects.
+
+20. CREATING DATES AND TIMES
+------------------------------------------------------------------------------
+    date(2024, 5, 17)                       # datetime.date(2024, 5, 17)
+    date.today()                            # today's date
+    datetime.now()                          # current LOCAL date and time
+    datetime.now(timezone.utc)              # current time, timezone-aware
+    datetime(2024, 5, 17, 14, 30, 45)       # year month day hour min sec
+    datetime(2024, 5, 17)                   # time defaults to 00:00:00
+    time(14, 30)                            # 14:30:00
+    datetime.combine(date(2024, 5, 17), time(9, 0))
+    datetime.fromisoformat("2024-05-17T14:30:45")
+    date.fromisoformat("2024-05-17")
+    datetime.fromtimestamp(0, tz=timezone.utc)    # 1970-01-01 00:00:00+00:00
+    date.fromordinal(739000)
+
+Invalid values raise ValueError:
+    date(2024, 13, 1)     # month must be in 1..12
+    date(2024, 2, 30)     # day is out of range for month
+    datetime(2024, 5, 17, 25)   # hour must be in 0..23
+
+Attributes and methods (dt = datetime(2024, 5, 17, 14, 30, 45)):
+    dt.year, dt.month, dt.day           # 2024 5 17
+    dt.hour, dt.minute, dt.second       # 14 30 45
+    dt.microsecond                      # 0
+    dt.date(), dt.time()                # date(2024,5,17), time(14,30,45)
+    dt.weekday()                        # 4   Monday=0 ... Sunday=6 (Friday)
+    dt.isoweekday()                     # 5   Monday=1 ... Sunday=7
+    dt.isocalendar()                    # (2024, 20, 5)  ISO year, week, day
+    dt.timetuple().tm_yday              # 138 day of the year
+    dt.timestamp()                      # seconds since 1970-01-01 UTC
+    dt.replace(hour=0, minute=0, second=0)   # new object with changes
+    dt.isoformat()                      # '2024-05-17T14:30:45'
+    str(dt)                             # '2024-05-17 14:30:45'
+    repr(dt)   # 'datetime.datetime(2024, 5, 17, 14, 30, 45)'
+
+21. FORMATTING AND PARSING: strftime / strptime
+------------------------------------------------------------------------------
+    strftime(format)   datetime -> string        ("string FROM time")
+    strptime(text, fmt) string -> datetime       ("string PARSE time")
+
+    dt = datetime(2024, 5, 17, 14, 30, 45)
+    dt.strftime("%d/%m/%Y")             # '17/05/2024'
+    dt.strftime("%d %B %Y")             # '17 May 2024'
+    dt.strftime("%A, %d %b %Y")         # 'Friday, 17 May 2024'
+    dt.strftime("%I:%M %p")             # '02:30 PM'
+    dt.strftime("%H:%M:%S")             # '14:30:45'
+    dt.strftime("%Y-%m-%d %H:%M:%S")    # '2024-05-17 14:30:45'
+    f"{dt:%d-%m-%Y}"                    # '17-05-2024' (f-string format spec)
+
+    datetime.strptime("17/05/2024", "%d/%m/%Y")
+    # datetime.datetime(2024, 5, 17, 0, 0)
+    datetime.strptime("2024-05-17 14:30", "%Y-%m-%d %H:%M")
+    datetime.strptime("17 May 2024", "%d %B %Y")
+    datetime.strptime("2024/05/17", "%d/%m/%Y")
+    # ValueError: time data '2024/05/17' does not match format '%d/%m/%Y'
+
+  Code | Meaning                         | Example (dt above)
+  -----|---------------------------------|----------------------
+  %Y   | year, 4 digits                  | 2024
+  %y   | year, 2 digits                  | 24
+  %m   | month 01-12                     | 05
+  %B   | month name                      | May
+  %b   | month abbreviation              | May (Jun, Jul ...)
+  %d   | day of month 01-31              | 17
+  %j   | day of year 001-366             | 138
+  %A   | weekday name                    | Friday
+  %a   | weekday abbreviation            | Fri
+  %w   | weekday number, Sunday=0        | 5
+  %H   | hour 00-23                      | 14
+  %I   | hour 01-12                      | 02
+  %p   | AM / PM                         | PM
+  %M   | minute 00-59                    | 30
+  %S   | second 00-59                    | 45
+  %f   | microseconds                    | 000000
+  %z   | UTC offset                      | +0530 (aware datetimes)
+  %Z   | time zone name                  | UTC, IST ...
+  %U   | week of year, Sunday first      | 00-53
+  %W   | week of year, Monday first      | 00-53
+  %c / %x / %X | locale date-time / date / time
+  %%   | a literal percent sign
+
+Parsing ISO strings is easier with fromisoformat (no format needed).
+For messy input formats the third-party dateutil.parser.parse can guess.
+
+22. timedelta - DURATIONS AND DATE ARITHMETIC
+------------------------------------------------------------------------------
+    td = timedelta(days=2, hours=3, minutes=30)
+    td.days                         # 2
+    td.seconds                      # 12600   (the part below one day)
+    td.total_seconds()              # 185400.0  (everything in seconds)
+    str(td)                         # '2 days, 3:30:00'
+    timedelta(hours=25)             # datetime.timedelta(days=1, seconds=3600)
+    timedelta(seconds=3661)         # str -> '1:01:01'
+    timedelta(days=-1)              # negative durations are allowed
+    Arguments: weeks, days, hours, minutes, seconds, milliseconds,
+    microseconds (no months or years: their length varies).
+
+Arithmetic:
+    date(2024, 5, 17) + timedelta(days=30)         # date(2024, 6, 16)
+    date(2024, 1, 31) + timedelta(days=30)         # date(2024, 3, 1)
+    datetime(2024, 5, 17, 23, 0) + timedelta(hours=2)
+    # datetime(2024, 5, 18, 1, 0)
+    date(2024, 5, 17) - timedelta(weeks=1)         # date(2024, 5, 10)
+    d1 = date(2024, 12, 25); d2 = date(2024, 5, 17)
+    d1 - d2                                        # timedelta(days=222)
+    (d1 - d2).days                                 # 222
+    d1 > d2                                        # True   comparisons work
+    td * 2    td / 2    td // timedelta(hours=1)   # scaling, division
+    abs(timedelta(days=-3))                        # 3 days
+    date + date                                    # TypeError (not allowed)
+
+Typical tasks:
+    # age in years
+    def age(born, today=None):
+        today = today or date.today()
+        return today.year - born.year - ((today.month, today.day) <
+                                         (born.month, born.day))
+    age(date(2000, 5, 18), date(2024, 5, 17))       # 23
+
+    # days until an event
+    (date(2024, 12, 25) - date.today()).days
+
+    # start of the week (Monday)
+    d = date(2024, 5, 17)
+    d - timedelta(days=d.weekday())                 # date(2024, 5, 13)
+
+    # first day of next month
+    (d.replace(day=1) + timedelta(days=32)).replace(day=1)   # 2024-06-01
+
+    # list the dates between two days
+    start = date(2024, 5, 1)
+    [start + timedelta(days=i) for i in range(5)]
+
+    # is it a weekend?
+    d.weekday() >= 5                                # False
+
+    # difference as hours / minutes
+    delta = datetime(2024, 5, 17, 18) - datetime(2024, 5, 17, 9, 30)
+    delta.total_seconds() / 3600                    # 8.5
+
+    # elapsed time of a code block
+    import time
+    t0 = time.perf_counter(); work(); time.perf_counter() - t0
+
+23. THE calendar MODULE
+------------------------------------------------------------------------------
+    import calendar
+    calendar.isleap(2024)              # True
+    calendar.monthrange(2024, 2)       # (3, 29): Feb 1 is a Thursday (3),
+                                       #          29 days in the month
+    calendar.month_name[5]             # 'May'
+    calendar.day_name[0]               # 'Monday'
+    calendar.weekday(2024, 5, 17)      # 4
+    print(calendar.month(2024, 5))     # text calendar of the month
+    calendar.leapdays(2000, 2025)      # number of leap years in the range
+
+    Last day of a month:
+        calendar.monthrange(y, m)[1]
+
+24. TIME ZONES: NAIVE vs AWARE
+------------------------------------------------------------------------------
+    naive : no tzinfo; just a wall-clock reading, ambiguous
+    aware : carries a UTC offset / time zone; unambiguous
+
+    datetime.now()                          # naive (local)
+    datetime.now(timezone.utc)              # aware (UTC)
+
+    IST = timezone(timedelta(hours=5, minutes=30))
+    dt = datetime(2024, 5, 17, 12, 0, tzinfo=timezone.utc)
+    dt.astimezone(IST)                      # 2024-05-17 17:30:00+05:30
+    dt.isoformat()                          # '2024-05-17T12:00:00+00:00'
+    dt.tzinfo                               # datetime.timezone.utc
+    dt.utcoffset()                          # timedelta(0)
+
+    from zoneinfo import ZoneInfo           # Python 3.9+ (IANA time zones)
+    ny = datetime(2024, 7, 1, 9, 0, tzinfo=ZoneInfo("America/New_York"))
+    ny.astimezone(ZoneInfo("Asia/Kolkata")) # handles daylight saving time
+    ny.utcoffset()                          # -4:00 in July (daylight time)
+
+    datetime.now(ZoneInfo("Asia/Kolkata"))
+    dt.replace(tzinfo=ZoneInfo("UTC"))      # ATTACHES a zone (no conversion)
+    dt.astimezone(zone)                     # CONVERTS to another zone
+
+Rules:
+    - Naive and aware datetimes cannot be compared or subtracted:
+          TypeError: can't compare offset-naive and offset-aware datetimes
+    - Best practice: store and compute in UTC (aware), convert to local time
+      only for display.
+    - datetime.utcnow() / utcfromtimestamp() are deprecated (3.12): they
+      return NAIVE values; use datetime.now(timezone.utc).
+    - Daylight-saving transitions create skipped and repeated local times;
+      use zoneinfo and UTC arithmetic.
+    - Third-party: pytz (older), dateutil, pendulum, arrow.
+
+25. datetime vs time MODULE; GOTCHAS
+------------------------------------------------------------------------------
+  time module                       | datetime module
+  ----------------------------------|--------------------------------------
+  time.time() epoch seconds (float) | objects: date, datetime, timedelta
+  time.sleep(), perf_counter()      | calendar arithmetic, formatting,
+  low-level, struct_time            | parsing, time zones
+
+Gotchas:
+ 1. weekday(): Monday=0; isoweekday(): Monday=1. strftime %w: Sunday=0.
+ 2. timedelta stores days, seconds, microseconds (normalised):
+    timedelta(hours=25).days is 1 and .seconds is 3600.
+    Use total_seconds() for the total, not .seconds.
+ 3. date and datetime do not mix: datetime(2024,1,1) == date(2024,1,1) is
+    False and ordering comparisons raise TypeError.
+ 4. There is no timedelta for months/years; use dateutil.relativedelta or
+    replace() with care (Jan 31 + 1 month does not exist).
+ 5. strptime needs the format to match EXACTLY (including separators).
+ 6. now() is local and naive; use timezone-aware values in applications.
+ 7. Adding a timedelta to a naive datetime ignores DST changes.
+ 8. strftime("%d") zero-pads; remove the pad with dt.day or a platform flag.
+ 9. Leap years: 29 Feb; date(2023, 2, 29) -> ValueError.
+10. timestamp() of a naive datetime assumes LOCAL time.
+11. Do not use floats for durations when exactness matters; use timedelta.
+12. dates compare chronologically, and sort/min/max work.
+
+
+==============================================================================
+                          E. TYPE HINTS
+==============================================================================
+
+26. WHAT ARE TYPE HINTS?
+------------------------------------------------------------------------------
+Type hints (annotations) describe the expected types of variables, parameters
+and return values. Python does NOT enforce them at run time; they help
+readers, IDEs and static checkers (mypy, pyright) find bugs before running.
+
+    def add(a: int, b: int) -> int:
+        return a + b
+
+    add(2, 3)         # 5
+    add("x", "y")     # 'xy'  runs fine! no run-time error
+    # mypy reports: Argument 1 to "add" has incompatible type "str";
+    #               expected "int"
+
+    add.__annotations__
+    # {'a': <class 'int'>, 'b': <class 'int'>, 'return': <class 'int'>}
+
+Benefits: documentation, autocompletion, early error detection, safer
+refactoring, clearer APIs. Type hints are optional and can be added
+gradually ("gradual typing").
+
+27. BASIC SYNTAX
+------------------------------------------------------------------------------
+Variables:
+    age: int = 25
+    name: str = "Amit"
+    ratio: float = 0.5
+    active: bool = True
+    items: list[int] = [1, 2, 3]
+    count: int                      # declared, not yet assigned
+
+Functions:
+    def greet(name: str, times: int = 1) -> str:
+        return ("Hello " + name + "! ") * times
+
+    def log(msg: str) -> None:      # returns nothing
+        print(msg)
+
+    def fail() -> NoReturn:         # never returns normally
+        raise RuntimeError
+
+    def f(*args: int, **kwargs: str) -> None: ...
+    # args is tuple[int, ...]; kwargs is dict[str, str]
+
+Methods and classes:
+    class Account:
+        count: int = 0                         # class attribute
+        def __init__(self, owner: str, balance: float = 0.0) -> None:
+            self.owner = owner
+            self.balance = balance
+        def deposit(self, amt: float) -> "Account":     # forward reference
+            self.balance += amt
+            return self
+
+28. COMMON TYPES
+------------------------------------------------------------------------------
+Built-in generics (Python 3.9+; older code used typing.List, Dict, ...):
+    list[int]                  list of ints
+    dict[str, int]             dict with str keys and int values
+    set[str]                   frozenset[int]
+    tuple[int, str]            fixed 2-tuple (int, then str)
+    tuple[int, ...]            tuple of any length of ints
+    tuple[()]                  empty tuple
+    type[Dog]                  the class Dog (or a subclass), not an instance
+
+Unions and optional:
+    int | str                  either (3.10+);  Union[int, str] before that
+    int | None                 same as Optional[int]
+    from typing import Optional, Union
+    def find(x: int) -> Optional[str]: ...     # may return None
+    "Optional" means "can be None", NOT "argument may be omitted".
+    def f(x: int | None = None): ...           # optional parameter
+
+Special forms (from typing):
+    Any                        any type (turns checking off for that value)
+    object                     the base of all types (only object methods OK)
+    Callable[[int, str], bool] a function taking (int, str) returning bool
+    Callable[..., int]         any arguments
+    Iterable[int]  Iterator[int]  Sequence[str]  Mapping[str, int]
+    MutableMapping  Collection  Generator[int, None, None]
+    Literal["r", "w"]          only those exact values
+    Final                      constant: MAX: Final = 10
+    ClassVar[int]              class variable
+    TypeAlias                  Alias = dict[str, list[int]]
+    NewType("UserId", int)     distinct type for checkers
+    Annotated[int, "meta"]     attach extra metadata
+    Never / NoReturn           no value / never returns
+    Self (3.11+)               the class of the instance (fluent APIs)
+
+Guideline: use abstract types for PARAMETERS (Iterable, Sequence, Mapping)
+so callers can pass many kinds, and concrete types for RETURNS (list, dict).
+
+    from typing import Callable, Iterable
+    def apply(f: Callable[[int], int], xs: Iterable[int]) -> list[int]:
+        return [f(x) for x in xs]
+
+29. GENERICS: TypeVar, Generic, TypedDict, Protocol, NamedTuple
+------------------------------------------------------------------------------
+TypeVar - a type chosen by the caller (keeps input and output related):
+    from typing import TypeVar
+    T = TypeVar("T")
+    def first(xs: list[T]) -> T:
+        return xs[0]
+    first([1, 2, 3])             # checker infers int
+    first(["a", "b"])            # checker infers str
+
+    Python 3.12 syntax:   def first[T](xs: list[T]) -> T: ...
+                          class Stack[T]: ...      type Alias = list[int]
+
+Generic classes:
+    from typing import Generic
+    class Box(Generic[T]):
+        def __init__(self, item: T) -> None:
+            self.item = item
+        def get(self) -> T:
+            return self.item
+    Box(5).get()                 # int
+
+TypedDict - dictionary with known keys:
+    from typing import TypedDict
+    class User(TypedDict):
+        name: str
+        age: int
+    u: User = {"name": "Amit", "age": 25}      # checker verifies the keys
+    (at run time it is an ordinary dict)
+
+NamedTuple and dataclass give typed records:
+    from typing import NamedTuple
+    class Point(NamedTuple):
+        x: int
+        y: int
+    from dataclasses import dataclass
+    @dataclass
+    class Item:
+        name: str
+        price: float = 0.0
+
+Protocol - structural typing (duck typing for checkers):
+    from typing import Protocol
+    class Speaker(Protocol):
+        def speak(self) -> str: ...
+    def talk(x: Speaker) -> str:
+        return x.speak()           # any object with speak() is accepted
+
+overload - several signatures for one function (checker only):
+    from typing import overload
+    @overload
+    def conv(x: int) -> str: ...
+    @overload
+    def conv(x: str) -> int: ...
+    def conv(x): ...               # the real implementation
+
+30. FORWARD REFERENCES, TYPE CHECKING AND TOOLS
+------------------------------------------------------------------------------
+Forward reference (class not yet defined):
+    class Node:
+        def __init__(self, nxt: "Node | None" = None): ...
+    or put at the top of the file (Python 3.7+):
+        from __future__ import annotations      # annotations stay as text
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:                           # imports only for checkers
+        from other import Thing                 # (avoids circular imports)
+
+Type narrowing - checkers understand isinstance and None checks:
+    def f(x: int | str) -> int:
+        if isinstance(x, str):
+            return len(x)                       # x is str here
+        return x                                # x is int here
+    def g(x: str | None) -> str:
+        if x is None:
+            return ""
+        return x.upper()                        # x is str here
+
+cast(T, value) tells the checker "trust me":  n = cast(int, data["n"])
+
+Static checkers (run them separately):
+    pip install mypy
+    mypy script.py                 # report type errors
+    mypy --strict script.py
+    pyright, pyre                  # alternatives (pyright powers Pylance)
+    Editors (VS Code with Pylance, PyCharm) show errors as you type.
+
+Run-time access:
+    import typing
+    typing.get_type_hints(add)      # resolves strings to real types
+    add.__annotations__             # raw annotations
+    Libraries such as pydantic and FastAPI USE annotations at run time to
+    validate data.
+
+Python version notes:
+    3.5  typing module               3.6  variable annotations (x: int = 1)
+    3.7  from __future__ import annotations
+    3.8  Literal, Final, TypedDict, Protocol
+    3.9  list[int], dict[str, int] built-in generics
+    3.10 int | str union syntax, TypeAlias, ParamSpec
+    3.11 Self, Never, LiteralString
+    3.12 def f[T](x: T), type X = ..., override decorator
+
+31. TYPE HINT BEST PRACTICES AND GOTCHAS
+------------------------------------------------------------------------------
+ 1. Hints are not enforced: add("x", "y") still runs.
+ 2. Annotate public functions and class attributes first; start gradually.
+ 3. -> None for functions that return nothing; an unannotated function
+    return is "Any" to a checker.
+ 4. Optional[X] = X | None; it does not make a parameter optional - give it
+    a default value.
+ 5. A mutable default stays a bug even with hints:
+        def f(x: list[int] = [])      # still shared; use None instead:
+        def f(x: list[int] | None = None)
+ 6. Prefer list[int] to the deprecated typing.List[int] (3.9+).
+ 7. Use Sequence / Iterable / Mapping for inputs, list / dict for outputs.
+ 8. Avoid Any when a precise type exists; Any hides errors.
+ 9. Do not use hints to validate user input - use real checks (or pydantic).
+10. Quote forward references or use from __future__ import annotations.
+11. A bool is an int for checkers; float accepts int (int is acceptable
+    where float is expected).
+12. Run mypy/pyright in CI to benefit from the hints.
+
+
+==============================================================================
+                 F. PITFALLS AND CHECKLIST
+==============================================================================
+
+32. CHECKLIST
+------------------------------------------------------------------------------
+  1. import runs a module once; later imports reuse sys.modules.
+  2. Use if __name__ == "__main__" for code that should not run on import.
+  3. Never name your files like standard modules (random.py, json.py).
+  4. A package is a folder with __init__.py; relative imports (from .x
+     import y) work only inside packages, run with python -m pkg.mod.
+  5. Use a virtual environment per project; pip freeze > requirements.txt.
+  6. Regex: raw strings; search vs match vs fullmatch; greedy vs lazy;
+     groups; check for None.
+  7. findall returns groups if the pattern has groups.
+  8. datetime: naive vs aware; store UTC; strftime formats, strptime parses.
+  9. timedelta for durations (days, seconds); total_seconds() for the total.
+ 10. weekday() Monday=0; isoweekday() Monday=1.
+ 11. Type hints are documentation + static checking; not enforced at run
+     time.
+ 12. Optional[X] means X or None; use abstract collection types for inputs.
+
+
+==============================================================================
+                  G. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+MODULES AND PACKAGES
+Q1. What is the difference between a module, a package and a library?
+A.  A module is a single .py file. A package is a directory of modules
+    (normally with __init__.py). A library is a collection of modules and
+    packages that provides functionality (e.g. requests).
+
+Q2. Differences between  import m,  from m import x,  import m as a  and
+    from m import * ?
+A.  import m: whole module, use m.x. from m import x: only x, used without a
+    prefix (may shadow names). import m as a: alias. from m import * imports
+    all public names (or those in __all__); discouraged because it pollutes
+    the namespace.
+
+Q3. What happens if a module is imported twice?
+A.  Its code runs only the first time; the module object is cached in
+    sys.modules and reused. importlib.reload() forces re-execution.
+
+Q4. What is the output when the file greet.py is run directly, and when it
+    is imported?
+        # greet.py
+        print(__name__)
+A.  Run directly: __main__. Imported by another file: greet (the module
+    name). That is why if __name__ == "__main__": guards demo code.
+
+Q5. How does Python find modules?
+A.  It checks sys.modules, built-in modules, then each directory in
+    sys.path (the script's directory, PYTHONPATH, the standard library,
+    site-packages). Failure raises ModuleNotFoundError.
+
+Q6. What is __init__.py for?
+A.  It marks a directory as a regular package and runs when the package is
+    imported; it can re-export names, set __all__ and __version__.
+
+Q7. What is the error "attempted relative import with no known parent
+    package" and its fix?
+A.  A relative import (from .x import y) was executed in a file run
+    directly as a script, so it has no package context. Run it as a module
+    from the project root: python -m package.module.
+
+Q8. What is __all__?
+A.  A list of public names of a module/package. It controls what
+    "from module import *" imports.
+
+Q9. What is a circular import and how do you avoid it?
+A.  Two modules import each other at top level so one is used before it is
+    fully loaded. Restructure shared code into a third module, import inside
+    functions, or import the module and use its attributes later.
+
+Q10. What is the use of pip and virtual environments?
+A.  pip installs third-party packages from PyPI. A virtual environment
+    (python -m venv .venv) gives each project its own isolated set of
+    packages and versions; requirements.txt records them.
+
+Q11. What is the output?
+        import math
+        print(math.sqrt(16), math.ceil(2.1), math.floor(-2.1),
+              math.gcd(12, 18))
+A.  4.0 3 -3 6
+
+Q12. What is the difference between randint, randrange, choice, choices and
+     sample?
+A.  randint(a, b) includes both ends; randrange(a, b) excludes b; choice
+    picks one item; choices(seq, k=n) picks n WITH replacement; sample(seq,
+    n) picks n DISTINCT items. shuffle(list) shuffles in place and returns
+    None. For security use secrets.
+
+Q13. Why does a file named random.py in your project cause errors?
+A.  It shadows the standard module, so import random loads your file, and
+    functions like random.randint do not exist.
+
+REGEX
+Q14. What is the difference between re.match, re.search and re.fullmatch?
+A.  match checks only at the start of the string; search finds the first
+    match anywhere; fullmatch requires the entire string to match.
+    re.match(r"b", "abc") is None but re.search(r"b", "abc") matches.
+
+Q15. What is the output?   print(re.findall(r"\d+", "a1 b22 c333"))
+A.  ['1', '22', '333']
+
+Q16. What is the output?
+        print(re.findall(r"(\w+)@(\w+)\.com", "a@x.com b@y.com"))
+A.  [('a', 'x'), ('b', 'y')]   (with several groups findall returns tuples of
+    the groups, not whole matches).
+
+Q17. Greedy vs lazy? What is the output?
+        print(re.search(r"<.+>", "<a><b>").group(),
+              re.search(r"<.+?>", "<a><b>").group())
+A.  <a><b> <a>   (greedy takes as much as possible; the ? makes it take as
+    little as possible).
+
+Q18. What is the output?   print(re.sub(r"(\d+)", r"<\1>", "a1b22"))
+A.  a<1>b<22>   (\1 refers to the first group).
+
+Q19. What is the output?   print(re.split(r"\s*,\s*", "a , b,c"))
+A.  ['a', 'b', 'c']
+
+Q20. Why use raw strings for regex patterns?
+A.  Backslashes are meaningful to both Python and the regex engine. In r"\d"
+    Python leaves the backslash alone; in "\d" it is an invalid escape, and
+    "\b" would be a backspace character instead of a word boundary.
+
+Q21. What is the output?   print(bool(re.match(r"\d+$", "123\n")))
+A.  True. $ matches at the end or just before a trailing newline. Use \Z or
+    fullmatch for strict matching.
+
+Q22. What is the output?
+        print(re.findall(r"\bcat\b", "cat concatenate cat."))
+A.  ['cat', 'cat']   (\b requires word boundaries, so concatenate does not
+    match).
+
+Q23. What are capturing, non-capturing and named groups?
+A.  (x) captures and numbers a group (m.group(1)); (?:x) groups without
+    capturing; (?P<name>x) captures with a name (m.group("name"),
+    m.groupdict()).
+
+Q24. What are lookahead and lookbehind? What is the output?
+        print(re.findall(r"(?<=\$)\d+", "cost $50 and $7"))
+A.  Zero-width assertions: (?=x) followed by x, (?!x) not followed by x,
+    (?<=x) preceded by x, (?<!x) not preceded by x. Output: ['50', '7'].
+
+Q25. What are the flags re.I, re.M, re.S, re.X?
+A.  I ignore case; M make ^ and $ match at each line; S let . match newlines;
+    X verbose patterns with whitespace and comments.
+
+Q26. When should you use re.compile?
+A.  When the same pattern is used many times (loops, functions): it parses
+    the pattern once and gives a reusable Pattern object with the same
+    methods. (re also caches recent patterns.)
+
+Q27. How do you write a strong-password check with a regex?
+A.  Use lookaheads for each requirement:
+    re.match(r"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}$", pw).
+
+Q28. What is the output?   print(re.sub(r"[^\w\s]", "", "Hi, there! 5%"))
+A.  Hi there 5   (removes everything that is not a word character or space).
+
+DATETIME
+Q29. What is the difference between date, time, datetime and timedelta?
+A.  date: year-month-day. time: hour-minute-second. datetime: both together
+    (optionally with a time zone). timedelta: a duration (days, seconds,
+    microseconds) that results from subtracting or is added to dates.
+
+Q30. What is the output?
+        from datetime import date
+        print((date(2024, 12, 25) - date(2024, 5, 17)).days)
+A.  222
+
+Q31. What is the output?
+        print(date(2024, 5, 17).weekday(), date(2024, 5, 17).isoweekday())
+A.  4 5   (Friday: Monday=0 for weekday, Monday=1 for isoweekday).
+
+Q32. strftime vs strptime?
+A.  strftime formats a datetime into a string (dt.strftime("%d/%m/%Y")).
+    strptime parses a string into a datetime (datetime.strptime("17/05/2024",
+    "%d/%m/%Y")); the format must match exactly or ValueError is raised.
+
+Q33. What is the output?
+        from datetime import timedelta
+        t = timedelta(hours=25)
+        print(t.days, t.seconds, t.total_seconds())
+A.  1 3600 90000.0   (days and seconds are normalised; total_seconds gives
+    the whole duration).
+
+Q34. What is the output?
+        print(date(2024, 1, 31) + timedelta(days=30))
+A.  2024-03-01   (2024 is a leap year: 29 days in February).
+
+Q35. What is the difference between naive and aware datetimes? What happens
+     if you compare them?
+A.  A naive datetime has no time zone information; an aware one has tzinfo
+    (a UTC offset). Comparing or subtracting them raises TypeError: can't
+    compare offset-naive and offset-aware datetimes. Use aware UTC values.
+
+Q36. How do you convert a UTC datetime to another time zone?
+A.  dt.astimezone(ZoneInfo("Asia/Kolkata")) (dt must be aware). replace(
+    tzinfo=...) only attaches a zone without converting.
+
+Q37. What is the output?   print(date(2024, 2, 30))
+A.  ValueError: day is out of range for month.
+
+Q38. How do you compute someone's age?
+A.  today.year - born.year - ((today.month, today.day) < (born.month,
+    born.day)): subtract one when the birthday has not occurred yet this
+    year. date(2000,5,18) on 2024-05-17 gives 23.
+
+Q39. What does calendar.monthrange(2024, 2) return?
+A.  (3, 29): the weekday of the first day (0 = Monday, so Thursday) and the
+    number of days in the month.
+
+Q40. What is the output?   str(timedelta(seconds=3661))
+A.  1:01:01
+
+TYPE HINTS
+Q41. Are type hints enforced at run time?
+A.  No. The interpreter ignores them (they are stored in __annotations__).
+    Static tools like mypy and pyright check them; some libraries (pydantic,
+    FastAPI) read them at run time.
+
+Q42. What does this print?
+        def add(a: int, b: int) -> int:
+            return a + b
+        print(add("x", "y"))
+A.  xy. Python does not enforce the hints; mypy would report an
+    incompatible argument type.
+
+Q43. What does Optional[int] mean?
+A.  int | None: the value may be an int or None. It does not make a
+    parameter optional (give a default value for that).
+
+Q44. list[int] vs typing.List[int]; int | str vs Union[int, str]?
+A.  The lowercase built-in generics (3.9+) and the | syntax (3.10+) are the
+    modern forms; typing.List and Union are the older equivalents.
+
+Q45. What are TypeVar and Generic used for?
+A.  To write functions and classes that work for any type while keeping the
+    relationship between types, e.g. def first(xs: list[T]) -> T returns the
+    element type of the list.
+
+Q46. What is a Protocol?
+A.  A class that defines methods a type must have; any class with those
+    methods matches (structural typing) without inheriting from it - duck
+    typing for static checkers.
+
+Q47. Difference between Any and object?
+A.  Any disables type checking for that value (anything goes). object is the
+    base type: a checker only allows operations valid for every object.
+
+Q48. How do you annotate a function that takes a function?
+A.  Callable[[ArgTypes...], ReturnType], e.g. Callable[[int, int], int]; use
+    Callable[..., T] for any arguments.
+
+Q49. How do you refer to a class inside its own definition?
+A.  Quote it ("Node"), or add from __future__ import annotations, or use
+    Self (3.11+) for the current class.
+
+Q50. How do you check the types in a project?
+A.  Run a static checker such as mypy or pyright (often in CI and in the
+    editor). Run-time checks need explicit code or a library like pydantic.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

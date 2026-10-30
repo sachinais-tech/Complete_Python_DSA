@@ -1,0 +1,1537 @@
+==============================================================================
+       PYTHON TESTING AND APIs: PYTEST, REST API BASICS AND SQLITE
+                    DATABASE INTEGRATION - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Modern Python applications often expose or consume web APIs, store data in a
+database, and are protected by automated tests. This file connects the three.
+
+    A. Testing and PyTest  - why test, unittest vs pytest, assert, fixtures,
+                             parametrize, markers, mocking, plugins
+    B. REST API basics     - HTTP, methods, status codes, REST rules, calling
+                             APIs with requests, building a small API
+    C. SQLite integration  - sqlite3 module, CRUD, safe queries, transactions
+    D. Putting it together - API + SQLite + pytest tests in one example
+    E. Pitfalls, checklist and interview questions
+
+Packages used (install inside a virtual environment):
+    pip install pytest pytest-cov requests fastapi httpx uvicorn
+    (sqlite3, unittest and unittest.mock are part of the standard library)
+
+How the pieces fit:
+    client --HTTP request--> API (FastAPI/Flask) --SQL--> SQLite database
+    pytest drives the API with a test client and uses an in-memory database,
+    so tests are fast, isolated and repeatable.
+
+
+==============================================================================
+                    A. TESTING AND PYTEST
+==============================================================================
+
+2. WHY TEST?
+------------------------------------------------------------------------------
+An automated test is code that runs your code and checks the result.
+    - Finds bugs early and prevents regressions (old bugs returning)
+    - Lets you refactor with confidence
+    - Documents the expected behaviour
+    - Is the base of continuous integration (tests run on every commit)
+
+Kinds of tests (the test pyramid: many at the bottom, few at the top):
+  Level        | Tests                           | Speed   | Example
+  -------------|---------------------------------|---------|----------------
+  Unit         | one function/class in isolation | fast    | add(2, 3) == 5
+  Integration  | several parts together          | medium  | API + database
+  End-to-end   | the whole system like a user    | slow    | browser flow
+  Also: smoke, regression, performance, security, acceptance tests.
+
+Test doubles (stand-ins for real dependencies):
+    Dummy  - passed but never used          Stub  - returns fixed answers
+    Fake   - simple working version (in-memory DB)
+    Mock   - records calls so you can assert on them
+    Spy    - wraps the real object and records calls
+
+A good test is FAST, ISOLATED, REPEATABLE, SELF-CHECKING and focused.
+AAA structure:   Arrange (set up) -> Act (call) -> Assert (check).
+
+3. unittest (STANDARD LIBRARY) IN BRIEF
+------------------------------------------------------------------------------
+    import unittest
+    from calc import add, divide
+
+    class TestCalc(unittest.TestCase):
+        def setUp(self):                    # runs before EACH test
+            self.x = 10
+        def tearDown(self):                 # runs after EACH test
+            pass
+        def test_add(self):
+            self.assertEqual(add(2, 3), 5)
+        def test_divide_by_zero(self):
+            with self.assertRaises(ValueError):
+                divide(1, 0)
+        def test_many(self):
+            for a, b, r in [(1, 1, 2), (2, 2, 4)]:
+                with self.subTest(a=a, b=b):
+                    self.assertEqual(add(a, b), r)
+
+    if __name__ == "__main__":
+        unittest.main()
+    # run:  python -m unittest -v        python -m unittest discover
+
+  Assert methods: assertEqual, assertNotEqual, assertTrue, assertFalse,
+  assertIs, assertIsNone, assertIn, assertIsInstance, assertAlmostEqual,
+  assertRaises, assertRaisesRegex, assertListEqual, assertDictEqual.
+  Class-level hooks: setUpClass / tearDownClass; module hooks:
+  setUpModule / tearDownModule.
+
+4. PYTEST - WHY IT IS POPULAR
+------------------------------------------------------------------------------
+pytest is the most widely used third-party test framework.
+    - Plain assert statements (no assertEqual family) with detailed failure
+      messages that show the values involved
+    - Tests are simple functions; classes are optional
+    - Powerful fixtures for set-up and tear-down
+    - Parametrisation, markers, plugins, readable output
+    - Runs unittest tests too
+
+  Feature          | unittest                  | pytest
+  -----------------|---------------------------|----------------------------
+  Style            | classes (TestCase)        | functions (classes optional)
+  Assertions       | self.assertEqual(a, b)    | assert a == b
+  Set-up/tear-down | setUp / tearDown          | fixtures (yield)
+  Parametrising    | subTest                   | @pytest.mark.parametrize
+  Boilerplate      | more                      | less
+  Installation     | built in                  | pip install pytest
+
+5. YOUR FIRST PYTEST FILES
+------------------------------------------------------------------------------
+calc.py :
+    def add(a, b):
+        return a + b
+
+    def divide(a, b):
+        if b == 0:
+            raise ValueError("division by zero")
+        return a / b
+
+test_calc.py :
+    import pytest
+    from calc import add, divide
+
+    def test_add():
+        assert add(2, 3) == 5
+
+    def test_add_negative():
+        assert add(-1, 1) == 0
+
+    def test_divide():
+        assert divide(10, 4) == 2.5
+
+    def test_divide_by_zero():
+        with pytest.raises(ValueError, match="zero"):
+            divide(1, 0)
+
+Run:
+    pytest                   # discover and run everything under this folder
+    ============================= test session starts =====================
+    collected 4 items
+
+    test_calc.py ....                                              [100%]
+
+    ============================== 4 passed in 0.02s ======================
+
+A failing test shows exactly what differed:
+    def test_bad():
+        assert add(2, 2) == 5
+    >       assert add(2, 2) == 5
+    E       assert 4 == 5
+    E        +  where 4 = add(2, 2)
+    FAILED test_calc.py::test_bad - assert 4 == 5
+    ====================== 1 failed, 4 passed in 0.03s ====================
+
+Result symbols in the progress line:
+    .  passed      F  failed      E  error (in a fixture / setup)
+    s  skipped     x  xfail (expected failure)     X  xpass (unexpectedly
+    passed)
+
+Discovery rules (defaults):
+    - files named test_*.py or *_test.py
+    - functions named test_* (also methods in classes named Test*)
+    - classes named Test* without an __init__ method
+    - tests live in the project (often a tests/ folder)
+A function not starting with test_ is silently NOT collected - a common bug.
+
+6. COMMAND-LINE OPTIONS
+------------------------------------------------------------------------------
+    pytest -v                          verbose: one line per test
+    pytest -q                          quiet
+    pytest -s                          show print() output (no capture)
+    pytest -x                          stop after the first failure
+    pytest --maxfail=2                 stop after 2 failures
+    pytest test_calc.py                one file
+    pytest test_calc.py::test_add      one test
+    pytest tests/                      a folder
+    pytest -k "add and not negative"   tests whose name matches an expression
+    pytest -m slow                     tests with a marker
+    pytest --lf                        rerun only the last failures
+    pytest --ff                        failures first
+    pytest --tb=short                  shorter tracebacks (long, line, no)
+    pytest -rA                         summary for all outcomes
+    pytest --durations=3               3 slowest tests
+    pytest --cov=myapp --cov-report=term-missing    coverage (pytest-cov)
+    pytest -n auto                     parallel run (pytest-xdist)
+    pytest --pdb                       open the debugger on failure
+    pytest --collect-only              list tests without running them
+
+Exit codes: 0 all passed, 1 some failed, 2 interrupted, 3 internal error,
+4 usage error, 5 no tests collected.
+
+Configuration (pytest.ini or pyproject.toml):
+    [pytest]
+    testpaths = tests
+    addopts = -q --tb=short
+    markers =
+        slow: slow tests
+        api: tests that call the API
+
+7. ASSERTIONS AND EXCEPTIONS
+------------------------------------------------------------------------------
+    assert x == 5
+    assert x in [1, 2, 3]
+    assert isinstance(obj, Dog)
+    assert "error" in text.lower()
+    assert result is None
+    assert not items
+
+Floating point - never compare with ==; use approx:
+    assert 0.1 + 0.2 == pytest.approx(0.3)
+    assert [0.1 + 0.2, 1.0] == pytest.approx([0.3, 1.0])
+    assert 100.5 == pytest.approx(100, rel=0.01)       # relative tolerance
+    assert 3.14 == pytest.approx(3.1416, abs=0.01)     # absolute tolerance
+
+Expecting an exception:
+    with pytest.raises(ValueError):
+        int("x")
+    with pytest.raises(ZeroDivisionError, match="division"):   # regex on text
+        1 / 0
+    with pytest.raises(KeyError) as excinfo:
+        {}["a"]
+    assert excinfo.type is KeyError
+    assert "a" in str(excinfo.value)
+
+Other helpers:
+    pytest.fail("reason")              fail explicitly
+    pytest.skip("reason")              skip inside a test
+    pytest.importorskip("numpy")       skip if a module is missing
+    with pytest.warns(DeprecationWarning): ...
+    pytest.mark.xfail                  expected failure (see markers)
+
+Tests that raise exceptions you did not expect show as failures with full
+tracebacks. Test both the happy path and the failure paths.
+
+8. FIXTURES
+------------------------------------------------------------------------------
+A fixture is a function that prepares something a test needs (data, a
+database, a client) and optionally cleans it up. Tests receive fixtures by
+naming them as parameters (dependency injection).
+
+    import pytest
+
+    @pytest.fixture
+    def numbers():
+        return [3, 1, 2]
+
+    def test_sorted(numbers):               # fixture injected by name
+        assert sorted(numbers) == [1, 2, 3]
+
+Set-up and tear-down with yield (code after yield always runs):
+    @pytest.fixture
+    def resource():
+        print("setup")
+        yield "db-connection"               # value given to the test
+        print("teardown")                   # runs after the test
+
+    def test_use(resource):
+        print("test")
+        assert resource == "db-connection"
+    # pytest -s prints: setup / test / teardown
+
+Scope controls how often a fixture is created:
+  Scope      | Created once per
+  -----------|----------------------------
+  "function" | test function (DEFAULT)
+  "class"    | test class
+  "module"   | .py file
+  "package"  | package
+  "session"  | whole test run
+    @pytest.fixture(scope="module")
+    def big_data(): ...
+  Wider scopes are faster but tests may share (and corrupt) state; keep
+  mutable fixtures at function scope.
+
+More fixture features:
+    @pytest.fixture(autouse=True)           # used by every test automatically
+    @pytest.fixture(params=[1, 2, 3])       # one run of each test per value
+    def n(request): return request.param
+    A fixture can use other fixtures:  def client(app, db): ...
+    Fixture finalizer: request.addfinalizer(func)
+
+conftest.py : fixtures shared by many test files. pytest finds it
+automatically (no import needed) and applies it to its folder and sub-folders.
+    tests/
+        conftest.py            # shared fixtures
+        test_users.py
+        test_orders.py
+
+Built-in fixtures:
+  tmp_path        a fresh temporary directory (pathlib.Path)
+  capsys          capture what the code prints (stdout / stderr)
+  caplog          capture log records
+  monkeypatch     safely change attributes, environment, dictionaries
+  request         info about the requesting test
+  recwarn         capture warnings
+  tmp_path_factory, cache, pytestconfig
+
+    def test_file(tmp_path):
+        p = tmp_path / "a.txt"
+        p.write_text("hi")
+        assert p.read_text() == "hi"
+
+    def test_print(capsys):
+        print("hello")
+        out, err = capsys.readouterr()
+        assert out == "hello\n"
+
+    def test_env(monkeypatch):
+        monkeypatch.setenv("MODE", "test")
+        monkeypatch.setattr("os.getcwd", lambda: "/fake")
+        monkeypatch.setitem(config, "debug", True)
+        # everything is undone automatically after the test
+
+    def test_log(caplog):
+        import logging
+        logging.getLogger().warning("careful")
+        assert "careful" in caplog.text
+
+9. PARAMETRIZE - ONE TEST, MANY INPUTS
+------------------------------------------------------------------------------
+    @pytest.mark.parametrize("a, b, expected", [
+        (1, 2, 3),
+        (0, 0, 0),
+        (-1, 1, 0),
+        (2.5, 0.5, 3.0),
+    ])
+    def test_add(a, b, expected):
+        assert add(a, b) == expected
+    # creates 4 separate tests: test_add[1-2-3], test_add[0-0-0], ...
+
+    @pytest.mark.parametrize("text, ok", [("abc", True), ("", False)],
+                             ids=["non-empty", "empty"])
+    def test_non_empty(text, ok):
+        assert bool(text) is ok
+
+    # mark a single case:
+    pytest.param(5, 0, marks=pytest.mark.xfail(reason="bug"))
+
+    # stacking two parametrize decorators gives the CARTESIAN product
+    @pytest.mark.parametrize("x", [1, 2, 3])
+    @pytest.mark.parametrize("y", [10, 20])
+    def test_grid(x, y): ...                 # 6 tests
+
+    # exceptions in a table
+    @pytest.mark.parametrize("b", [0, 0.0])
+    def test_div_zero(b):
+        with pytest.raises(ValueError):
+            divide(1, b)
+
+Each parameter set is reported separately, so one failing row does not hide
+the others.
+
+10. MARKERS
+------------------------------------------------------------------------------
+    @pytest.mark.skip(reason="not ready")
+    def test_a(): ...
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
+    def test_b(): ...
+
+    @pytest.mark.xfail(reason="known bug #12")        # expected to fail
+    def test_c(): assert 1 == 2
+
+    @pytest.mark.slow                                  # custom marker
+    def test_d(): ...
+    # register in pytest.ini (markers =), run with  pytest -m "not slow"
+
+    @pytest.mark.usefixtures("db")
+    class TestUsers: ...
+
+  skip vs xfail: skip never runs the test; xfail runs it and expects failure
+  (xpassed if it unexpectedly succeeds; strict=True makes that an error).
+
+11. ORGANISING TESTS (CLASSES AND FOLDERS)
+------------------------------------------------------------------------------
+    project/
+        app/
+            __init__.py
+            calc.py
+            api.py
+            db.py
+        tests/
+            conftest.py
+            test_calc.py
+            test_api.py
+            test_db.py
+        pytest.ini
+
+Grouping in classes (no __init__, names start with Test):
+    class TestDivide:
+        def test_normal(self):
+            assert divide(6, 3) == 2
+        def test_zero(self):
+            with pytest.raises(ValueError):
+                divide(1, 0)
+
+Tips:
+    - One behaviour per test; descriptive names:
+      test_withdraw_more_than_balance_raises_error.
+    - Tests must not depend on each other or on execution order.
+    - Do not use real networks, real clocks or real files unless the test is
+      about them; use fakes, mocks and tmp_path.
+    - Keep tests fast; mark slow ones.
+    - Test edge cases: empty input, zero, one item, huge values, wrong types.
+
+12. MOCKING (unittest.mock)
+------------------------------------------------------------------------------
+Replace a dependency (network, clock, database, randomness) with a controlled
+object.
+
+    from unittest.mock import Mock, MagicMock, patch
+
+    m = Mock()
+    m.return_value = 42
+    m(1, 2)                               # 42
+    m.assert_called_once_with(1, 2)
+    m.call_count                          # 1
+    m.call_args                           # call(1, 2)
+
+    m = Mock(side_effect=[1, 2, ValueError("boom")])
+    m()                                   # 1
+    m()                                   # 2
+    m()                                   # raises ValueError
+    Mock(side_effect=ConnectionError)     # always raises
+    m.attr.method.return_value = "x"      # nested attributes appear on demand
+    MagicMock also supports magic methods (__len__, __iter__, ...).
+
+patch replaces a name for the duration of a with block or a test:
+    # weather.py
+    import requests
+    def get_user_name(uid):
+        r = requests.get(f"https://api.example.com/users/{uid}", timeout=5)
+        r.raise_for_status()
+        return r.json()["name"]
+
+    # test_weather.py
+    import pytest, requests
+    from unittest.mock import Mock, patch
+    from weather import get_user_name
+
+    def test_get_user_name():
+        fake = Mock()
+        fake.json.return_value = {"name": "Amit"}
+        with patch("weather.requests.get", return_value=fake) as get:
+            assert get_user_name(1) == "Amit"
+            get.assert_called_once_with(
+                "https://api.example.com/users/1", timeout=5)
+
+    def test_http_error():
+        fake = Mock()
+        fake.raise_for_status.side_effect = requests.HTTPError("404")
+        with patch("weather.requests.get", return_value=fake):
+            with pytest.raises(requests.HTTPError):
+                get_user_name(999)
+
+    @patch("weather.requests.get")        # decorator form: extra argument
+    def test_dec(mock_get):
+        mock_get.return_value.json.return_value = {"name": "Bina"}
+        assert get_user_name(2) == "Bina"
+
+Rule: patch the name WHERE IT IS LOOKED UP (weather.requests.get), not where
+it is defined. Patch the object the code under test actually uses.
+
+Alternatives: pytest-mock (the mocker fixture: mocker.patch(...), cleaned up
+automatically), monkeypatch, the responses / requests-mock libraries (fake
+HTTP responses), freezegun (freeze time).
+
+Too many mocks make tests brittle and test the implementation instead of the
+behaviour; prefer fakes (an in-memory SQLite DB) for databases.
+
+13. TDD, COVERAGE AND PLUGINS
+------------------------------------------------------------------------------
+TDD (test-driven development): Red (write a failing test) -> Green (write
+the least code that passes) -> Refactor (clean up, tests stay green).
+
+Coverage:
+    pip install pytest-cov
+    pytest --cov=app --cov-report=term-missing --cov-report=html
+    Shows which lines run during tests. High coverage does not prove the
+    tests are good; aim for meaningful tests of behaviour, not a number.
+
+Useful plugins:
+  pytest-cov (coverage)        pytest-mock (mocker fixture)
+  pytest-xdist (parallel)      pytest-asyncio (async tests)
+  pytest-django / pytest-flask pytest-html (reports)
+  pytest-randomly (random order, finds hidden dependencies)
+  hypothesis (property-based testing: generates many inputs)
+
+CI: run  pytest  in GitHub Actions / GitLab CI on every push.
+
+14. PYTEST GOTCHAS
+------------------------------------------------------------------------------
+ 1. Test files/functions must follow the naming rules or they are ignored.
+ 2. A Test class must not define __init__.
+ 3. print() output is hidden unless a test fails or you use -s.
+ 4. Fixture names are matched by parameter name; a typo gives
+    "fixture 'x' not found".
+ 5. Module/session fixtures that return mutable objects leak state between
+    tests.
+ 6. Patch where the name is used, not where it is defined.
+ 7. Do not compare floats with ==; use pytest.approx.
+ 8. assert (x, "msg") is always true (a tuple); write assert x, "msg".
+ 9. Import errors when tests cannot import your package: install it
+    (pip install -e .) or set pythonpath in pytest.ini.
+10. Two test files with the same name in different folders need __init__.py
+    files or unique names (module name clash).
+11. Order-dependent tests pass or fail randomly; keep tests independent.
+12. A test with no assert always passes - make sure it checks something.
+
+
+==============================================================================
+                       B. REST API BASICS
+==============================================================================
+
+15. WHAT IS AN API? WHAT IS REST?
+------------------------------------------------------------------------------
+API (Application Programming Interface): a defined way for programs to talk
+to each other. A web API is reached over HTTP; the data usually travels as
+JSON.
+
+REST (Representational State Transfer): an architectural style for web APIs
+using ordinary HTTP. Key ideas:
+
+  Principle          | Meaning
+  -------------------|-----------------------------------------------------
+  Client-server      | UI and data storage are separate concerns
+  Stateless          | every request carries all information needed; the
+                     | server keeps no client session between requests
+  Resources          | everything is a resource named by a URI (/users/42)
+  Uniform interface  | standard HTTP methods act on resources
+  Representations    | a resource is sent as JSON (or XML, HTML ...)
+  Cacheable          | responses say whether they may be cached
+  Layered system     | proxies, gateways, load balancers can sit in between
+
+An API that follows these rules is "RESTful". Other styles: SOAP (XML,
+strict contracts), GraphQL (client chooses fields, one endpoint), gRPC
+(binary, fast), WebSockets (two-way live connections).
+
+16. HTTP REQUEST AND RESPONSE
+------------------------------------------------------------------------------
+URL anatomy:
+    https://api.example.com:443/v1/users/42?active=true&page=2#top
+    scheme   host            port path           query string   fragment
+    - path identifies the resource; query parameters filter/sort/paginate.
+
+Request:
+    POST /v1/users HTTP/1.1
+    Host: api.example.com
+    Content-Type: application/json
+    Authorization: Bearer <token>
+    Accept: application/json
+
+    {"name": "Amit", "email": "amit@x.com"}
+
+Response:
+    HTTP/1.1 201 Created
+    Content-Type: application/json
+    Location: /v1/users/7
+
+    {"id": 7, "name": "Amit", "email": "amit@x.com"}
+
+Parts: method + URL + headers + optional body (request); status code +
+headers + optional body (response).
+
+Common headers:
+    Content-Type  format of the body sent (application/json)
+    Accept        format the client wants back
+    Authorization credentials (Bearer token, Basic, API key)
+    User-Agent, Cache-Control, ETag, Location, Set-Cookie, Retry-After
+    X-Request-Id (tracing), Idempotency-Key (safe retries of POST)
+
+17. HTTP METHODS
+------------------------------------------------------------------------------
+  Method  | Purpose                      | Body | Safe | Idempotent
+  --------|------------------------------|------|------|-----------
+  GET     | read a resource/collection   | no   | yes  | yes
+  POST    | create / run an action       | yes  | no   | no
+  PUT     | replace a resource entirely  | yes  | no   | yes
+  PATCH   | change part of a resource    | yes  | no   | not guaranteed
+  DELETE  | remove a resource            | no   | no   | yes
+  HEAD    | headers only (like GET)      | no   | yes  | yes
+  OPTIONS | allowed methods / CORS       | no   | yes  | yes
+
+    Safe        : does not change server state.
+    Idempotent  : repeating the same request has the same effect as doing it
+                  once (DELETE twice leaves the resource deleted; POST twice
+                  may create two resources).
+
+CRUD mapping:
+  Operation | Request                 | Success response
+  ----------|-------------------------|-----------------------------------
+  Create    | POST   /users           | 201 Created + Location header + body
+  Read all  | GET    /users           | 200 OK + list
+  Read one  | GET    /users/{id}      | 200 OK + object  (404 if missing)
+  Update    | PUT    /users/{id}      | 200 OK (or 204 No Content)
+  Partial   | PATCH  /users/{id}      | 200 OK
+  Delete    | DELETE /users/{id}      | 204 No Content
+
+18. STATUS CODES
+------------------------------------------------------------------------------
+  Class | Meaning       | Codes to know
+  ------|---------------|---------------------------------------------------
+  1xx   | informational | 100 Continue
+  2xx   | success       | 200 OK, 201 Created, 202 Accepted,
+        |               | 204 No Content
+  3xx   | redirection   | 301 Moved Permanently, 302 Found,
+        |               | 304 Not Modified
+  4xx   | CLIENT error  | 400 Bad Request, 401 Unauthorized (not logged in),
+        |               | 403 Forbidden (logged in but not allowed),
+        |               | 404 Not Found, 405 Method Not Allowed,
+        |               | 409 Conflict (duplicate), 415 Unsupported Media
+        |               | Type, 422 Unprocessable Entity (validation),
+        |               | 429 Too Many Requests
+  5xx   | SERVER error  | 500 Internal Server Error, 502 Bad Gateway,
+        |               | 503 Service Unavailable, 504 Gateway Timeout
+
+Memory aid: 2xx you succeeded, 3xx go elsewhere, 4xx you made a mistake,
+5xx the server made a mistake.
+Use the most precise code; return a JSON error body such as
+{"detail": "User not found"}.
+
+19. DESIGNING REST URLs
+------------------------------------------------------------------------------
+    - Use NOUNS (resources), plural, lowercase; the method is the verb.
+          GOOD  GET /users            BAD  GET /getUsers
+          GOOD  POST /users           BAD  POST /createUser
+          GOOD  DELETE /users/42      BAD  GET /deleteUser?id=42
+    - Hierarchy for relations: /users/42/orders, /users/42/orders/9
+    - Filtering, sorting, pagination go in the query string:
+          GET /users?role=admin&sort=-created&page=2&limit=20
+    - Version the API: /api/v1/users (or an Accept header)
+    - Return JSON with consistent field names and a consistent error shape
+    - Use HTTPS; never put secrets in URLs
+    - Pagination styles: page+limit, offset+limit, cursor ("next" token)
+    - Idempotent operations should be retry-safe
+    - Document with OpenAPI/Swagger (FastAPI generates it automatically at
+      /docs and /openapi.json)
+
+Authentication and security (overview):
+    API key header            simple, per client
+    Basic auth                username:password in base64 (HTTPS only)
+    Bearer token / JWT        Authorization: Bearer <token>
+    OAuth 2.0                 delegated access (login with Google ...)
+    Also: input validation, rate limiting (429), CORS rules for browsers,
+    never log secrets, least privilege.
+
+JSON essentials:
+    {"id": 7, "name": "Amit", "tags": ["a", "b"], "active": true,
+     "address": null}
+    Python: json.dumps(obj) / json.loads(text) (see the file-handling notes).
+
+20. CALLING A REST API FROM PYTHON (requests)
+------------------------------------------------------------------------------
+    import requests
+
+    r = requests.get("https://jsonplaceholder.typicode.com/posts/1",
+                     timeout=5)
+    r.status_code            # 200
+    r.ok                     # True for status < 400
+    r.headers["Content-Type"]       # 'application/json; charset=utf-8'
+    r.json()                 # parsed JSON -> dict
+    r.json()["title"]        # a field
+    r.text                   # body as str          r.content  # body as bytes
+    r.url                    # final URL            r.elapsed  # time taken
+    r.raise_for_status()     # raises requests.HTTPError if 4xx / 5xx
+
+Query parameters, headers, JSON body:
+    r = requests.get("https://api.example.com/users",
+                     params={"role": "admin", "page": 2},      # ?role=...
+                     headers={"Authorization": "Bearer TOKEN"},
+                     timeout=5)
+    r = requests.post("https://api.example.com/users",
+                      json={"name": "Amit"}, timeout=5)   # sets Content-Type
+    r = requests.post(url, data={"a": 1})     # form-encoded instead of JSON
+    r = requests.put(url, json=payload, timeout=5)
+    r = requests.patch(url, json={"name": "New"}, timeout=5)
+    r = requests.delete(url, timeout=5)
+    r = requests.get(url, auth=("user", "password"), timeout=5)
+    requests.post(url, files={"file": open("a.png", "rb")}, timeout=30)
+
+Robust usage:
+    try:
+        r = requests.get(url, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+    except requests.exceptions.Timeout:
+        print("Request timed out")
+    except requests.exceptions.ConnectionError:
+        print("Network problem")
+    except requests.exceptions.HTTPError as e:
+        print("Bad status:", e.response.status_code)
+    except requests.exceptions.JSONDecodeError:
+        print("Response was not JSON")
+    except requests.exceptions.RequestException as e:   # base class
+        print("Request failed:", e)
+
+    - ALWAYS pass timeout=...; without it a request can wait forever.
+    - A 404 or 500 does NOT raise an exception by itself; check r.ok /
+      r.status_code or call raise_for_status().
+    - Reuse connections with a Session (faster, shares headers/cookies):
+          with requests.Session() as s:
+              s.headers.update({"Authorization": "Bearer TOKEN"})
+              s.get(url1, timeout=5); s.get(url2, timeout=5)
+    - Retries: urllib3 Retry + requests.adapters.HTTPAdapter.
+    - Stream big downloads: requests.get(url, stream=True) and iter_content.
+    - Standard-library alternatives: urllib.request, http.client; modern
+      alternative with async support: httpx.
+
+21. BUILDING A SMALL REST API (FastAPI)
+------------------------------------------------------------------------------
+FastAPI turns type-annotated functions into endpoints, validates input with
+pydantic, and generates interactive docs.
+
+main.py :
+    from fastapi import FastAPI, HTTPException, Response
+    from pydantic import BaseModel
+
+    app = FastAPI()
+
+    class UserIn(BaseModel):                  # request body schema
+        name: str
+        email: str
+
+    users = {}                                # id -> user (in memory)
+    next_id = 1
+
+    @app.post("/users", status_code=201)
+    def create_user(u: UserIn):
+        global next_id
+        user = {"id": next_id, "name": u.name, "email": u.email}
+        users[next_id] = user
+        next_id += 1
+        return user                           # converted to JSON
+
+    @app.get("/users")
+    def list_users():
+        return list(users.values())
+
+    @app.get("/users/{user_id}")              # path parameter
+    def get_user(user_id: int):               # converted/validated as int
+        if user_id not in users:
+            raise HTTPException(status_code=404, detail="User not found")
+        return users[user_id]
+
+    @app.delete("/users/{user_id}", status_code=204)
+    def delete_user(user_id: int):
+        if users.pop(user_id, None) is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return Response(status_code=204)
+
+Run:   uvicorn main:app --reload        (then open http://127.0.0.1:8000/docs)
+
+Behaviour:
+    POST /users {"name": "Amit", "email": "a@x.com"}
+        -> 201 {"id": 1, "name": "Amit", "email": "a@x.com"}
+    GET /users/1   -> 200 {"id": 1, ...}
+    GET /users/99  -> 404 {"detail": "User not found"}
+    GET /users/abc -> 422 (validation: not an integer)
+    POST /users {"name": "x"} -> 422 (missing field "email")
+    Query parameters are plain function arguments:
+        @app.get("/search") def search(q: str, limit: int = 10): ...
+        GET /search?q=python&limit=5
+
+Flask equivalent (lighter, no automatic validation):
+    from flask import Flask, jsonify, request, abort
+    app = Flask(__name__)
+    users = {1: {"id": 1, "name": "Amit"}}
+
+    @app.get("/users/<int:uid>")
+    def get_user(uid):
+        user = users.get(uid)
+        if user is None:
+            abort(404)
+        return jsonify(user)
+
+    @app.post("/users")
+    def create_user():
+        data = request.get_json()
+        if not data or "name" not in data:
+            return jsonify(error="name required"), 400
+        uid = max(users, default=0) + 1
+        users[uid] = {"id": uid, "name": data["name"]}
+        return jsonify(users[uid]), 201
+
+    # flask --app main run      test client: app.test_client()
+
+22. TESTING A REST API WITH PYTEST
+------------------------------------------------------------------------------
+Use the framework's test client: no server, no network, very fast.
+
+    # test_main.py
+    from fastapi.testclient import TestClient     # needs httpx
+    from main import app
+
+    client = TestClient(app)
+
+    def test_create_user():
+        r = client.post("/users", json={"name": "Amit", "email": "a@x.com"})
+        assert r.status_code == 201
+        assert r.json()["name"] == "Amit"
+
+    def test_get_missing_user():
+        r = client.get("/users/999")
+        assert r.status_code == 404
+        assert r.json() == {"detail": "User not found"}
+
+    def test_validation_error():
+        r = client.post("/users", json={"name": "only name"})
+        assert r.status_code == 422
+
+Flask:
+    def test_get_user():
+        client = app.test_client()
+        r = client.get("/users/1")
+        assert r.status_code == 200
+        assert r.get_json()["name"] == "Amit"
+
+What to assert for each endpoint: status code, response body (JSON), headers
+(Content-Type, Location), side effects (database changed), and error cases
+(404, 409, 422, 401/403). Parametrise many inputs for validation rules.
+
+Tests against a live/external API: use markers (e.g. @pytest.mark.network),
+or mock the HTTP layer (section 12) so tests never depend on the internet.
+
+23. REST GOTCHAS
+------------------------------------------------------------------------------
+ 1. 401 = not authenticated; 403 = authenticated but not allowed.
+ 2. POST is not idempotent: retrying may create duplicates (use idempotency
+    keys or PUT with a client-chosen id).
+ 3. PUT replaces the whole resource; PATCH changes part of it.
+ 4. A 4xx/5xx does not make requests raise; use raise_for_status().
+ 5. requests has no default timeout: always set one.
+ 6. json= sends JSON and sets the header; data= sends form data.
+ 7. Do not put verbs in URLs (/getUser); use nouns and HTTP methods.
+ 8. GET must never change data.
+ 9. Validate and sanitise every input on the server.
+10. Return correct status codes (201 for create, 204 for delete, 404 for
+    missing) and a consistent JSON error body.
+11. Keep the API stateless: do not rely on server memory between requests
+    (the in-memory dict above is for learning only).
+
+
+==============================================================================
+              C. SQLITE DATABASE INTEGRATION (IN BRIEF)
+==============================================================================
+
+24. WHAT IS SQLITE?
+------------------------------------------------------------------------------
+SQLite is a lightweight, serverless, file-based SQL database engine. The
+whole database is a single file (or lives in memory). Python includes it in
+the standard library as the sqlite3 module - nothing to install.
+
+    - No server process, no configuration; zero setup
+    - Great for learning, small/medium apps, desktop and mobile apps,
+      prototypes, tests, caches
+    - Not designed for heavy concurrent writes or very large multi-user
+      systems (use PostgreSQL / MySQL there)
+    - Standard SQL: tables, rows, columns, constraints, indexes, joins
+
+Types (dynamic typing with "affinity"):
+  SQLite    | Python
+  ----------|-----------
+  NULL      | None
+  INTEGER   | int
+  REAL      | float
+  TEXT      | str
+  BLOB      | bytes
+  (dates are stored as TEXT/INTEGER/REAL; booleans as 0/1)
+
+25. THE BASIC WORKFLOW
+------------------------------------------------------------------------------
+    import sqlite3
+
+    conn = sqlite3.connect("app.db")         # creates the file if missing
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id    INTEGER PRIMARY KEY AUTOINCREMENT,
+            name  TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            age   INTEGER CHECK (age >= 0)
+        )""")
+    cur.execute("INSERT INTO users (name, email, age) VALUES (?, ?, ?)",
+                ("Amit", "amit@x.com", 25))
+    conn.commit()                            # save the changes
+
+    cur.execute("SELECT id, name, email FROM users WHERE age > ?", (20,))
+    print(cur.fetchall())        # [(1, 'Amit', 'amit@x.com')]
+    conn.close()
+
+Steps: connect -> cursor -> execute SQL -> commit (for changes) -> fetch
+(for queries) -> close.
+    sqlite3.connect(":memory:")      temporary database in RAM (each
+                                     connection gets its OWN empty one)
+    conn.execute(sql, params)        shortcut that creates a cursor for you
+
+26. EXECUTING SQL SAFELY: PARAMETERS
+------------------------------------------------------------------------------
+NEVER build SQL by formatting strings with user data (SQL injection):
+
+    name = "x' OR '1'='1"
+    # DANGEROUS:
+    conn.execute(f"SELECT * FROM users WHERE name = '{name}'")
+        # becomes ... WHERE name = 'x' OR '1'='1'   -> returns EVERY row
+
+    # SAFE - the driver sends the value separately from the SQL text:
+    conn.execute("SELECT * FROM users WHERE name = ?", (name,))   # no rows
+
+Placeholders:
+    "?"        positional:  execute("... VALUES (?, ?)", ("a", "b"))
+    ":name"    named:       execute("... VALUES (:n, :e)",
+                                    {"n": "a", "e": "b"})
+    - The parameters must be a tuple/list (note the comma in (x,)) or a dict.
+    - Placeholders work for VALUES only, not for table or column names
+      (validate those against a fixed allow-list).
+
+Many rows at once and scripts:
+    conn.executemany("INSERT INTO users (name, email) VALUES (?, ?)",
+                     [("Bina", "b@x.com"), ("Chen", "c@x.com")])
+    conn.executescript("CREATE TABLE a(x); CREATE TABLE b(y);")  # many SQL
+                                                                 # statements
+
+After an INSERT / UPDATE / DELETE:
+    cur.lastrowid        id of the last inserted row
+    cur.rowcount         number of rows changed (0 when nothing matched)
+
+27. READING RESULTS
+------------------------------------------------------------------------------
+    cur = conn.execute("SELECT name, age FROM users ORDER BY name")
+    cur.fetchone()       # first row as a tuple, or None when no more rows
+    cur.fetchmany(2)     # list of up to 2 rows
+    cur.fetchall()       # list of all remaining rows (empty list if none)
+    for row in cur:      # iterate lazily, row by row
+        print(row)
+    cur.description      # column names: [("name", None, ...), ...]
+
+    conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]    # a number
+    conn.execute("SELECT 1").fetchone()                         # (1,)
+
+Rows as names instead of positions:
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (1,)).fetchone()
+    row["name"]                 # 'Amit'   (also row[0], row.keys())
+    dict(row)                   # {'id': 1, 'name': 'Amit', ...}
+
+Python 3.12: use sqlite3 adapters/converters or store ISO date strings
+(datetime.isoformat()) because the old default date adapters are deprecated.
+
+28. TRANSACTIONS AND ERRORS
+------------------------------------------------------------------------------
+A transaction groups changes so they succeed or fail together (ACID).
+    - sqlite3 starts a transaction automatically before INSERT/UPDATE/DELETE.
+    - Nothing is permanent until conn.commit(); conn.rollback() undoes it.
+    - The connection works as a context manager: it COMMITS if the block
+      succeeds and ROLLS BACK if an exception occurs - but it does NOT close
+      the connection.
+
+    try:
+        with conn:                              # commit or rollback
+            conn.execute("UPDATE acct SET bal = bal - 100 WHERE id = 1")
+            conn.execute("UPDATE acct SET bal = bal + 100 WHERE id = 2")
+    except sqlite3.Error as e:
+        print("transfer failed, nothing changed:", e)
+
+    from contextlib import closing
+    with closing(sqlite3.connect("app.db")) as conn:   # closes at the end
+        with conn:
+            conn.execute(...)
+
+Exceptions (all derive from sqlite3.Error):
+  IntegrityError    constraint broken: UNIQUE constraint failed: users.email,
+                    NOT NULL constraint failed, CHECK failed, foreign key
+  OperationalError  no such table, SQL syntax error, database is locked
+  ProgrammingError  wrong number of parameters, use of a closed connection,
+                    using a connection from another thread
+  DatabaseError, InterfaceError, DataError, NotSupportedError
+
+Other facts:
+    PRAGMA foreign_keys = ON      foreign keys are OFF by default; enable
+                                  them on every connection
+    PRAGMA journal_mode = WAL     better read/write concurrency
+    check_same_thread=False       allow a connection to be used by another
+                                  thread (you must then serialise access)
+    timeout=...                   wait for locks instead of failing at once
+    CREATE INDEX idx_users_email ON users(email)   speeds up lookups
+
+29. SQL CHEAT SHEET FOR SQLITE
+------------------------------------------------------------------------------
+    CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT NOT NULL, ...);
+    INSERT INTO t (a, b) VALUES (?, ?);
+    SELECT * FROM t;                          SELECT a, b FROM t WHERE c > 5;
+    SELECT * FROM t ORDER BY name DESC LIMIT 10 OFFSET 20;
+    SELECT DISTINCT city FROM t;
+    SELECT COUNT(*), AVG(age), MIN(age), MAX(age), SUM(age) FROM t;
+    SELECT city, COUNT(*) FROM t GROUP BY city HAVING COUNT(*) > 1;
+    UPDATE t SET a = ? WHERE id = ?;          DELETE FROM t WHERE id = ?;
+    SELECT u.name, o.total FROM users u
+        JOIN orders o ON o.user_id = u.id;    (INNER JOIN; LEFT JOIN keeps
+                                               users without orders)
+    WHERE name LIKE 'A%'   BETWEEN 1 AND 5   IN (1, 2)   IS NULL
+    DROP TABLE IF EXISTS t;
+    ALTER TABLE t ADD COLUMN c TEXT;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+    Always include WHERE with UPDATE and DELETE - without it EVERY row
+    changes.
+
+30. A COMPLETE EXAMPLE: A DATA-ACCESS MODULE
+------------------------------------------------------------------------------
+db.py :
+    import sqlite3
+
+    SCHEMA = """
+    CREATE TABLE IF NOT EXISTS users (
+        id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        name  TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE
+    );
+    """
+
+    def get_conn(path="app.db", **kwargs):
+        conn = sqlite3.connect(path, **kwargs)
+        conn.row_factory = sqlite3.Row               # rows behave like dicts
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+    def init_db(conn):
+        conn.executescript(SCHEMA)
+
+    def add_user(conn, name, email):
+        cur = conn.execute(
+            "INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
+        conn.commit()
+        return cur.lastrowid
+
+    def get_user(conn, user_id):
+        row = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_users(conn):
+        return [dict(r) for r in
+                conn.execute("SELECT * FROM users ORDER BY id")]
+
+    def update_email(conn, user_id, email):
+        cur = conn.execute(
+            "UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def delete_user(conn, user_id):
+        cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return cur.rowcount > 0
+
+Using it:
+    conn = get_conn(":memory:")
+    init_db(conn)
+    add_user(conn, "Amit", "amit@x.com")           # 1
+    add_user(conn, "Bina", "bina@x.com")           # 2
+    get_user(conn, 1)
+    # {'id': 1, 'name': 'Amit', 'email': 'amit@x.com'}
+    update_email(conn, 1, "new@x.com")             # True
+    list_users(conn)
+    # [{'id': 1, 'name': 'Amit', 'email': 'new@x.com'},
+    #  {'id': 2, 'name': 'Bina', 'email': 'bina@x.com'}]
+    delete_user(conn, 2)                           # True
+    get_user(conn, 2)                              # None
+    add_user(conn, "Dup", "new@x.com")
+    # sqlite3.IntegrityError: UNIQUE constraint failed: users.email
+
+Testing the data layer with an in-memory database and a pytest fixture:
+
+test_db.py :
+    import sqlite3, pytest
+    from db import get_conn, init_db, add_user, get_user, update_email
+
+    @pytest.fixture
+    def conn():
+        c = get_conn(":memory:")          # fresh, empty database per test
+        init_db(c)
+        yield c
+        c.close()
+
+    def test_add_and_get(conn):
+        uid = add_user(conn, "Amit", "a@x.com")
+        assert get_user(conn, uid) == {"id": uid, "name": "Amit",
+                                       "email": "a@x.com"}
+
+    def test_duplicate_email(conn):
+        add_user(conn, "A", "a@x.com")
+        with pytest.raises(sqlite3.IntegrityError):
+            add_user(conn, "B", "a@x.com")
+
+    def test_update_missing_user(conn):
+        assert update_email(conn, 999, "x@x.com") is False
+
+    def test_get_missing_returns_none(conn):
+        assert get_user(conn, 42) is None
+
+Why in-memory SQLite for tests: no files to clean, very fast, every test
+starts from an empty schema, and the real SQL runs (unlike a mock).
+
+31. SQLITE FACTS AND GOTCHAS
+------------------------------------------------------------------------------
+ 1. Use ? / :name placeholders for values; never f-strings (SQL injection).
+ 2. Forgetting conn.commit() loses INSERT/UPDATE/DELETE when the program ends.
+ 3. with conn: commits/rolls back but does not close the connection.
+ 4. ":memory:" databases are per connection; a second connect(":memory:") is
+    a different, empty database.
+ 5. Foreign keys are not enforced unless PRAGMA foreign_keys = ON.
+ 6. fetchone() returns None when nothing is found: check before indexing.
+ 7. A one-element parameter needs a comma: (user_id,), not (user_id).
+ 8. UPDATE/DELETE without WHERE changes every row.
+ 9. Dynamic typing: SQLite accepts a string in an INTEGER column unless a
+    CHECK constraint or STRICT table prevents it.
+10. A connection should be used by the thread that created it, unless
+    check_same_thread=False is set carefully.
+11. "database is locked": another connection holds a write lock; keep
+    transactions short, use timeout and WAL mode.
+12. For bigger projects consider an ORM (SQLAlchemy, SQLModel, Django ORM)
+    and migrations (Alembic); the same ideas apply.
+
+
+==============================================================================
+          D. PUTTING IT TOGETHER: API + SQLITE + PYTEST
+==============================================================================
+
+32. A REST API BACKED BY SQLITE
+------------------------------------------------------------------------------
+Files: db.py (section 30), app.py, tests/test_api.py
+
+app.py :
+    import sqlite3
+    from fastapi import FastAPI, HTTPException, Depends, Response
+    from pydantic import BaseModel
+    import db
+
+    app = FastAPI()
+    DB_PATH = "app.db"
+
+    def get_db():                            # dependency: one connection
+        conn = db.get_conn(DB_PATH, check_same_thread=False)
+        db.init_db(conn)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    class UserIn(BaseModel):
+        name: str
+        email: str
+
+    @app.post("/users", status_code=201)
+    def create_user(u: UserIn, conn=Depends(get_db)):
+        try:
+            uid = db.add_user(conn, u.name, u.email)
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409,
+                                detail="Email already exists")
+        return db.get_user(conn, uid)
+
+    @app.get("/users")
+    def list_users(conn=Depends(get_db)):
+        return db.list_users(conn)
+
+    @app.get("/users/{user_id}")
+    def read_user(user_id: int, conn=Depends(get_db)):
+        user = db.get_user(conn, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user
+
+    @app.delete("/users/{user_id}", status_code=204)
+    def remove_user(user_id: int, conn=Depends(get_db)):
+        if not db.delete_user(conn, user_id):
+            raise HTTPException(status_code=404, detail="User not found")
+        return Response(status_code=204)
+
+Layers: HTTP (app.py) -> data access (db.py) -> SQLite. The HTTP layer knows
+nothing about SQL; the data layer knows nothing about HTTP.
+
+tests/test_api.py :
+    import pytest
+    from fastapi.testclient import TestClient
+    import db
+    from app import app, get_db
+
+    @pytest.fixture
+    def client():
+        conn = db.get_conn(":memory:", check_same_thread=False)
+        db.init_db(conn)
+        app.dependency_overrides[get_db] = lambda: conn   # use the test DB
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+        conn.close()
+
+    USER = {"name": "Amit", "email": "a@x.com"}
+
+    def test_create_and_read(client):
+        r = client.post("/users", json=USER)
+        assert r.status_code == 201
+        body = r.json()
+        assert body == {"id": 1, "name": "Amit", "email": "a@x.com"}
+        assert client.get("/users/1").json() == body
+
+    def test_list(client):
+        client.post("/users", json=USER)
+        client.post("/users", json={"name": "Bina", "email": "b@x.com"})
+        r = client.get("/users")
+        assert r.status_code == 200
+        assert [u["name"] for u in r.json()] == ["Amit", "Bina"]
+
+    def test_duplicate_email_conflict(client):
+        client.post("/users", json=USER)
+        r = client.post("/users", json=USER)
+        assert r.status_code == 409
+        assert r.json()["detail"] == "Email already exists"
+
+    def test_not_found(client):
+        assert client.get("/users/42").status_code == 404
+
+    def test_delete(client):
+        client.post("/users", json=USER)
+        assert client.delete("/users/1").status_code == 204
+        assert client.get("/users/1").status_code == 404
+
+    @pytest.mark.parametrize("payload", [{}, {"name": "x"},
+                                         {"email": "x@y.com"}])
+    def test_validation(client, payload):
+        assert client.post("/users", json=payload).status_code == 422
+
+How it works:
+    - The fixture builds a brand-new in-memory database for EVERY test, so
+      tests cannot affect each other.
+    - dependency_overrides swaps the real get_db for the test connection;
+      the code under test does not change.
+    - TestClient calls the app in-process (no server, no network).
+    - Run:   pytest -v    or    pytest --cov=. --cov-report=term-missing
+
+Manual check against a running server:
+    uvicorn app:app --reload
+    import requests
+    requests.post("http://127.0.0.1:8000/users",
+                  json={"name": "Amit", "email": "a@x.com"}, timeout=5).json()
+    # {'id': 1, 'name': 'Amit', 'email': 'a@x.com'}
+    requests.get("http://127.0.0.1:8000/users", timeout=5).json()
+
+33. WORKFLOW SUMMARY
+------------------------------------------------------------------------------
+    1. Design resources and URLs (nouns) and the status codes to return.
+    2. Write the data layer (SQL with ? placeholders) and test it against an
+       in-memory SQLite database.
+    3. Write the endpoints, validating input and mapping errors to codes
+       (IntegrityError -> 409, missing row -> 404, bad input -> 422).
+    4. Test endpoints with the framework test client and pytest fixtures.
+    5. Mock external services; never call real networks in unit tests.
+    6. Measure coverage, run tests in CI, and add a regression test for every
+       bug you fix.
+
+
+==============================================================================
+                 E. PITFALLS AND CHECKLIST
+==============================================================================
+
+34. CHECKLIST
+------------------------------------------------------------------------------
+  1. pytest finds test_*.py files and test_* functions; use plain assert.
+  2. pytest.raises for exceptions; pytest.approx for floats.
+  3. Fixtures give tests their set-up; yield adds tear-down; conftest.py
+     shares them; scope controls reuse (default function).
+  4. @pytest.mark.parametrize for many inputs; skip, skipif, xfail markers.
+  5. Mock external dependencies; patch where the name is used.
+  6. Tests must be independent, fast and repeatable (AAA pattern).
+  7. REST: resources are nouns; methods are verbs; stateless; JSON bodies.
+  8. GET safe + idempotent; PUT/DELETE idempotent; POST not idempotent.
+  9. Status codes: 200, 201, 204, 400, 401, 403, 404, 409, 422, 500.
+ 10. requests: always timeout; raise_for_status(); json= for JSON bodies.
+ 11. sqlite3: parameters (?) not f-strings; commit(); close(); fetchone()
+     returns None when empty.
+ 12. PRAGMA foreign_keys = ON; IntegrityError for constraint violations.
+ 13. Test the data layer and the API with an in-memory database and
+     dependency overrides.
+
+
+==============================================================================
+                  F. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+PYTEST
+Q1. How does pytest discover tests?
+A.  It collects files named test_*.py or *_test.py, then functions named
+    test_* and methods of classes named Test* (without __init__). Other names
+    are ignored.
+
+Q2. pytest vs unittest?
+A.  unittest is built in, class-based and uses self.assertX methods with
+    setUp/tearDown. pytest uses plain assert with rich failure output,
+    function tests, fixtures, parametrisation and plugins, and also runs
+    unittest tests.
+
+Q3. What is the result line for  ..F.s ?
+A.  Two tests passed, one failed, one passed, one skipped (. passed, F failed,
+    s skipped, E error, x xfail, X xpass).
+
+Q4. Why does assert 0.1 + 0.2 == 0.3 fail and how do you test it?
+A.  Binary floating point is inexact (0.30000000000000004). Use
+    assert 0.1 + 0.2 == pytest.approx(0.3) (or math.isclose).
+
+Q5. How do you test that a function raises an exception?
+A.  with pytest.raises(ValueError, match="zero"): divide(1, 0). The context
+    manager gives excinfo with .type and .value.
+
+Q6. What is a fixture? What are scopes?
+A.  A function decorated with @pytest.fixture that provides set-up data or
+    objects to tests via parameter names, with optional tear-down after a
+    yield. Scopes (function default, class, module, package, session) decide
+    how often it is created.
+
+Q7. What is the output with  pytest -s ?
+        @pytest.fixture
+        def res():
+            print("setup"); yield 1; print("teardown")
+        def test_x(res):
+            print("test")
+A.  setup
+    test
+    teardown
+
+Q8. What is conftest.py?
+A.  A special file whose fixtures and hooks are available automatically to
+    all tests in its directory and below, without imports.
+
+Q9. How many tests does this create?
+        @pytest.mark.parametrize("x", [1, 2, 3])
+        @pytest.mark.parametrize("y", [10, 20])
+        def test_grid(x, y): ...
+A.  6 (the Cartesian product of the two parameter lists).
+
+Q10. Difference between skip and xfail?
+A.  skip does not run the test. xfail runs it and expects it to fail: a
+    failure is reported as xfailed (fine), an unexpected pass as xpassed (an
+    error with strict=True).
+
+Q11. monkeypatch vs unittest.mock.patch?
+A.  Both temporarily replace things. monkeypatch (pytest fixture) sets
+    attributes, env variables, dict items and the cwd, undone automatically.
+    patch (unittest.mock) replaces a name with a Mock and records calls for
+    assertions (assert_called_with).
+
+Q12. Where should you patch?
+A.  Where the name is looked up by the code under test, e.g.
+    patch("weather.requests.get") when weather.py does import requests, not
+    "requests.get" blindly or the module where it is defined.
+
+Q13. What is the output?
+        from unittest.mock import Mock
+        m = Mock(side_effect=[1, 2, ValueError])
+        print(m(), m())
+A.  1 2   (a third call would raise ValueError).
+
+Q14. How do you capture printed output or logs in a test?
+A.  capsys (out, err = capsys.readouterr()) for print/stdout, and caplog
+    (caplog.text, caplog.records) for logging.
+
+Q15. How do you create a temporary file in a test?
+A.  Use the tmp_path fixture: p = tmp_path / "a.txt"; p.write_text("hi").
+    The directory is unique per test and cleaned up by pytest.
+
+Q16. What is the AAA pattern and what makes a good test?
+A.  Arrange, Act, Assert. A good test is fast, independent, deterministic,
+    focused on one behaviour, named clearly, and does not rely on network,
+    time or order.
+
+Q17. What is TDD?
+A.  Test-driven development: write a failing test (red), write the minimum
+    code to pass (green), refactor with the tests as a safety net.
+
+Q18. How do you run one test, stop at the first failure, or select by name?
+A.  pytest file.py::test_name ; pytest -x ; pytest -k "expression" ; pytest
+    -m marker ; pytest --lf reruns the last failures.
+
+Q19. What does code coverage tell you?
+A.  Which lines/branches ran during tests (pytest --cov). It shows untested
+    code but not test quality; 100% coverage can still miss bugs.
+
+Q20. Why can sharing a module-scoped fixture cause trouble?
+A.  Tests that mutate the shared object affect later tests, making results
+    depend on order. Use function scope for mutable state.
+
+REST
+Q21. What is REST? Name its main principles.
+A.  An architectural style for web APIs: client-server, stateless requests,
+    resources identified by URIs, a uniform interface using HTTP methods,
+    representations such as JSON, cacheability and a layered system.
+
+Q22. What does "stateless" mean?
+A.  Each request contains everything the server needs (credentials, ids); the
+    server stores no client session between requests, which makes scaling
+    easier.
+
+Q23. Which HTTP methods are safe and which are idempotent?
+A.  Safe (no state change): GET, HEAD, OPTIONS. Idempotent (repeat = same
+    effect): GET, PUT, DELETE, HEAD, OPTIONS. POST is neither; PATCH is not
+    guaranteed idempotent.
+
+Q24. PUT vs PATCH vs POST?
+A.  POST creates a resource (server picks the id) or triggers an action. PUT
+    replaces the whole resource at a known URL. PATCH applies a partial
+    change.
+
+Q25. Match the codes: created, no content, bad request, unauthorized,
+     forbidden, not found, conflict, validation error, server error.
+A.  201, 204, 400, 401 (not authenticated), 403 (not allowed), 404, 409,
+    422, 500.
+
+Q26. Which URL is RESTful: GET /getUsers or GET /users? POST /deleteUser or
+     DELETE /users/5?
+A.  GET /users and DELETE /users/5: use plural nouns for resources and let the
+    HTTP method express the action.
+
+Q27. What is the difference between 401 and 403?
+A.  401: the client is not authenticated (missing/invalid credentials). 403:
+    authenticated, but not permitted to do this.
+
+Q28. How do you call a REST API in Python and handle errors?
+A.  r = requests.get(url, timeout=5); r.raise_for_status(); data = r.json(),
+    inside try / except for Timeout, ConnectionError, HTTPError and
+    RequestException. Always set a timeout; a 404/500 does not raise unless
+    you call raise_for_status().
+
+Q29. json= vs data= in requests.post?
+A.  json=payload serialises to JSON and sets Content-Type: application/json;
+    data=payload sends form-encoded (or raw) data.
+
+Q30. How do you pass query parameters and headers?
+A.  requests.get(url, params={"page": 2}, headers={"Authorization":
+    "Bearer TOKEN"}, timeout=5).
+
+Q31. How do you paginate and version an API?
+A.  Pagination with ?page=2&limit=20, offset/limit or cursor tokens;
+    versioning with /api/v1/... (or a header) so old clients keep working.
+
+Q32. How can retries of POST be made safe?
+A.  Use an Idempotency-Key header (the server stores the result for that key)
+    or design the operation as PUT with a client-chosen id.
+
+Q33. Name authentication options for APIs.
+A.  API keys, HTTP Basic, Bearer tokens / JWT, OAuth 2.0; always over HTTPS.
+
+Q34. REST vs SOAP vs GraphQL?
+A.  REST: resource URLs, HTTP verbs, usually JSON. SOAP: XML messages with a
+    strict contract (WSDL). GraphQL: one endpoint where the client specifies
+    exactly the fields it needs.
+
+Q35. How do you test an API without starting a server?
+A.  Use the framework's test client (FastAPI TestClient, Flask test_client)
+    in pytest, asserting status code, JSON body and side effects.
+
+SQLITE
+Q36. What is SQLite and why use it?
+A.  A serverless, file-based (or in-memory) SQL database in the standard
+    library (sqlite3). No installation or server; ideal for small apps,
+    prototypes and tests. Not suited to heavy concurrent writes.
+
+Q37. Why use parameterised queries? What is SQL injection?
+A.  Values passed separately (execute("... WHERE name = ?", (name,))) cannot
+    change the SQL structure. Formatting user input into the SQL text lets an
+    attacker add conditions such as ' OR '1'='1 and read or destroy data.
+
+Q38. Why call commit()? What does rollback() do?
+A.  Changes made by INSERT/UPDATE/DELETE are inside a transaction and only
+    become permanent on commit(). rollback() discards the uncommitted changes.
+
+Q39. fetchone vs fetchall vs fetchmany?
+A.  fetchone returns the next row (or None); fetchall returns a list of all
+    remaining rows ([] if none); fetchmany(n) returns up to n rows. Iterating
+    the cursor yields rows lazily.
+
+Q40. What is the output?
+        conn = sqlite3.connect(":memory:")
+        print(conn.execute("SELECT 1").fetchone())
+        print(conn.execute("SELECT 1 WHERE 0").fetchone())
+A.  (1,)
+    None
+
+Q41. What does row_factory = sqlite3.Row do?
+A.  Rows can be accessed by column name (row["name"]) as well as index, and
+    converted with dict(row).
+
+Q42. What happens in this code?
+        conn.execute("INSERT INTO users (email) VALUES (?)", ("a@x.com",))
+        conn.execute("INSERT INTO users (email) VALUES (?)", ("a@x.com",))
+A.  The second statement raises sqlite3.IntegrityError: UNIQUE constraint
+    failed: users.email (when email is UNIQUE).
+
+Q43. IntegrityError vs OperationalError?
+A.  IntegrityError: a constraint is violated (UNIQUE, NOT NULL, CHECK,
+    foreign key). OperationalError: a problem with the database operation
+    itself (no such table, syntax error, database is locked).
+
+Q44. What does "with conn:" do?
+A.  It wraps the block in a transaction: commit on success, rollback on an
+    exception. It does NOT close the connection; use contextlib.closing or
+    conn.close().
+
+Q45. What is special about ":memory:"?
+A.  It creates a temporary database in RAM that disappears when the
+    connection closes. Each connection gets its own separate database, so
+    share the connection (check_same_thread=False) when an app or test client
+    uses threads.
+
+Q46. Why do you need PRAGMA foreign_keys = ON?
+A.  SQLite does not enforce foreign key constraints by default; the pragma
+    must be enabled for each connection.
+
+Q47. What do cursor.lastrowid and cursor.rowcount give?
+A.  lastrowid: the id of the last inserted row. rowcount: the number of rows
+    affected by the last INSERT/UPDATE/DELETE (0 means nothing matched).
+
+Q48. executemany vs a loop of execute?
+A.  executemany runs one statement for many parameter sets in a single call,
+    which is shorter and faster; wrap it in a transaction and commit once.
+
+Q49. SQLite vs MySQL/PostgreSQL?
+A.  SQLite is embedded (a file, no server, minimal concurrency, dynamic
+    typing). MySQL/PostgreSQL are client-server databases with many users,
+    users/permissions, replication and strong concurrency for production
+    systems.
+
+Q50. How do you test code that uses a database?
+A.  Separate the data layer, use an in-memory SQLite database created by a
+    pytest fixture for each test (real SQL, fast, isolated), and for the API
+    override the database dependency; reserve mocks for external services.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

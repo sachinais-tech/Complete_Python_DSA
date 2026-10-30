@@ -1,0 +1,1257 @@
+==============================================================================
+     OPERATING SYSTEM BASICS, FILE SYSTEM NAVIGATION AND TERMINAL COMMANDS
+                              - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Every program you write runs on top of an operating system. Knowing how the
+OS manages processes, memory and files - and how to drive it from the
+terminal - is a core skill for developers: you install Python, create virtual
+environments, run servers, read logs, set environment variables and fix
+"command not found" or "permission denied" errors all in the terminal.
+
+    A. Operating system basics   - what an OS does, processes, memory, users
+    B. File system navigation    - paths, folders, permissions, links
+    C. Terminal commands         - shells, command reference for Windows
+                                   (CMD, PowerShell) and Linux/macOS (bash),
+                                   pipes, redirection, environment, scripts
+    D. Developer workflow, mistakes, checklist and interview questions
+
+Notation used below:
+    bash  : Linux, macOS, WSL, Git Bash
+    CMD   : classic Windows Command Prompt (cmd.exe)
+    PS    : PowerShell (Windows PowerShell 5.1 or PowerShell 7+)
+    $ ...  means "type this at the prompt" (do not type the $)
+
+
+==============================================================================
+                     A. OPERATING SYSTEM BASICS
+==============================================================================
+
+2. WHAT IS AN OPERATING SYSTEM?
+------------------------------------------------------------------------------
+An operating system (OS) is the software that manages the computer's
+hardware and provides common services to programs and users. It sits between
+the applications and the hardware.
+
+    Applications (browser, Python programs, editors)
+    -----------------------------------------------
+    Operating system (kernel + system services + shell)
+    -----------------------------------------------
+    Hardware (CPU, RAM, disk/SSD, network card, keyboard, display)
+
+Main jobs of an OS:
+  Function             | What it does
+  ---------------------|---------------------------------------------------
+  Process management   | creates, schedules and ends running programs
+  Memory management    | gives each process memory, protects them from each
+                       | other, uses virtual memory when RAM is short
+  File-system mgmt     | organises data on disks into files and folders
+  Device management    | talks to hardware through drivers
+  I/O management       | keyboard, screen, disk, network
+  Security & users     | accounts, passwords, permissions, isolation
+  Networking           | sockets, IP stack, firewalls
+  User interface       | command line (shell) and/or graphical (GUI)
+  Resource allocation  | shares CPU, memory and devices fairly
+
+Popular operating systems:
+    Windows (Microsoft)       desktops, many enterprises, gaming
+    Linux (many distros: Ubuntu, Debian, Fedora, Arch, RHEL) servers, cloud,
+                              containers, embedded, developer machines
+    macOS (Apple)             Unix-based desktops/laptops
+    Android (Linux kernel), iOS - mobile
+    FreeBSD, Solaris, z/OS - specialised
+
+Types of OS (by use):
+    Desktop/general purpose     Windows, macOS, Linux desktops
+    Server                      Linux Server, Windows Server
+    Mobile                      Android, iOS
+    Embedded                    routers, TVs, cars
+    Real-time (RTOS)            guaranteed response times (FreeRTOS, VxWorks)
+    Batch / multiprogramming / time-sharing / distributed (historical and
+    conceptual categories)
+
+Terms:
+    Multitasking       many programs appear to run at the same time
+    Multiprocessing    several CPUs/cores really run at once
+    Multiuser          several people use the machine with separate accounts
+    Multithreading     one process has several threads of execution
+
+3. KERNEL, SHELL AND SYSTEM CALLS
+------------------------------------------------------------------------------
+    Kernel   : the core of the OS; has full access to hardware; manages CPU,
+               memory, devices; runs in privileged ("kernel") mode.
+    User space: where ordinary programs run with limited privileges.
+    Shell    : a program that lets you type commands (CLI) or a desktop
+               that lets you click (GUI shell). It starts other programs.
+    System call: the controlled doorway from a program into the kernel.
+               Examples: open, read, write, close, fork, exec, exit, mmap,
+               socket. Python's open(), os.getcwd(), os.listdir() eventually
+               make system calls.
+    Driver   : kernel-level code that controls a particular device.
+    Library  : reusable code (libc, DLLs) linking programs to system calls.
+
+Kernel types: monolithic (Linux), microkernel (Minix, QNX), hybrid (Windows
+NT, macOS XNU).
+
+4. BOOT PROCESS
+------------------------------------------------------------------------------
+    1. Power on -> firmware (BIOS or UEFI) tests hardware (POST).
+    2. Firmware finds the boot device and loads the bootloader
+       (GRUB, Windows Boot Manager).
+    3. Bootloader loads the kernel into memory.
+    4. Kernel initialises hardware, mounts the root file system.
+    5. First process starts (init/systemd on Linux, wininit/services on
+       Windows).
+    6. Services start; the login screen or shell appears.
+
+5. PROGRAMS, PROCESSES AND THREADS
+------------------------------------------------------------------------------
+    Program : a file on disk containing instructions (python.exe, script.py
+              run by it).
+    Process : a RUNNING instance of a program, with its own memory space,
+              open files and a unique PID (process id).
+    Thread  : a unit of execution inside a process; threads share the
+              process's memory (cheaper than processes, but need care with
+              shared data).
+
+  Process vs thread:
+    Process: isolated memory, heavier to create, communicate via IPC
+             (pipes, sockets, shared memory)
+    Thread : shared memory, lighter, can interfere with each other
+
+Process states:
+    New -> Ready -> Running -> Terminated
+                      |  ^
+                      v  |
+                    Waiting (blocked on I/O or an event)
+    Ready   : waiting for the CPU
+    Running : executing on a CPU core
+    Waiting : blocked, e.g. reading a file or waiting for input
+
+Process management ideas:
+    - Scheduler decides which ready process gets the CPU (algorithms: FCFS,
+      Shortest Job First, Round Robin with time slices, Priority, multilevel
+      queues).
+    - Context switch: saving one process's state and loading another's so
+      the CPU can alternate between them (has a cost).
+    - Parent/child: a process creates children (Unix fork + exec; Windows
+      CreateProcess).
+    - Zombie: a finished child whose parent has not collected its exit status
+      yet. Orphan: a child whose parent died (adopted by init/systemd).
+    - Daemon / service: a background process without a terminal (web server,
+      database).
+    - Foreground vs background: a foreground process holds the terminal.
+    - Exit code: number returned when a process ends; 0 = success, non-zero =
+      error.
+    - Signals (Unix): SIGINT (Ctrl+C), SIGTERM (polite stop), SIGKILL (force
+      stop, cannot be caught), SIGTSTP (Ctrl+Z suspend), SIGHUP (terminal
+      closed).
+    - Deadlock: processes wait for each other forever. Four conditions: mutual
+      exclusion, hold and wait, no preemption, circular wait.
+
+Standard streams (every process starts with three):
+    stdin  (0)  input, normally the keyboard
+    stdout (1)  normal output, normally the screen
+    stderr (2)  error messages, normally the screen
+    Python: sys.stdin, sys.stdout, sys.stderr; print() writes to stdout,
+    input() reads stdin. Redirection and pipes (section 22) rewire them.
+
+6. MEMORY MANAGEMENT
+------------------------------------------------------------------------------
+    RAM       fast, temporary memory that holds running programs and data;
+              lost at power-off.
+    Disk/SSD  slower, permanent storage.
+    Cache     small, very fast memory close to the CPU.
+    Registers inside the CPU.
+
+    Virtual memory : each process sees its own private address space; the OS
+                     maps it to RAM and, if needed, to disk.
+    Paging         : memory is divided into fixed-size pages (e.g. 4 KB).
+    Page fault     : a page is not in RAM and must be loaded from disk.
+    Swap (Linux) / page file (Windows): disk area used as extra memory.
+                     Using it heavily is very slow ("thrashing").
+    Stack          : memory for function calls and local variables (grows and
+                     shrinks automatically; deep recursion overflows it).
+    Heap           : memory for objects created at run time (Python objects
+                     live on the heap and are freed by garbage collection).
+    Memory leak    : memory that is no longer needed but not released.
+    Segmentation fault / access violation: touching memory you may not use.
+    OOM killer     : Linux kills a process when memory runs out.
+
+    Check memory:   Linux  free -h        Windows  Task Manager / Get-Process
+
+7. USERS, PERMISSIONS AND SECURITY
+------------------------------------------------------------------------------
+    - Every process runs as a user. Files have an owner and permissions.
+    - Administrator (Windows) / root (Linux) / sudo: full control. Use them
+      only when needed; a mistake as root can destroy the system.
+    - Linux/macOS permissions: read (r), write (w), execute (x) for three
+      classes: user (owner), group, others (see section 20).
+    - Windows uses Access Control Lists (ACLs) and User Account Control (UAC)
+      prompts.
+    - Authentication (who are you), authorisation (what may you do).
+    - Firewalls, antivirus, updates, encryption (BitLocker, FileVault, LUKS).
+    - Principle of least privilege: give programs only the access they need.
+
+8. ENVIRONMENT VARIABLES AND PATH
+------------------------------------------------------------------------------
+Environment variables are named values inherited by processes.
+
+    PATH      list of folders searched for executable commands
+    HOME      (Linux/macOS) home directory;  Windows: USERPROFILE
+    USER / USERNAME   current user
+    TEMP / TMP / TMPDIR   temporary folder
+    PYTHONPATH   extra folders where Python looks for modules
+    VIRTUAL_ENV  set by an activated virtual environment
+
+How a command is found: you type  python ; the shell searches each folder in
+PATH, left to right, for an executable named python (python.exe on Windows)
+and runs the first match. "command not found" / "'python' is not recognized"
+means it is not on PATH (or not installed).
+
+    PATH separator: ":" on Linux/macOS, ";" on Windows.
+
+    Linux/macOS:  echo $PATH          export PATH="$PATH:/opt/tools"
+    CMD        :  echo %PATH%         set PATH=%PATH%;C:\tools
+    PowerShell :  $env:PATH           $env:PATH += ";C:\tools"
+
+    Changes made this way last only for the current terminal session. To make
+    them permanent: Windows - System Properties > Environment Variables (or
+    setx NAME value); Linux/macOS - add the export line to ~/.bashrc or
+    ~/.zshrc.
+
+    Python:  import os
+             os.environ.get("HOME")       os.environ["PATH"].split(os.pathsep)
+             os.getenv("MODE", "dev")
+
+9. WINDOWS vs LINUX vs macOS
+------------------------------------------------------------------------------
+  Feature            | Windows           | Linux             | macOS
+  -------------------|-------------------|-------------------|--------------
+  Kernel family      | NT (hybrid)       | Linux (monolithic)| XNU (hybrid)
+  Typical file system| NTFS              | ext4, xfs, btrfs  | APFS
+  Path separator     | \  (/ also works) | /                 | /
+  Top of the tree    | drive letters C:\ | single root /     | single root /
+  Case sensitivity   | no (case-kept)    | YES               | usually no
+  Line endings       | CRLF (\r\n)       | LF (\n)           | LF (\n)
+  Home folder        | C:\Users\name     | /home/name        | /Users/name
+  Executables        | .exe .bat .ps1    | permission bit x  | permission x
+  Default shell      | CMD / PowerShell  | bash              | zsh
+  Package manager    | winget, choco     | apt, dnf, pacman  | Homebrew
+  Run as admin       | "Run as admin"    | sudo              | sudo
+  Hidden files       | hidden attribute  | names start with .| names with .
+  Kill a process     | taskkill          | kill              | kill
+  Python command     | python / py       | python3           | python3
+
+Tips: writing portable code means using pathlib / os.path.join instead of
+hard-coded separators, and opening text files with newline handling in mind
+(Python translates \r\n to \n by default when reading text).
+
+WSL (Windows Subsystem for Linux) runs a real Linux environment inside
+Windows:  wsl --install  then open "Ubuntu". Windows drives appear as
+/mnt/c, /mnt/d. Git Bash (installed with Git for Windows) offers bash on
+Windows with drives as /c/Users/... .
+
+
+==============================================================================
+                    B. FILE SYSTEM NAVIGATION
+==============================================================================
+
+10. WHAT IS A FILE SYSTEM?
+------------------------------------------------------------------------------
+The file system organises data on storage into FILES (named data) and
+DIRECTORIES/FOLDERS (containers of files and folders), forming a tree.
+
+    Common file systems: NTFS, FAT32, exFAT (Windows and USB drives); ext4,
+    xfs, btrfs (Linux); APFS (macOS). Many are "journaling": they log changes
+    so the disk stays consistent after a crash.
+
+Files have: a name (and extension such as .py, .txt, .json), content, size,
+timestamps (created, modified, accessed), permissions, an owner.
+
+Types of files (Unix): regular file, directory, symbolic link, device file,
+socket, pipe. Everything is "a file" in the Unix philosophy (even devices:
+/dev/null discards output, /dev/random gives random bytes).
+
+File name rules:
+    Windows: cannot contain  < > : " / \ | ? *  and cannot be named CON,
+             PRN, AUX, NUL, COM1.. ; names are case-insensitive; no trailing
+             space or dot.
+    Linux  : only "/" and NUL are forbidden; names are case-SENSITIVE
+             (Data.txt and data.txt are different files).
+    Advice : avoid spaces and special characters in project folders; use
+             lowercase_with_underscores. If a name has spaces, quote it:
+             "My Documents".
+
+11. THE DIRECTORY TREE
+------------------------------------------------------------------------------
+Linux/macOS: a single tree starting at the root  /
+
+    /
+    +-- bin      essential commands (ls, cp ...); often a link to /usr/bin
+    +-- boot     kernel and bootloader files
+    +-- dev      device files (/dev/null, /dev/sda)
+    +-- etc      system configuration files
+    +-- home     users' personal folders: /home/alice
+    +-- lib      shared libraries
+    +-- mnt      mount point for temporary file systems
+    +-- media    removable media (USB, DVD)
+    +-- opt      optional/third-party software
+    +-- proc     virtual files describing processes and the kernel
+    +-- root     the administrator's home folder
+    +-- sbin     system administration commands
+    +-- tmp      temporary files (cleared on reboot)
+    +-- usr      user programs and libraries (/usr/bin, /usr/local, /usr/lib)
+    +-- var      changing data: logs (/var/log), caches, mail, spool
+
+    macOS: /Users/name, /Applications, /Library, /System, /Volumes (drives).
+
+Windows: several trees, one per drive letter.
+
+    C:\
+    +-- Windows             the operating system
+    +-- Program Files       64-bit applications
+    +-- Program Files (x86) 32-bit applications
+    +-- ProgramData         shared application data
+    +-- Users
+         +-- Alice
+              +-- Desktop, Documents, Downloads, Pictures
+              +-- AppData  (hidden) Local, LocalLow, Roaming: app settings
+    D:\  E:\  ...           other disks, partitions, USB drives
+
+    Useful variables: %USERPROFILE%  %APPDATA%  %LOCALAPPDATA%  %TEMP%
+    %PROGRAMFILES%  %SystemRoot%  (PowerShell: $env:USERPROFILE ...)
+
+12. PATHS: ABSOLUTE AND RELATIVE
+------------------------------------------------------------------------------
+    Absolute path : complete address from the top of the tree
+        Linux  : /home/alice/projects/app/main.py
+        Windows: C:\Users\Alice\projects\app\main.py
+    Relative path : address from the CURRENT WORKING DIRECTORY
+        projects/app/main.py        ./main.py        ../data/in.csv
+
+Special names:
+    .      the current directory
+    ..     the parent directory (one level up);  ../.. two levels up
+    ~      your home directory (bash, zsh; PowerShell also accepts ~)
+    -      the previous directory (cd - in bash)
+    /      root directory (Linux) or the path separator
+    \      path separator and root of the current drive (Windows)
+    C:     (CMD) the current directory on drive C
+
+Example: current directory is /home/alice/projects
+    ./app           = /home/alice/projects/app
+    ../notes        = /home/alice/notes
+    ~/Downloads     = /home/alice/Downloads
+    /etc/hosts      = absolute, same from anywhere
+
+A relative path depends on where the program is RUN; scripts that open
+"data.csv" fail with FileNotFoundError when started from another folder.
+
+Path tools:
+    Windows paths accept either \ or / in most programs and in Python.
+    In Python strings write "C:\\Users\\Alice" or r"C:\Users\Alice" or
+    "C:/Users/Alice".
+    UNC network paths: \\server\share\file.txt
+
+    pathlib (portable):
+        from pathlib import Path
+        p = Path.home() / "projects" / "main.py"
+        p.parent, p.name, p.suffix, p.stem, p.exists(), p.resolve()
+
+13. NAVIGATION IN PRACTICE
+------------------------------------------------------------------------------
+Where am I?   Which folder holds my files?   Go there.
+
+    bash:  pwd                      print working directory
+           ls                       list the folder
+           cd projects              enter a folder
+           cd ..                    go up one level
+           cd ~  (or just cd)       go home
+           cd -                     jump back to the previous folder
+           cd /var/log              jump to an absolute path
+    CMD:   cd                       print the current directory
+           dir                      list
+           cd projects
+           cd ..
+           cd \                     go to the root of the current drive
+           D:                       switch to drive D
+           cd /d D:\data            change drive AND directory
+    PS:    pwd (Get-Location)       print
+           ls (Get-ChildItem)       list
+           cd (Set-Location) projects
+           cd ..    cd ~    cd \
+
+Folder with spaces: quote it.
+    cd "My Projects"        cd 'C:\Program Files'
+    (bash also accepts:  cd My\ Projects)
+
+Walk through an example (bash):
+    $ pwd
+    /home/alice
+    $ cd projects/shop
+    $ pwd
+    /home/alice/projects/shop
+    $ ls
+    app.py  requirements.txt  tests
+    $ cd tests
+    $ cd ../..
+    $ pwd
+    /home/alice/projects
+
+Tab completion: type the first letters and press Tab to complete names
+(Tab twice to list the options). It prevents typos and speeds up navigation.
+
+Python equivalents:
+    import os
+    os.getcwd()               # like pwd
+    os.chdir("projects")      # like cd
+    os.listdir(".")           # like ls
+    os.path.exists(p)         # like test -e / Test-Path
+    for root, dirs, files in os.walk("."): ...    # like find / tree
+
+14. WILDCARDS (GLOBBING)
+------------------------------------------------------------------------------
+The shell expands patterns BEFORE running the command (bash, PowerShell, CMD
+for most commands):
+
+    *        any number of characters (including none)
+    ?        exactly one character
+    [abc]    one character from the set          [a-z] a range
+    [!abc]   (bash) one character NOT in the set
+    {a,b}    (bash) brace expansion: file.{txt,md} -> file.txt file.md
+
+    ls *.py              all Python files in this folder
+    ls test_??.py        test_01.py, test_ab.py ...
+    ls data[0-9].csv     data0.csv ... data9.csv
+    rm *.tmp             delete all .tmp files (be careful!)
+    dir *.txt            (CMD)       Get-ChildItem *.txt  (PS)
+
+Wildcards are not regular expressions: * means "anything" here, but in regex
+it means "repeat the previous item". Quote patterns you want to pass to a
+program unexpanded: find . -name "*.py"  (the quotes matter).
+Hidden files (names starting with a dot) are not matched by * in bash.
+
+15. HIDDEN FILES, LINKS AND DISK SPACE
+------------------------------------------------------------------------------
+Hidden files
+    Linux/macOS: names starting with "." (.git, .env, .bashrc, .venv).
+                 ls -a shows them.
+    Windows    : a "hidden" attribute. dir /a:h shows them; PowerShell:
+                 Get-ChildItem -Force. Explorer: View > Show hidden items.
+
+Links
+    Hard link     another name for the same data (same inode); ln file link
+    Symbolic link a small file that points to a path (like a shortcut);
+                  ln -s target linkname;   Windows: mklink link target
+    Deleting a symlink removes only the link, not the target.
+
+Inode: the structure holding a file's metadata (size, owner, permissions,
+location of data blocks). The file NAME is only an entry in a directory that
+points to an inode.
+
+Mounting: attaching a disk/partition to a place in the tree (mount, /etc/
+fstab on Linux). Windows assigns drive letters instead.
+
+Disk usage
+    bash: df -h            free/used space per file system
+          du -sh folder    total size of a folder
+          du -h --max-depth=1 .     size of each sub-folder
+    CMD : dir  (shows free bytes)      fsutil volume diskfree C:
+    PS  : Get-PSDrive -PSProvider FileSystem
+          (Get-ChildItem folder -Recurse | Measure-Object Length -Sum).Sum
+
+Archives
+    tar -czvf backup.tar.gz folder/     create a gzip tarball
+    tar -xzvf backup.tar.gz             extract it
+    zip -r backup.zip folder/   unzip backup.zip
+    PS: Compress-Archive -Path folder -DestinationPath backup.zip
+        Expand-Archive backup.zip -DestinationPath out
+    Python: shutil.make_archive("backup", "zip", "folder")
+
+
+==============================================================================
+                       C. TERMINAL COMMANDS
+==============================================================================
+
+16. TERMINAL, SHELL, CONSOLE
+------------------------------------------------------------------------------
+    Terminal (emulator): the window where you type (Windows Terminal, GNOME
+                         Terminal, iTerm2, VS Code's integrated terminal).
+    Shell              : the program inside it that reads and runs your
+                         commands (bash, zsh, fish, sh, cmd.exe, PowerShell).
+    Console            : historically the physical text screen; today often
+                         used as a synonym for terminal.
+    CLI                : command-line interface (typing commands) versus GUI.
+
+  Shell        | Where | Notes
+  -------------|-------|-----------------------------------------------------
+  bash         | Linux, WSL, Git Bash | the most common; scripts end in .sh
+  zsh          | macOS default | bash-like with extra features
+  sh / dash    | Unix | minimal POSIX shell
+  fish         | Unix | friendly, autosuggestions
+  cmd.exe      | Windows | old; scripts .bat / .cmd; text-based
+  PowerShell   | Windows, Linux, macOS | object-based pipelines; .ps1 scripts
+
+Check which shell you are in:  echo $SHELL (bash)   echo %COMSPEC% (CMD)
+$PSVersionTable (PowerShell)
+
+Prompt: shows context and waits for a command.
+    alice@laptop:~/projects$        user@host:current-folder$
+    C:\Users\Alice>                  CMD
+    PS C:\Users\Alice>               PowerShell
+
+17. ANATOMY OF A COMMAND
+------------------------------------------------------------------------------
+    command  [options/flags]  [arguments]
+
+    ls -l -a /home          ls = command, -l -a = options, /home = argument
+    ls -la /home            short options can be combined
+    ls --all --long         long options use two dashes
+    grep -rn "TODO" src/    -r recursive, -n line numbers, "TODO" pattern
+    cp -r source/ backup/
+    CMD options use a slash:  dir /s /b     PowerShell uses -Name value:
+    Get-ChildItem -Path . -Recurse -Filter *.py
+
+Rules:
+    - Parts are separated by spaces; quote anything containing spaces.
+    - Single quotes ' ' (bash) = literal text; double quotes " " allow
+      $variable expansion.
+    - Backslash \ escapes the next character (bash); in PowerShell the
+      escape character is the backtick `.
+    - Case matters on Linux (LS is not ls).
+    - Get help:
+          man ls         full manual (q to quit)       ls --help
+          help cd        (bash builtins)               type ls   which ls
+          dir /?         (CMD)
+          Get-Help Get-ChildItem -Examples             (PowerShell)
+          tldr tar       community cheat sheets (optional tool)
+
+Keyboard shortcuts (bash/zsh; many work in PowerShell/CMD too):
+    Tab           autocomplete             Up/Down   previous/next command
+    Ctrl+C        stop the running command (SIGINT)
+    Ctrl+D        end of input / exit the shell (Linux)    Ctrl+Z  suspend
+    Ctrl+L        clear screen (or type clear / cls)
+    Ctrl+A / E    jump to start / end of the line
+    Ctrl+U / K    delete to start / end of the line
+    Ctrl+W        delete the previous word
+    Ctrl+R        search command history
+    !!            repeat the previous command (bash)    sudo !!
+    history       list previous commands
+
+18. COMMAND CHEAT SHEET: SAME TASK, THREE SHELLS
+------------------------------------------------------------------------------
+Navigation
+  Show current folder
+      bash: pwd              CMD: cd                PS: pwd / Get-Location
+  List files
+      bash: ls  ls -l  ls -la  ls -lh        CMD: dir  dir /a  dir /s /b
+      PS  : ls / dir / Get-ChildItem  (-Force shows hidden, -Recurse)
+  Change folder
+      bash: cd path          CMD: cd path (cd /d D:\x for another drive)
+      PS  : cd path / Set-Location path
+  Show folder tree
+      bash: tree  (install if missing)   CMD: tree /f    PS: tree /f
+  Folder contents sorted/newest first
+      bash: ls -lt           PS: ls | Sort-Object LastWriteTime -Descending
+
+Create, copy, move, delete
+  Make a folder
+      bash: mkdir app   mkdir -p a/b/c (nested)
+      CMD : mkdir app   (creates nested folders too)
+      PS  : mkdir app   / New-Item -ItemType Directory -Path app
+  Create an empty file
+      bash: touch notes.txt              CMD: type nul > notes.txt
+      PS  : New-Item notes.txt           (or ni notes.txt)
+  Copy a file / folder
+      bash: cp a.txt b.txt      cp -r src dst
+      CMD : copy a.txt b.txt    xcopy src dst /s /e     robocopy src dst /e
+      PS  : Copy-Item a.txt b.txt    Copy-Item src dst -Recurse
+  Move or rename
+      bash: mv old.txt new.txt   mv file folder/
+      CMD : move old new    ren old.txt new.txt
+      PS  : Move-Item old new    Rename-Item old.txt new.txt
+  Delete a file
+      bash: rm a.txt       rm -i (ask first)        rm -f (no prompt)
+      CMD : del a.txt      del /q *.tmp
+      PS  : Remove-Item a.txt
+  Delete a folder and everything in it
+      bash: rm -r folder   rm -rf folder   (NO recycle bin, no undo)
+      CMD : rmdir /s /q folder
+      PS  : Remove-Item folder -Recurse -Force
+  Delete an EMPTY folder
+      bash: rmdir folder   CMD: rmdir folder    PS: Remove-Item folder
+
+Viewing and searching
+  Show a file
+      bash: cat f.txt   less f.txt (page, q to quit)   head -n 5 f.txt
+            tail -n 5 f.txt    tail -f app.log (follow new lines)
+      CMD : type f.txt    more f.txt
+      PS  : cat / Get-Content f.txt   Get-Content f.txt -TotalCount 5
+            Get-Content f.txt -Tail 5   Get-Content app.log -Wait
+  Count lines / words / characters
+      bash: wc -l f.txt   wc -w   wc -c
+      PS  : (Get-Content f.txt).Count      CMD: find /c /v "" f.txt
+  Search text inside files
+      bash: grep "error" log.txt    grep -i (ignore case)   grep -n (line no.)
+            grep -r "TODO" .   (recursive)   grep -v "x" (invert)   grep -c
+      CMD : findstr /i /n "error" log.txt     findstr /s /i "todo" *.py
+      PS  : Select-String -Pattern "error" -Path log.txt
+            Select-String "TODO" -Path *.py -Recurse   (also: sls)
+  Find files by name
+      bash: find . -name "*.py"     find . -type f -size +10M
+            find . -name "*.log" -mtime -1 (changed in the last day)
+      CMD : dir /s /b *.py           where python (find an executable)
+      PS  : Get-ChildItem -Recurse -Filter *.py     Get-Command python
+  Find a command's location
+      bash: which python   type -a python   whereis python
+      CMD : where python
+      PS  : Get-Command python | Select-Object Source
+  Print text
+      bash: echo "hello"   printf "%s\n" "hello"
+      CMD : echo hello     PS: echo hello / Write-Output "hello"
+  Clear the screen
+      bash: clear   (Ctrl+L)      CMD: cls      PS: cls / Clear-Host
+  Compare files
+      bash: diff a.txt b.txt      CMD: fc a.txt b.txt
+      PS  : Compare-Object (Get-Content a.txt) (Get-Content b.txt)
+  Sort / unique
+      bash: sort f.txt   sort -n   sort -r   uniq   sort | uniq -c
+      PS  : Get-Content f.txt | Sort-Object | Get-Unique
+  Date, user, machine
+      bash: date   whoami   hostname   uname -a   uptime   id
+      CMD : date /t   time /t   whoami   hostname   ver   systeminfo
+      PS  : Get-Date   whoami   hostname   $PSVersionTable
+
+Processes and system
+  List processes
+      bash: ps aux   ps aux | grep python   top   htop (if installed)
+      CMD : tasklist   tasklist | findstr python
+      PS  : Get-Process   Get-Process python
+  Stop a process
+      bash: kill PID (SIGTERM)    kill -9 PID (force)    pkill python
+      CMD : taskkill /PID 1234 /F    taskkill /IM python.exe /F
+      PS  : Stop-Process -Id 1234 -Force     Stop-Process -Name python
+  Which program uses port 8000?
+      bash: lsof -i :8000      ss -ltnp | grep 8000
+      CMD : netstat -ano | findstr :8000      (the last column is the PID)
+      PS  : Get-NetTCPConnection -LocalPort 8000
+  Environment variables
+      bash: echo $HOME   env / printenv   export NAME=value
+      CMD : echo %USERPROFILE%   set   set NAME=value   setx NAME value
+      PS  : $env:USERPROFILE   Get-ChildItem Env:   $env:NAME = "value"
+  Network
+      bash/CMD/PS: ping google.com    (Linux: Ctrl+C to stop; Windows stops
+                   after 4 packets unless -t)
+      bash: curl -O https://example.com/f.zip   wget URL   ip addr
+            curl -s https://api.example.com/users | head
+      CMD : curl URL   ipconfig   ipconfig /all   nslookup site   tracert site
+      PS  : Invoke-WebRequest URL -OutFile f.zip    ipconfig
+            (in Windows PowerShell 5.1 "curl" is an alias for
+             Invoke-WebRequest; use curl.exe for the real curl)
+      Remote: ssh user@host     scp file user@host:/path/
+  Run as administrator / superuser
+      bash: sudo command     sudo -i (root shell)
+      Windows: open the terminal "as administrator"
+  Exit the shell
+      exit (all shells)
+  Package installation
+      Ubuntu/Debian: sudo apt update && sudo apt install python3-venv
+      Fedora/RHEL  : sudo dnf install python3
+      macOS        : brew install python
+      Windows      : winget install Python.Python.3.12   or choco install ...
+
+19. USEFUL bash COMMANDS IN MORE DETAIL
+------------------------------------------------------------------------------
+ls (list)
+    ls                short names            ls -l    long format
+    ls -a             include hidden         ls -h    human sizes (with -l)
+    ls -R             recursive              ls -t    newest first
+    ls -S             largest first          ls -ld folder  folder itself
+    -rw-r--r-- 1 alice dev 1204 May 17 10:15 notes.txt
+    (type+permissions, links, owner, group, size in bytes, modified, name)
+
+cp / mv / rm
+    cp a b      copy a to b             cp -r dir newdir   copy a folder
+    cp -i       ask before overwriting  cp -v verbose
+    mv a b      rename or move          mv *.txt docs/     move many files
+    rm a        delete                  rm -r dir          delete a folder
+    rm -i ask   rm -f never ask         rm -rf dir         force, recursive
+    DANGER: rm has no undo. Never run rm -rf / or rm -rf * without checking
+    pwd and ls first.
+
+cat / less / head / tail
+    cat a b > c          join files into c
+    cat -n a             number lines
+    head -n 20 a         first 20 lines          tail -n 20 a   last 20 lines
+    tail -f app.log      watch a log as it grows (Ctrl+C to stop)
+
+wc, sort, uniq, cut, tr
+    wc -l file                   number of lines
+    sort file | uniq             remove adjacent duplicates after sorting
+    sort | uniq -c | sort -nr    count occurrences, most frequent first
+    cut -d, -f1,3 data.csv       columns 1 and 3 of a comma-separated file
+    tr 'a-z' 'A-Z' < f           convert to upper case
+    sort -t, -k2 -n data.csv     sort by the 2nd column numerically
+
+grep (search text)
+    grep "def " main.py          lines containing "def "
+    grep -i error log            ignore case       grep -n   show line numbers
+    grep -r "TODO" src/          search all files under src/
+    grep -v "debug" log          lines NOT containing debug
+    grep -c "error" log          count matching lines
+    grep -E "err(or)?|warn" log  extended regular expression
+    grep -l "import os" *.py     only the names of matching files
+
+find
+    find . -name "*.py"                 by name (quote the pattern)
+    find . -type d -name "__pycache__"  directories
+    find . -type f -mtime -7            modified within 7 days
+    find . -size +100M                  larger than 100 MB
+    find . -name "*.pyc" -delete        delete matches
+    find . -name "*.py" -exec wc -l {} +   run a command on each match
+
+sed / awk (text processing, brief)
+    sed 's/old/new/g' file              replace text (prints the result)
+    sed -i 's/old/new/g' file           edit the file in place
+    awk '{print $1}' file               print the first column
+    awk -F, '{sum += $2} END {print sum}' data.csv
+
+xargs and tee
+    find . -name "*.log" | xargs rm     build commands from input lines
+    ls | tee list.txt                   show output AND save it
+
+Command substitution and variables
+    today=$(date +%F)                   store command output
+    echo "Today is $today"
+    name="Alice"; echo "Hello $name"    no spaces around =
+    echo ${#name}                       length of the value
+
+20. FILE PERMISSIONS (LINUX/macOS)
+------------------------------------------------------------------------------
+    $ ls -l script.sh
+    -rwxr-xr-- 1 alice dev 220 May 17 10:15 script.sh
+    |\_/\_/\_/
+    | |  |  +-- others (everyone else): r--  = read only
+    | |  +----- group:                 r-x  = read, execute
+    | +-------- owner (user):          rwx  = read, write, execute
+    +---------- type: - file, d directory, l symbolic link
+
+  Permission | Letter | Number | On a file        | On a directory
+  -----------|--------|--------|------------------|--------------------------
+  read       | r      | 4      | read contents    | list the names inside
+  write      | w      | 2      | change contents  | create/delete entries
+  execute    | x      | 1      | run as program   | enter it (cd) / access
+
+Numeric mode = sum per class (owner, group, others):
+    7 = rwx (4+2+1)   6 = rw-   5 = r-x   4 = r--   0 = ---
+    chmod 755 script.sh    rwxr-xr-x   (typical program or folder)
+    chmod 644 notes.txt    rw-r--r--   (typical text file)
+    chmod 600 key.pem      rw-------   (private files, SSH keys)
+    chmod 777 file         everyone can do everything (avoid)
+Symbolic mode:
+    chmod +x script.sh        add execute for everyone
+    chmod u+x,g-w file        owner gets x, group loses w
+    chmod -R 755 folder       recursive
+    chown alice:dev file      change owner and group (needs sudo)
+
+Make a script runnable:   chmod +x run.sh   then   ./run.sh
+(The ./ is needed because the current folder is not on PATH.)
+"Permission denied" means you lack the needed permission: check ls -l, use
+chmod, or sudo (only when you understand why). On Windows use file
+Properties > Security, or icacls.
+
+21. SEARCHING AND CHAINING COMMANDS
+------------------------------------------------------------------------------
+Run several commands in one line:
+    cmd1 ; cmd2        run cmd2 after cmd1 whatever happens
+    cmd1 && cmd2       run cmd2 ONLY if cmd1 succeeded (exit code 0)
+    cmd1 || cmd2       run cmd2 ONLY if cmd1 failed
+    mkdir build && cd build && echo ready
+    python app.py || echo "app failed"
+
+    CMD supports & (always), && and ||.  PowerShell 7+ supports && and ||;
+    Windows PowerShell 5.1 uses ; and  if ($?) { ... }.
+
+Exit status:
+    echo $?                 (bash)  status of the last command
+    echo %ERRORLEVEL%       (CMD)
+    $LASTEXITCODE, $?       (PowerShell)
+    0 = success; 1, 2, ... = various errors; 127 = command not found;
+    130 = interrupted by Ctrl+C.
+
+22. REDIRECTION AND PIPES
+------------------------------------------------------------------------------
+Rewire standard input/output (works in bash, CMD and PowerShell):
+
+    command > file         write stdout to a file (REPLACES its contents)
+    command >> file        APPEND stdout to a file
+    command < file         read stdin from a file
+    command 2> err.txt     write stderr (errors) to a file
+    command > out.txt 2>&1 stdout and stderr to the same file
+    command &> all.txt     (bash) both streams to a file
+    command > /dev/null    throw output away (CMD/PS: > nul / > $null)
+    command 2>/dev/null    hide error messages
+
+    echo "hello" > a.txt           create/overwrite a.txt
+    echo "world" >> a.txt          add a line
+    python script.py > out.log 2>&1
+    python script.py < input.txt
+    sort < names.txt > sorted.txt
+
+Pipe |  : send the output of one command into the input of the next.
+    ls | wc -l                          how many entries
+    cat app.log | grep ERROR | sort | uniq -c | sort -nr | head -5
+    ps aux | grep python
+    history | grep git
+    tasklist | findstr python          (CMD)
+    Get-Process | Where-Object CPU -gt 100 | Sort-Object CPU -Descending
+    (PowerShell pipes OBJECTS with properties, not just text.)
+
+    echo "a b c" | tr ' ' '\n'            put words on separate lines
+    python -c "print(1+1)" | cat
+    ls -l | tee listing.txt               display and save
+
+Python and the standard streams:
+    python script.py < in.txt > out.txt   (input() reads in.txt)
+    print("error", file=sys.stderr)        goes to stderr (not into out.txt)
+    for line in sys.stdin: ...             reads piped data
+    sys.exit(2)                            sets the exit status
+
+Here-document (bash): feed several lines to a command
+    cat <<EOF > config.txt
+    name=demo
+    debug=true
+    EOF
+
+23. PROCESSES AND JOBS FROM THE TERMINAL
+------------------------------------------------------------------------------
+    ps aux                         all processes (USER PID %CPU %MEM ... CMD)
+    ps -ef | grep python
+    top  /  htop                   live view (q to quit)
+    kill 1234                      ask politely to stop (SIGTERM)
+    kill -9 1234                   force kill (SIGKILL) - last resort
+    pkill -f "uvicorn"             kill by name
+    Ctrl+C                         interrupt the foreground program
+
+Background and foreground (bash):
+    python server.py &             start in the background
+    jobs                           list background jobs of this shell
+    fg %1                          bring job 1 to the foreground
+    Ctrl+Z then bg                 suspend, then continue in the background
+    nohup python server.py > out.log 2>&1 &    keep running after logout
+    disown                         detach a job from the shell
+    wait                           wait for background jobs to finish
+
+Windows:
+    start notepad                  (CMD) launch a program and continue
+    tasklist /fi "imagename eq python.exe"
+    taskkill /PID 1234 /F          force
+    Start-Process python -ArgumentList "app.py"     (PowerShell)
+    Task Manager: Ctrl+Shift+Esc
+
+Port in use ("address already in use" when starting a web server):
+    bash: lsof -i :8000  then  kill PID
+    CMD : netstat -ano | findstr :8000  then  taskkill /PID <PID> /F
+
+Services: systemctl status|start|stop|restart nginx (Linux),
+services.msc / Get-Service / sc query (Windows).
+Scheduled jobs: cron (crontab -e) on Linux/macOS, Task Scheduler on Windows.
+
+24. ALIASES, HISTORY AND CONFIGURATION
+------------------------------------------------------------------------------
+    alias ll='ls -lah'             create a shortcut (put it in ~/.bashrc)
+    unalias ll
+    history | tail                 recent commands       !42 run entry 42
+    source ~/.bashrc  (. ~/.bashrc)   reload the config file
+    ~/.bashrc / ~/.zshrc           run for each new interactive shell
+    ~/.profile / ~/.bash_profile   run at login
+    PowerShell profile:            $PROFILE  (a .ps1 file run at startup)
+    PS aliases: Get-Alias; set with Set-Alias ll Get-ChildItem
+
+Customise the prompt (bash): export PS1='\u@\h:\w\$ '
+
+25. SHELL SCRIPTS (BRIEF)
+------------------------------------------------------------------------------
+A script is a text file of commands.
+
+bash (backup.sh):
+    #!/bin/bash
+    # copy .py files into a dated backup folder
+    set -e                                # stop on the first error
+    dest="backup_$(date +%F)"
+    mkdir -p "$dest"
+    for f in *.py; do
+        cp "$f" "$dest/"
+        echo "copied $f"
+    done
+    if [ -d "$dest" ]; then
+        echo "done: $dest"
+    fi
+    # run:  chmod +x backup.sh && ./backup.sh        or   bash backup.sh
+
+    Pieces: shebang (#!) chooses the interpreter; variables name=value (no
+    spaces); use "$name"; $1 $2 arguments, $# count, $@ all; $? last status;
+    test with [ -f file ], [ -d dir ], [ "$a" = "$b" ], [ $n -gt 5 ];
+    if/elif/else/fi, for/while ... do/done, case ... esac, functions.
+
+Windows batch (backup.bat):
+    @echo off
+    set DEST=backup
+    if not exist %DEST% mkdir %DEST%
+    for %%f in (*.py) do copy "%%f" %DEST%\ >nul
+    echo done
+
+PowerShell (backup.ps1):
+    $dest = "backup_" + (Get-Date -Format yyyy-MM-dd)
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    foreach ($f in Get-ChildItem *.py) {
+        Copy-Item $f.FullName $dest
+        Write-Host "copied $($f.Name)"
+    }
+    # If scripts are blocked:  Set-ExecutionPolicy -Scope CurrentUser
+    # RemoteSigned    run with  .\backup.ps1
+
+Python as a scripting language (portable across all systems):
+    import shutil, pathlib
+    for f in pathlib.Path(".").glob("*.py"):
+        shutil.copy(f, "backup/")
+
+
+==============================================================================
+          D. DEVELOPER WORKFLOW, MISTAKES, CHECKLIST, INTERVIEW Q&A
+==============================================================================
+
+26. TERMINAL COMMANDS FOR PYTHON PROJECTS
+------------------------------------------------------------------------------
+    python --version            python -V          (python3 on Linux/macOS)
+    where python / which python find the interpreter in use
+    py -0                       (Windows launcher) list installed Pythons
+    python script.py            run a script       python -m module
+    python -c "print(2**10)"    one-liner          python -i script.py
+    python                      REPL (exit with exit() or Ctrl+Z+Enter on
+                                Windows / Ctrl+D elsewhere)
+    pip install requests        python -m pip install requests
+    pip list / pip freeze > requirements.txt / pip install -r requirements.txt
+
+Virtual environment (per project):
+    python -m venv .venv
+    Activate:   Windows CMD       .venv\Scripts\activate
+                PowerShell        .venv\Scripts\Activate.ps1
+                Git Bash          source .venv/Scripts/activate
+                Linux / macOS     source .venv/bin/activate
+    The prompt shows (.venv); `which python` now points into .venv.
+    deactivate                  leave the environment
+    PowerShell blocked? Set-ExecutionPolicy -Scope Process RemoteSigned
+
+Typical session:
+    $ mkdir shop && cd shop
+    $ python -m venv .venv
+    $ source .venv/bin/activate          (or the Windows form above)
+    (.venv) $ pip install fastapi uvicorn pytest
+    (.venv) $ pytest -q
+    (.venv) $ uvicorn main:app --reload
+    (.venv) $ code .                      open the folder in VS Code
+
+Other common tools: git status / add / commit / push / pull; docker ps;
+code . (VS Code); explorer . (Windows), open . (macOS), xdg-open . (Linux)
+to open the current folder in the file manager.
+
+Run a long task and log it:
+    python train.py > train.log 2>&1 &   then   tail -f train.log
+
+27. COMMON MISTAKES AND FIXES
+------------------------------------------------------------------------------
+  Symptom                                  | Cause and fix
+  -----------------------------------------|---------------------------------
+  'python' is not recognized / command not | not installed or not on PATH;
+  found                                    | reinstall with "Add to PATH",
+                                           | or use py / python3
+  No such file or directory                | wrong folder or typo; check pwd,
+                                           | ls, Tab completion
+  Permission denied                        | wrong permissions; ls -l, chmod,
+                                           | sudo (carefully); run as admin
+  FileNotFoundError in Python              | relative path used from another
+                                           | working directory
+  cd D:\x does nothing (CMD)               | use cd /d D:\x or D: first
+  Path with spaces fails                   | quote it: "C:\My Files\a.txt"
+  rm deleted the wrong files               | no undo; use rm -i, ls first,
+                                           | never rm -rf with variables that
+                                           | may be empty
+  > overwrote my file                      | use >> to append
+  Script runs in one shell but not another | different syntax (CMD vs bash)
+  Case problems (works on Windows, not     | Linux is case-sensitive:
+  Linux)                                   | Data.csv != data.csv
+  ^M / \r in scripts on Linux              | Windows line endings (CRLF);
+                                           | convert with dos2unix
+  Activate script blocked in PowerShell    | execution policy (see above)
+  Address already in use                   | another process owns the port;
+                                           | find and kill it
+  Wrong Python / packages not found        | virtual environment not active;
+                                           | check where python / pip -V
+  Command works with sudo only             | file or port needs admin rights
+  Ctrl+C does not stop it                  | try Ctrl+\ or kill -9 from
+                                           | another terminal
+  Typing a password shows nothing          | normal: input is hidden
+
+28. SAFETY RULES
+------------------------------------------------------------------------------
+ 1. Check where you are (pwd) and what is there (ls) before deleting.
+ 2. Prefer rm -i or move to a trash folder while learning.
+ 3. Never run commands copied from the internet without understanding them,
+    especially with sudo or curl ... | bash.
+ 4. Do not work as root/administrator for everyday tasks.
+ 5. Back up important files before bulk operations (cp -r, git commit).
+ 6. Use quotes around variables and paths ("$dir") so spaces do not split
+    them.
+ 7. Test destructive commands with a dry run first (ls the pattern; rsync -n).
+ 8. Keep secrets out of command history and scripts (use environment
+    variables or secret managers).
+
+29. CHECKLIST
+------------------------------------------------------------------------------
+  1. An OS manages processes, memory, files, devices, users and networking.
+  2. Kernel = core; shell = command interpreter; system calls link them.
+  3. A process is a running program with its own memory; threads share it.
+  4. Standard streams: stdin 0, stdout 1, stderr 2; exit code 0 means ok.
+  5. PATH decides which executable runs when you type a command.
+  6. Linux has one root /, case-sensitive names; Windows has drive letters
+     and is case-insensitive.
+  7. Absolute path starts at the root/drive; relative path starts at the
+     current folder; . current, .. parent, ~ home.
+  8. Navigate with pwd, ls, cd (CMD: cd, dir; PowerShell: Get-Location,
+     Get-ChildItem, Set-Location).
+  9. > overwrites, >> appends, | pipes, 2> redirects errors, && runs the next
+     command only on success.
+ 10. rwx = 4+2+1; chmod 755 / 644; ls -l shows permissions.
+ 11. kill sends SIGTERM, kill -9 sends SIGKILL; Ctrl+C sends SIGINT.
+ 12. Use virtual environments and the activate script for your shell.
+ 13. Quote paths with spaces; no undo for rm/del.
+
+
+==============================================================================
+                  E. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+OPERATING SYSTEM BASICS
+Q1. What is an operating system? List its main functions.
+A.  Software that manages hardware and provides services for programs:
+    process management, memory management, file-system management, device
+    (I/O) management, security and user management, networking and a user
+    interface.
+
+Q2. What is the difference between the kernel and the shell?
+A.  The kernel is the core of the OS with direct hardware access (scheduling,
+    memory, devices). The shell is a user-facing program that reads commands
+    (or clicks) and asks the kernel, through system calls, to do the work.
+
+Q3. What is a system call?
+A.  The controlled interface through which a user program requests a kernel
+    service (open, read, write, fork, exec, exit). Library functions such as
+    Python's open() end up making system calls.
+
+Q4. Difference between a program, a process and a thread?
+A.  A program is a file of instructions; a process is a running instance with
+    its own memory and PID; a thread is an execution path inside a process
+    sharing that process's memory. Threads are lighter but need
+    synchronisation.
+
+Q5. What are the states of a process?
+A.  New, Ready (waiting for CPU), Running, Waiting/Blocked (waiting for I/O
+    or an event) and Terminated.
+
+Q6. What is a context switch?
+A.  Saving the state of the running process and loading the state of another
+    so the CPU can multitask. It is useful but has overhead.
+
+Q7. What is virtual memory?
+A.  A technique giving each process its own large private address space,
+    mapped by the OS to RAM and to disk (swap/page file) when needed, using
+    paging. It provides isolation and lets programs use more memory than
+    physical RAM, at the cost of speed when swapping.
+
+Q8. What is a deadlock? What are its necessary conditions?
+A.  A state where processes wait forever for resources held by each other.
+    Conditions: mutual exclusion, hold and wait, no preemption, circular
+    wait. Breaking any one prevents it.
+
+Q9. Multitasking vs multiprocessing vs multithreading?
+A.  Multitasking: the OS time-slices the CPU among many tasks.
+    Multiprocessing: several CPUs/cores run tasks truly in parallel.
+    Multithreading: one
+    process runs several threads. (In CPython the GIL limits parallel
+    execution of Python threads; use multiprocessing for CPU-bound work.)
+
+Q10. What is a zombie process? An orphan process? A daemon?
+A.  Zombie: finished but its parent has not read its exit status yet.
+    Orphan: its parent exited (it is adopted by init/systemd). Daemon: a
+    background service process with no controlling terminal.
+
+Q11. What are stdin, stdout and stderr?
+A.  The three standard streams every process has, with file descriptors 0
+    (input), 1 (normal output) and 2 (error output). They can be redirected
+    to files or piped to other programs.
+
+Q12. What does an exit code of 0 mean? How do you read it?
+A.  Success; non-zero values mean errors. Read it with echo $? (bash),
+    %ERRORLEVEL% (CMD) or $LASTEXITCODE (PowerShell). Python sets it with
+    sys.exit(n).
+
+Q13. What happens when a computer boots?
+A.  Firmware (BIOS/UEFI) runs POST and loads the bootloader, which loads the
+    kernel; the kernel initialises hardware and mounts the root file system;
+    the first process (init/systemd) starts services; the login prompt
+    appears.
+
+Q14. What is PATH?
+A.  An environment variable listing folders the shell searches, in order, for
+    executables when you type a command. If a program's folder is not in
+    PATH, you get "command not found" / "not recognized" unless you give the
+    full path.
+
+Q15. Main differences between Windows and Linux?
+A.  Linux: single root /, case-sensitive, forward slashes, LF line endings,
+    permission bits, bash, apt/dnf. Windows: drive letters, case-insensitive,
+    backslashes, CRLF line endings, ACLs, CMD/PowerShell, winget/choco.
+
+FILE SYSTEM NAVIGATION
+Q16. Absolute vs relative path?
+A.  An absolute path starts at the root (/home/a/x or C:\Users\a\x) and is
+    valid from anywhere. A relative path starts from the current working
+    directory (data/in.csv, ../x) and changes meaning with the directory.
+
+Q17. What do ., .., ~ and - mean in the shell?
+A.  . current directory, .. parent directory, ~ home directory, and cd -
+    returns to the previous directory.
+
+Q18. What is the output sequence?
+        $ pwd
+        /home/alice/projects
+        $ cd ../notes/.. && pwd
+A.  /home/alice   (../notes goes to /home/alice/notes, the final .. returns to
+    /home/alice).
+
+Q19. What are the important Linux directories /etc, /var, /home, /usr, /tmp,
+     /dev?
+A.  /etc configuration; /var changing data such as logs; /home user folders;
+    /usr installed programs and libraries; /tmp temporary files; /dev device
+    files.
+
+Q20. How do you change to another drive in CMD?
+A.  Type the drive letter (D:) to switch drives, or cd /d D:\folder to change
+    drive and directory in one command. Plain cd D:\folder only changes the
+    remembered directory on D:.
+
+Q21. What is the difference between a hard link and a symbolic link?
+A.  A hard link is another directory entry for the same inode/data (survives
+    deletion of the original name, same file system only). A symbolic link is
+    a small file holding a path; it breaks if the target is removed and can
+    cross file systems.
+
+Q22. What are wildcards and how do they differ from regular expressions?
+A.  Shell patterns expanded before the command runs: * any characters, ?
+    one character, [abc] a set. In regex * repeats the previous item and .
+    matches any character, so the syntaxes are different.
+
+Q23. How do you find all .py files below the current folder, and show hidden
+     files?
+A.  find . -name "*.py" (bash), dir /s /b *.py (CMD), Get-ChildItem -Recurse
+    -Filter *.py (PowerShell). Hidden files: ls -a, dir /a:h, Get-ChildItem
+    -Force.
+
+Q24. Why does a relative path work in one terminal but fail in another?
+A.  Relative paths resolve against the current working directory, which is
+    where the process was started. Use absolute paths or build paths from
+    __file__ / pathlib.
+
+TERMINAL COMMANDS
+Q25. What is the difference between terminal, shell and console?
+A.  The terminal is the window/emulator; the shell (bash, zsh, cmd,
+    PowerShell) is the program that interprets commands; console is an older
+    term for the text interface, now often used interchangeably with
+    terminal.
+
+Q26. Give the commands to print the current directory, list files with
+     details, change directory, make and remove a folder (bash).
+A.  pwd, ls -l (or ls -la), cd path, mkdir name (mkdir -p a/b), rmdir name for
+    an empty folder or rm -r name for a non-empty one.
+
+Q27. What is the difference between > and >>? And 2>&1?
+A.  > writes output to a file, replacing its contents; >> appends to it.
+    2>&1 sends stderr to the same place as stdout, e.g.
+    python app.py > out.log 2>&1.
+
+Q28. What does a pipe do? What does this command do?
+        cat app.log | grep ERROR | sort | uniq -c | sort -nr | head -3
+A.  A pipe connects one command's output to the next one's input. This
+    pipeline keeps lines containing ERROR, sorts them, counts duplicate lines,
+    sorts the counts from largest to smallest and shows the 3 most common
+    error lines.
+
+Q29. Difference between ;, && and || ?
+A.  ; runs the next command regardless; && runs it only if the previous
+    command succeeded (exit code 0); || runs it only if the previous failed.
+
+Q30. How do you find which process uses port 8000 and stop it?
+A.  Linux/macOS: lsof -i :8000 (or ss -ltnp) then kill PID. Windows:
+    netstat -ano | findstr :8000, then taskkill /PID <PID> /F (or
+    Get-NetTCPConnection / Stop-Process in PowerShell).
+
+Q31. kill vs kill -9?
+A.  kill sends SIGTERM, letting the program clean up and exit. kill -9 sends
+    SIGKILL, which cannot be caught or ignored and ends the process at once
+    (no clean-up), so it is a last resort. Ctrl+C sends SIGINT.
+
+Q32. Explain the permissions in  -rwxr-xr--  and what chmod 754 does.
+A.  A regular file (-); owner rwx, group r-x, others r--. chmod 754 sets
+    exactly that: 7 = rwx, 5 = r-x, 4 = r--. chmod +x adds execute for all.
+
+Q33. What does sudo do and why be careful?
+A.  It runs a command with superuser (root) privileges. Mistakes with root
+    rights can delete or damage system files, and unknown commands may be
+    malicious, so use it only when necessary.
+
+Q34. How do you view the last 50 lines of a log and keep watching new lines?
+A.  tail -n 50 -f app.log (bash); Get-Content app.log -Tail 50 -Wait
+    (PowerShell). Stop with Ctrl+C.
+
+Q35. How do you search for text inside files in each shell?
+A.  bash: grep -rn "text" . ; CMD: findstr /s /i /n "text" *.py ;
+    PowerShell: Select-String -Pattern "text" -Path *.py -Recurse.
+
+Q36. How do you set and read an environment variable in each shell?
+A.  bash: export NAME=value, echo $NAME. CMD: set NAME=value, echo %NAME%
+    (setx to persist). PowerShell: $env:NAME = "value", $env:NAME. In Python
+    read it with os.environ.get("NAME").
+
+Q37. How do you create and activate a Python virtual environment?
+A.  python -m venv .venv, then .venv\Scripts\activate (CMD),
+    .venv\Scripts\Activate.ps1 (PowerShell), source .venv/Scripts/activate
+    (Git Bash) or source .venv/bin/activate (Linux/macOS). deactivate leaves
+    it.
+
+Q38. How do you run a command in the background and keep it running after
+     logout?
+A.  command & runs it in the background; nohup command > out.log 2>&1 &
+    keeps it running after the terminal closes. jobs lists jobs, fg brings
+    one forward.
+
+Q39. Why can rm -rf be dangerous and how do you reduce the risk?
+A.  It deletes recursively and forcibly with no undo or recycle bin, and a
+    typo or an empty variable (rm -rf "$DIR"/ ) can wipe far more than
+    intended. Check pwd and ls first, use rm -i, quote variables, and keep
+    backups.
+
+Q40. What is the difference between CMD and PowerShell?
+A.  CMD is an old text-based shell with limited commands and .bat scripts.
+    PowerShell is a modern shell and scripting language whose pipelines pass
+    .NET objects with properties (Get-Process | Where-Object CPU -gt 100),
+    has Verb-Noun cmdlets (Get-ChildItem, Set-Location) and aliases like ls,
+    cd and cat, and runs on Windows, Linux and macOS.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

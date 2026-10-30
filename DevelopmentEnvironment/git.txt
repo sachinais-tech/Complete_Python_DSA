@@ -1,0 +1,1223 @@
+==============================================================================
+          GIT, GITHUB AND PYTHON VIRTUAL ENVIRONMENTS - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+Two habits separate hobby code from professional projects:
+    1. Keep every change in VERSION CONTROL (Git) and share it (GitHub).
+    2. Give every project its own ISOLATED set of packages (virtual
+       environment).
+
+    A. Git and GitHub          - concepts, commands, branches, merging,
+                                 remotes, pull requests, workflows
+    B. Virtual environments    - venv, requirements.txt, other tools
+    C. Git + venv together     - a complete project workflow
+    D. Checklist and interview questions
+
+Together they answer: "Can another person (or my future self) clone the
+project and run it exactly as it runs on my machine?"
+
+
+==============================================================================
+                        A. GIT AND GITHUB
+==============================================================================
+
+2. WHAT IS VERSION CONTROL? GIT vs GITHUB
+------------------------------------------------------------------------------
+Version control records the history of changes to files so you can:
+    - go back to any earlier version, see who changed what and why
+    - work on features in parallel (branches) and merge them
+    - collaborate with many people without overwriting each other
+    - keep a backup and an audit trail
+
+Kinds of systems:
+    Local          copies of files (final_v2_really_final.py ...)
+    Centralised    one central server (SVN, CVS)
+    Distributed    every clone holds the FULL history (Git, Mercurial). You
+                   can commit, branch and browse history offline.
+
+  Git                                     | GitHub
+  ----------------------------------------|---------------------------------
+  Free, open-source version control tool  | A web service that hosts Git
+  that runs on your computer              | repositories and adds teamwork
+  Created by Linus Torvalds (2005)        | Owned by Microsoft; features: pull
+  Commands: git init, commit, branch ...  | requests, issues, Actions (CI/CD),
+                                          | Pages, code review, projects
+  Works without internet or GitHub        | Alternatives: GitLab, Bitbucket,
+                                          | Azure DevOps, Gitea
+
+3. INSTALLING AND CONFIGURING GIT
+------------------------------------------------------------------------------
+Install:
+    Windows : https://git-scm.com/download/win (also installs Git Bash and
+              Git Credential Manager) or  winget install Git.Git
+    macOS   : brew install git   or   xcode-select --install
+    Linux   : sudo apt install git    (Fedora: sudo dnf install git)
+    Check   : git --version
+
+One-time configuration (identity is stored in every commit):
+    git config --global user.name  "Your Name"
+    git config --global user.email "you@example.com"
+    git config --global init.defaultBranch main
+    git config --global core.editor "code --wait"      (VS Code as editor)
+    git config --global core.autocrlf true             (Windows)
+    git config --global core.autocrlf input            (Linux / macOS)
+    git config --global pull.rebase false              (pull = fetch + merge)
+    git config --global alias.st status
+    git config --global alias.lg "log --oneline --graph --all"
+    git config --list                  show all settings
+    git config user.name               show one value
+
+Config levels (most specific wins):
+    --system  all users            --global  your user (~/.gitconfig)
+    --local   this repo only (.git/config; default without a flag)
+
+Use the same email as your GitHub account so commits are linked to your
+profile (or GitHub's private noreply address).
+
+4. CORE CONCEPTS
+------------------------------------------------------------------------------
+    Repository (repo)   the project folder plus its full history, stored in
+                        the hidden .git directory.
+    Working directory   the files you see and edit (the "working tree").
+    Staging area (index) a holding area where you choose what goes into the
+                        next commit.
+    Commit              a snapshot of the staged files with a message, an
+                        author, a date and a unique id (SHA-1 hash like
+                        a1b2c3d4...). Commits form a chain (a graph) where
+                        each points to its parent(s).
+    Branch              a movable name pointing to a commit (default branch:
+                        main; older repos: master).
+    HEAD                a pointer to the commit/branch you are currently on.
+    Tag                 a fixed name for a commit (releases: v1.0.0).
+    Remote              another copy of the repo, usually on GitHub (named
+                        origin by default).
+    Clone               a full copy of a remote repository.
+
+The three areas and the flow of changes:
+
+    Working directory --git add--> Staging area --git commit--> Local repo
+          ^                                                         |
+          |<------------------------ git restore / checkout --------|
+                                          git push --> Remote (GitHub)
+                                          <-- git pull / fetch --
+
+File states:
+    Untracked   new file Git does not know yet
+    Tracked: Unmodified / Modified (changed, not staged) / Staged (ready to
+    commit)
+Git stores SNAPSHOTS of the whole project at each commit (unchanged files are
+referenced, not copied again), not just line differences.
+
+Inside .git: objects/ (all data), refs/ (branches, tags), HEAD, index (the
+staging area), config. Never edit it by hand; deleting .git removes the
+history.
+
+5. YOUR FIRST REPOSITORY
+------------------------------------------------------------------------------
+    $ mkdir demo && cd demo
+    $ git init -b main
+    Initialized empty Git repository in .../demo/.git/
+    $ echo 'print("hello")' > main.py
+    $ git status
+    On branch main
+    No commits yet
+    Untracked files:
+      (use "git add <file>..." to include in what will be committed)
+            main.py
+    $ git add main.py
+    $ git commit -m "Add main.py"
+    [main (root-commit) a1b2c3d] Add main.py
+     1 file changed, 1 insertion(+)
+     create mode 100644 main.py
+    $ git log --oneline
+    a1b2c3d (HEAD -> main) Add main.py
+
+The cycle you repeat all day:
+    edit files -> git status -> git add -> git commit -> (git push)
+
+6. EVERYDAY COMMANDS
+------------------------------------------------------------------------------
+  Command                          | What it does
+  ---------------------------------|----------------------------------------
+  git init                         | start a repo in the current folder
+  git clone URL [folder]           | copy a remote repo (history included)
+  git status                       | show changed / staged / untracked files
+  git status -s                    | short format
+  git add file                     | stage a file
+  git add .                        | stage everything in this folder (new,
+                                   | modified, deleted)
+  git add -A                       | stage all changes in the repo
+  git add -p                       | choose pieces of a file (hunks) to stage
+  git commit -m "message"          | commit the staged changes
+  git commit -am "message"         | stage MODIFIED tracked files + commit
+                                   | (does not add new files)
+  git commit --amend               | change the last commit (message/files)
+  git diff                         | unstaged changes (working vs index)
+  git diff --staged                | staged changes (index vs last commit)
+  git diff HEAD                    | all changes since the last commit
+  git diff A B                     | differences between two commits/branches
+  git log                          | history (newest first)
+  git log --oneline                | one line per commit
+  git log --oneline --graph --all  | branch graph
+  git log -n 5 / --stat / -p       | last 5 / files changed / full patches
+  git log --author="Name" --since="2 weeks ago"
+  git show HEAD / git show a1b2c3d | details of one commit
+  git rm file                      | delete a file and stage the deletion
+  git rm --cached file             | stop tracking, KEEP the file on disk
+  git mv old new                   | rename/move a tracked file
+  git restore file                 | discard unstaged changes in a file
+  git restore --staged file        | unstage (keep the changes)
+  git branch / git switch / merge  | see sections 9-10
+  git remote / push / pull / fetch | see section 15
+  git stash / git tag              | see sections 13-14
+
+Reading git status:
+    On branch main
+    Changes to be committed:            <- staged
+            modified:   app.py
+    Changes not staged for commit:      <- edited but not added
+            modified:   utils.py
+    Untracked files:                    <- new files
+            notes.txt
+
+Reading git diff:
+    diff --git a/app.py b/app.py
+    --- a/app.py                (old version)
+    +++ b/app.py                (new version)
+    @@ -1,2 +1,3 @@             (line ranges of the change)
+     print("hello")             (unchanged line: starts with a space)
+    +print("world")              (added line: +)
+    -print("old")                (removed line: -)
+
+7. UNDOING THINGS
+------------------------------------------------------------------------------
+  Situation                           | Command
+  ------------------------------------|--------------------------------------
+  Unstage a file                      | git restore --staged file
+  Throw away edits in a file          | git restore file     (cannot undo!)
+  Fix the last commit message/files   | git add forgotten.py
+                                      | git commit --amend [--no-edit]
+  Undo last commit, keep the changes  | git reset --soft HEAD~1  (staged)
+  staged or just unstaged             | git reset HEAD~1  (unstaged, default)
+  Undo last commit and DISCARD all    | git reset --hard HEAD~1
+  Undo a commit already pushed        | git revert <hash>   (makes a new
+  (safe for shared history)           | commit that reverses it)
+  Get an old version of a file        | git restore --source=<hash> file
+  Look at an old commit               | git switch --detach <hash>
+  Remove untracked files              | git clean -n (dry run), git clean -fd
+  Find "lost" commits                 | git reflog, then git switch -c rescue
+                                      | <hash>  or  git reset --hard <hash>
+
+reset modes (move the branch pointer back):
+    --soft   keep changes STAGED          --mixed (default) keep changes
+    --hard   DISCARD changes in the working directory (dangerous)
+    HEAD~1 = the parent of HEAD; HEAD~3 = three commits back.
+
+  reset vs revert vs restore:
+    reset   moves the branch pointer (rewrites history; avoid on pushed work)
+    revert  adds a NEW commit that undoes an earlier one (safe everywhere)
+    restore changes files in the working directory / index only
+
+git reflog records where HEAD has been for ~90 days, so almost nothing
+committed is truly lost, even after reset --hard.
+
+8. WRITING GOOD COMMITS
+------------------------------------------------------------------------------
+    - Commit small, logical units that do one thing (atomic commits).
+    - Message: short subject line (about 50 characters) in the imperative
+      mood ("Add login form", not "Added" / "Adds"), blank line, then an
+      optional body explaining WHY.
+    - Conventional Commits style: feat: add login, fix: handle empty input,
+      docs: update README, refactor:, test:, chore:, style:, perf:.
+    - Do not commit: secrets and passwords (.env), virtual environments,
+      __pycache__, build outputs, large binaries, editor/OS files.
+    - Review before committing: git status and git diff --staged.
+    - Commit often; push regularly.
+    Bad:  "fix", "stuff", "final", "asdf".
+    Good: "Fix ZeroDivisionError when the list is empty".
+
+9. BRANCHES
+------------------------------------------------------------------------------
+A branch is a lightweight pointer to a commit; creating one is instant. It
+lets you develop a feature or fix without disturbing main.
+
+    git branch                      list local branches (* marks current)
+    git branch -a / -r              also remote branches / only remote
+    git branch feature-login        create (stay where you are)
+    git switch feature-login        move to it
+    git switch -c feature-login     create AND switch  (older: checkout -b)
+    git switch -                    go back to the previous branch
+    git branch -m new-name          rename the current branch
+    git branch -d feature-login     delete (only if merged)
+    git branch -D feature-login     force delete (unmerged work is lost)
+    git push origin --delete feature-login     delete on the remote
+    git branch -M main              rename current branch to main
+
+Picture:
+              A---B---C   main
+                       \
+                        D---E   feature-login   <- HEAD
+Switching branches changes the files in your working directory to match.
+Commit or stash your work first.
+
+Naming: feature/login-form, bugfix/null-check, hotfix/security-patch,
+release/1.2. Keep main always working.
+
+Branching strategies:
+    Feature-branch (GitHub flow) : short-lived branches -> pull request ->
+                                   merge into main. Most common.
+    Git Flow                     : main + develop + feature/release/hotfix.
+    Trunk-based                  : very small branches merged daily.
+
+10. MERGING
+------------------------------------------------------------------------------
+    git switch main
+    git merge feature-login
+
+Two cases:
+    Fast-forward  main has no new commits, so Git just moves the pointer:
+                      A---B---C   main
+                               \
+                                D---E   feature   ->   main moves to E
+    Three-way merge  both branches have new commits; Git creates a MERGE
+                     COMMIT with two parents:
+                      A---B---C-------M   main
+                           \         /
+                            D---E---     feature
+    git merge --no-ff feature    force a merge commit
+    git merge --squash feature   combine all feature commits into one staged
+                                 change (then git commit)
+    git merge --abort            cancel a merge that has conflicts
+
+Merge conflicts happen when both branches changed the same lines. Git marks
+the file:
+
+    <<<<<<< HEAD
+    print("Hello from main")
+    =======
+    print("Hello from feature")
+    >>>>>>> feature
+
+Resolve:
+    1. Open the file; decide the final text; DELETE the three marker lines.
+    2. git add file
+    3. git commit   (or git merge --continue)
+    VS Code shows "Accept Current / Incoming / Both" buttons.
+    Reduce conflicts: pull often, keep branches short, avoid reformatting
+    whole files.
+
+git log --oneline --graph --all example:
+    *   a1b2c3d (HEAD -> main) Merge branch 'feature'
+    |\
+    | * 9f8e7d6 (feature) Add login
+    * | 5c4d3e2 Fix typo
+    |/
+    * 1a2b3c4 Initial commit
+
+11. REBASE, CHERRY-PICK AND INTERACTIVE REBASE
+------------------------------------------------------------------------------
+Rebase replays your commits on top of another branch, producing a straight,
+linear history:
+
+    before:  A---B---C   main              after: A---B---C---D'---E'
+                  \                                        feature
+                   D---E   feature
+    git switch feature
+    git rebase main               (resolve conflicts, then git rebase
+                                   --continue; or --abort)
+
+  merge vs rebase:
+    merge  keeps true history with merge commits; safe on shared branches
+    rebase rewrites commits (new hashes) for a cleaner linear history
+    GOLDEN RULE: never rebase commits that others already have (pushed
+    shared branches). Rebase only your own local work.
+
+Interactive rebase tidies local commits before a pull request:
+    git rebase -i HEAD~3
+    pick / reword / edit / squash / fixup / drop   (change the word per line)
+
+Cherry-pick copies one commit onto the current branch:
+    git cherry-pick a1b2c3d
+
+git pull --rebase replays your local commits on top of the fetched ones.
+
+12. .gitignore
+------------------------------------------------------------------------------
+A file listing paths Git must NOT track. Commit it to the repository.
+
+Typical Python .gitignore:
+    # virtual environments
+    .venv/
+    venv/
+    env/
+    # Python caches and builds
+    __pycache__/
+    *.py[cod]
+    *.egg-info/
+    build/
+    dist/
+    .pytest_cache/
+    .mypy_cache/
+    .coverage
+    htmlcov/
+    # notebooks
+    .ipynb_checkpoints/
+    # secrets and local config
+    .env
+    *.pem
+    # editors and OS
+    .vscode/
+    .idea/
+    .DS_Store
+    Thumbs.db
+    # data and logs
+    *.log
+    data/*.csv
+
+Pattern rules:
+    # comment            blank lines ignored
+    *.log                any file ending .log        ? one char   [abc]
+    build/               a directory named build (anywhere)
+    /todo.txt            only in the repo root
+    docs/*.txt           .txt files directly in docs/
+    **/temp              a temp folder at any depth
+    !important.log       NEGATE: do not ignore this one
+
+Important:
+    - .gitignore affects only UNTRACKED files. If a file is already tracked,
+      stop tracking it first:  git rm --cached file   (or -r folder), commit.
+    - Templates: github.com/github/gitignore (choose "Python").
+    - Global ignore for your own tools:
+          git config --global core.excludesFile ~/.gitignore_global
+    - git check-ignore -v path    tells you which rule ignores a file.
+    - To keep an empty folder, add an empty .gitkeep file (Git tracks files,
+      not folders).
+
+13. STASH
+------------------------------------------------------------------------------
+Temporarily shelve uncommitted work (for example to switch branches):
+
+    git stash                       save tracked changes, clean the tree
+    git stash push -m "wip login"   with a message
+    git stash -u                    include untracked files
+    git stash list                  stash@{0}: On main: wip login
+    git stash show -p               view the changes
+    git stash pop                   re-apply the newest and drop it
+    git stash apply stash@{1}       re-apply but keep it
+    git stash drop / git stash clear
+
+14. TAGS AND VERSIONS
+------------------------------------------------------------------------------
+    git tag                         list tags
+    git tag v1.0.0                  lightweight tag (just a name)
+    git tag -a v1.0.0 -m "First release"       annotated tag (recommended)
+    git tag -a v0.9.0 a1b2c3d       tag an older commit
+    git push origin v1.0.0          share a tag    (git push origin --tags)
+    git switch --detach v1.0.0      look at that release
+    git tag -d v1.0.0               delete locally
+Semantic versioning MAJOR.MINOR.PATCH: breaking change, new feature, bug
+fix (v2.3.1). GitHub "Releases" attach notes and files to tags.
+
+15. REMOTES AND SYNCING
+------------------------------------------------------------------------------
+A remote is a copy of the repository somewhere else (GitHub). By convention
+it is named origin.
+
+    git remote -v                          list remotes with URLs
+    git remote add origin URL              connect a local repo
+    git remote set-url origin NEWURL       change the URL
+    git remote remove origin
+    git clone URL                          copy + sets up origin automatically
+
+    git push -u origin main    send commits; -u remembers the upstream so
+                               later `git push` / `git pull` need no arguments
+    git push                   send the current branch
+    git fetch                  download new commits, do NOT change your files
+    git pull                   fetch + merge  (git pull --rebase: fetch +
+                               rebase)
+    git fetch --prune          also remove remote-tracking branches that were
+                               deleted on the server
+    git branch -vv             show branches and their upstream (ahead/behind)
+
+  fetch vs pull:
+    fetch updates the remote-tracking branches (origin/main) safely;
+    pull = fetch + integrate into your current branch.
+
+origin/main is a REMOTE-TRACKING branch: your last known copy of the remote's
+main. "Your branch is ahead of 'origin/main' by 2 commits" = push needed;
+"behind" = pull needed; "diverged" = both changed.
+
+Push rejected (non-fast-forward): the remote has commits you lack:
+    git pull            (merge, fix conflicts)   then   git push
+Force push replaces remote history; use only on your own branches:
+    git push --force-with-lease          (safer than --force)
+Never force-push main or branches others use.
+
+Authentication to GitHub:
+    HTTPS  https://github.com/user/repo.git
+           Passwords are no longer accepted; use a Personal Access Token (PAT)
+           or Git Credential Manager / GitHub CLI (gh auth login), which store
+           credentials for you.
+    SSH    git@github.com:user/repo.git
+           1. ssh-keygen -t ed25519 -C "you@example.com"
+           2. Start the agent and add the key: ssh-add ~/.ssh/id_ed25519
+           3. Copy the PUBLIC key (~/.ssh/id_ed25519.pub) to GitHub >
+              Settings > SSH and GPG keys > New SSH key
+           4. Test: ssh -T git@github.com
+              "Hi username! You've successfully authenticated, but GitHub does
+               not provide shell access."
+           Never share the private key (id_ed25519, without .pub).
+
+16. GITHUB
+------------------------------------------------------------------------------
+GitHub hosts repositories and adds collaboration tools.
+
+Create a repository:
+    1. github.com > New repository: name, public/private, optional README,
+       .gitignore (Python), licence (MIT, Apache-2.0, GPL ...).
+    2. Connect an existing local project:
+          git remote add origin git@github.com:user/project.git
+          git branch -M main
+          git push -u origin main
+    3. Or clone a repo that already exists:
+          git clone https://github.com/user/project.git
+
+Key features:
+  Feature          | Purpose
+  -----------------|-------------------------------------------------------
+  README.md        | project description, install and usage (the front page)
+  LICENSE          | what others may do with your code
+  Issues           | track bugs, tasks and ideas (labels, assignees)
+  Pull requests    | propose merging a branch, with review and discussion
+  Actions          | CI/CD: run tests/builds automatically on each push
+  Releases         | versioned downloads attached to tags
+  Pages            | free static website hosting
+  Projects         | kanban boards
+  Branch protection| require reviews/tests before merging into main
+  Secrets          | encrypted variables for Actions (API keys)
+  Dependabot       | automatic dependency update PRs
+  Codespaces       | cloud development environment
+  Gists            | share snippets      Stars/Watch/Forks: social features
+
+Fork vs clone vs branch:
+    Fork    your own server-side copy of SOMEONE ELSE'S repo (to contribute)
+    Clone   a local copy of any repo
+    Branch  a line of development inside one repo
+
+The pull request (PR) workflow on a team:
+    git switch main && git pull                 update
+    git switch -c feature/search                new branch
+    ... edit, test ...
+    git add . && git commit -m "feat: add search"
+    git push -u origin feature/search           publish the branch
+    On GitHub: "Compare & pull request" > describe the change > request
+    reviewers > CI runs > address comments (push more commits) > merge.
+    Merge options on GitHub: Create a merge commit, Squash and merge (one
+    commit for the whole PR), Rebase and merge.
+    Afterwards: git switch main && git pull && git branch -d feature/search
+
+Contributing to someone else's open-source project:
+    1. Fork on GitHub.        2. git clone your fork.
+    3. git remote add upstream https://github.com/original/project.git
+    4. Create a branch, commit, push to your fork, open a PR to the original.
+    5. Keep in sync:  git fetch upstream && git merge upstream/main
+       (or git rebase upstream/main)
+
+GitHub CLI (gh):
+    gh auth login          gh repo create myapp --public --source=. --push
+    gh repo clone user/repo    gh pr create --fill    gh pr list
+    gh pr checkout 12          gh issue create       gh run list
+
+A GitHub Actions workflow  (.github/workflows/ci.yml):
+    name: CI
+    on: [push, pull_request]
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: "3.12"
+          - run: pip install -r requirements.txt
+          - run: pytest -q
+    Every push now runs the tests; the result appears as a green check or red
+    cross on the commit and the pull request.
+
+17. INVESTIGATING HISTORY
+------------------------------------------------------------------------------
+    git log --oneline -10                  recent history
+    git log -p file                        changes to one file over time
+    git log --follow file                  follow renames
+    git log --grep="login"                 search messages
+    git log -S"function_name"              commits that added/removed a string
+    git blame file                         who last changed each line
+    git show a1b2c3d:path/file             a file as it was in a commit
+    git shortlog -sn                       commits per author
+    git grep "TODO"                        search tracked files
+    git reflog                             history of HEAD movements
+    git bisect start; git bisect bad; git bisect good <hash>
+        Git checks out the middle commit; mark each good/bad until it finds
+        the commit that introduced a bug; finish with git bisect reset.
+
+18. HOW GIT STORES DATA (BRIEF)
+------------------------------------------------------------------------------
+Git is a content-addressed store: every object is named by the SHA-1 hash of
+its content.
+    blob    file contents           tree    a directory listing
+    commit  points to a tree, parent commit(s), author, message
+    tag     a named, signed pointer
+    git cat-file -p HEAD       show the latest commit object
+    git cat-file -t a1b2c3d    show the object's type
+A branch is just a file in .git/refs/heads containing a commit hash; HEAD is
+a file saying which branch you are on. This is why branches are so cheap and
+why identical content is stored once.
+
+19. GIT IN VS CODE AND COMMON WORKFLOWS
+------------------------------------------------------------------------------
+VS Code: Source Control view (Ctrl+Shift+G) shows changed files, diffs, stage
+(+), commit message box, branch switcher in the status bar, sync button,
+conflict resolution editor. GitLens adds blame and history. The terminal
+(Ctrl+`) runs the same git commands.
+
+Solo project:
+    git init -b main  ->  work  ->  git add -A  ->  git commit  ->  git push
+
+Team project (feature branches + pull requests): section 16.
+
+Daily routine:
+    git switch main; git pull                  # start fresh
+    git switch -c feature/x                    # one branch per task
+    ... edit and test ...
+    git status; git diff                       # review
+    git add -p; git commit -m "..."            # small commits
+    git push -u origin feature/x               # open a PR
+
+If you committed a secret (API key, password):
+    1. Treat it as compromised: REVOKE / rotate it immediately.
+    2. Remove it from history with git filter-repo or the BFG Repo-Cleaner
+       and force-push (deleting the file in a new commit is NOT enough because
+       the history still contains it).
+    3. Add the file to .gitignore; use environment variables or a secret
+       manager in future.
+
+20. GIT PROBLEMS AND FIXES
+------------------------------------------------------------------------------
+  Message / symptom                         | Cause and fix
+  ------------------------------------------|--------------------------------
+  fatal: not a git repository               | not inside a repo; git init or
+                                            | cd into the project
+  Please tell me who you are                | set user.name and user.email
+  nothing to commit, working tree clean     | no changes (or files ignored)
+  error: src refspec main does not match    | no commit yet, or branch has
+  any                                       | other name (git branch -M main)
+  ! [rejected] ... (non-fast-forward)       | remote has newer commits:
+                                            | git pull, resolve, git push
+  fatal: refusing to merge unrelated        | two separate histories; git pull
+  histories                                 | --allow-unrelated-histories
+  remote origin already exists              | git remote set-url origin URL
+  Permission denied (publickey)             | SSH key missing/not added to
+                                            | GitHub; ssh -T git@github.com
+  Authentication failed (HTTPS)             | use a token / credential
+                                            | manager, not the password
+  CONFLICT (content): Merge conflict in x   | edit x, remove markers, git add,
+                                            | commit (or git merge --abort)
+  You are in 'detached HEAD' state          | save work: git switch -c name;
+                                            | or git switch main
+  Changes would be overwritten by checkout  | commit or stash first
+  warning: LF will be replaced by CRLF      | line-ending conversion;
+                                            | set core.autocrlf or use
+                                            | .gitattributes
+  .gitignore does not ignore a file         | file is already tracked:
+                                            | git rm --cached file
+  Committed to the wrong branch             | git switch -c right-branch;
+                                            | then reset the wrong one
+  Large file rejected by GitHub (>100 MB)   | remove from history; use Git LFS
+  Pushed but the files are missing online   | forgot to commit/stage; check
+                                            | git status and git log
+
+21. GIT CHEAT SHEET
+------------------------------------------------------------------------------
+    SETUP     git config --global user.name/user.email
+    START     git init  |  git clone URL
+    CHANGE    git status | git add | git commit -m | git diff
+    HISTORY   git log --oneline --graph --all | git show | git blame
+    UNDO      git restore [--staged] | git reset | git revert | git reflog
+    BRANCH    git switch -c x | git merge x | git rebase main
+              git branch -d x
+    REMOTE    git remote add origin URL | git push -u origin main | git pull
+    SHELVE    git stash | git stash pop
+    RELEASE   git tag -a v1.0.0 -m "..." | git push --tags
+
+
+==============================================================================
+                    B. VIRTUAL ENVIRONMENTS
+==============================================================================
+
+22. WHY VIRTUAL ENVIRONMENTS?
+------------------------------------------------------------------------------
+Without isolation every pip install goes into one global Python:
+    - Project A needs requests 2.25, project B needs requests 2.31 - they
+      cannot both be installed in the same place ("dependency hell").
+    - Different projects need different Python versions.
+    - Installing into the OS's Python can break system tools.
+    - You cannot tell which packages your project really needs, so others
+      cannot reproduce it.
+
+A virtual environment is a self-contained directory tree with its own Python
+interpreter link and its own site-packages folder. Each project gets one.
+
+Benefits: isolation, reproducibility (requirements.txt), safe experiments
+(delete and recreate), no admin rights needed, clean uninstall.
+
+23. HOW venv WORKS
+------------------------------------------------------------------------------
+Created with the standard library module venv (Python 3.3+, PEP 405):
+
+    python -m venv .venv
+
+Layout (Windows | Linux/macOS):
+    .venv/
+        pyvenv.cfg              home = <path to the base Python>
+                                include-system-site-packages = false
+                                version = 3.12.x
+        Scripts/ | bin/         python, pip, activate scripts
+            python.exe | python
+            pip.exe | pip
+            activate (bash), activate.bat (CMD), Activate.ps1 (PowerShell)
+        Lib/site-packages/ | lib/python3.12/site-packages/
+                                installed third-party packages
+        Include/                C headers
+
+How it works:
+    - The venv's python is a small launcher/symlink to the base
+      interpreter; the standard library is NOT copied.
+    - Because it sits inside the venv, Python finds pyvenv.cfg and sets
+      sys.prefix to the venv while sys.base_prefix stays the base Python.
+    - Therefore import looks in the venv's site-packages first.
+    - Activation only changes the shell: it puts .venv/Scripts (or bin)
+      FIRST in PATH, sets VIRTUAL_ENV and changes the prompt to (.venv).
+      Activation is a convenience; running .venv/Scripts/python.exe directly
+      works without it.
+
+Am I inside a venv?
+    python -c "import sys; print(sys.prefix != sys.base_prefix)"   # True
+    python -c "import sys; print(sys.executable)"
+    where python (CMD) | Get-Command python (PS) | which python (bash)
+    echo $VIRTUAL_ENV  /  echo %VIRTUAL_ENV%
+    pip --version   (shows the path of the pip being used)
+
+24. CREATING, ACTIVATING, USING, DELETING
+------------------------------------------------------------------------------
+    cd myproject
+    python -m venv .venv                  (Linux/macOS: python3 -m venv .venv)
+    py -3.11 -m venv .venv                (Windows: choose a Python version)
+
+    Activate:
+        CMD          .venv\Scripts\activate
+        PowerShell   .venv\Scripts\Activate.ps1
+        Git Bash     source .venv/Scripts/activate
+        Linux/macOS  source .venv/bin/activate
+    PowerShell blocked? (current session only)
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+    (.venv) $ python --version
+    (.venv) $ pip install requests pytest
+    (.venv) $ pip list
+    (.venv) $ python app.py
+    (.venv) $ deactivate                   leave the environment
+
+    Delete:     rmdir /s /q .venv   (CMD)    Remove-Item -Recurse -Force .venv
+                rm -rf .venv   (bash)         then recreate when needed
+
+Options of python -m venv:
+    --clear                 empty an existing environment first
+    --upgrade-deps          upgrade pip (and setuptools) after creating
+    --system-site-packages  let the venv also see globally installed packages
+    --without-pip           skip pip
+    --prompt NAME           custom prompt text
+
+Rules of thumb:
+    - One environment per project, named .venv in the project root.
+    - Activate BEFORE installing anything.
+    - Never copy or move a venv folder (paths inside are absolute); recreate.
+    - Never commit it to Git.
+    - Don't use sudo pip; inside a venv you don't need it.
+
+25. MANAGING DEPENDENCIES: requirements.txt
+------------------------------------------------------------------------------
+Record what the project needs so anyone can rebuild the environment.
+
+    (.venv) $ pip install requests fastapi pytest
+    (.venv) $ pip freeze > requirements.txt       # exact installed versions
+    (.venv) $ pip install -r requirements.txt     # rebuild elsewhere
+
+requirements.txt:
+    requests==2.31.0            exact version (reproducible)
+    fastapi>=0.110,<1.0         range
+    pytest~=8.0                 compatible release (>=8.0, <9.0)
+    numpy!=1.26.0               exclude one version
+    uvicorn[standard]           extras
+    # comments allowed
+    -r base.txt                 include another file
+    git+https://github.com/user/pkg.git     install from Git
+
+Version specifiers: == exact, != not, >= <= > < bounds, ~= compatible, * wild
+(==2.*).
+
+Practices:
+    - pip freeze lists EVERY package including indirect dependencies. For
+      applications that is good (full pin). For libraries, declare only direct
+      dependencies with ranges in pyproject.toml.
+    - Separate files:  requirements.txt (runtime), requirements-dev.txt
+      (pytest, black ...: starts with -r requirements.txt).
+    - pip-tools: write requirements.in, run pip-compile to produce a pinned
+      requirements.txt; pip-sync installs exactly that.
+    - pip list --outdated   see updates;   pip check   verify consistency;
+      pip show pkg;  pip install -U pkg.
+    - Record the Python version too (README, .python-version, pyproject
+      requires-python).
+    - pyproject.toml is the modern project file:
+          [project]
+          name = "myapp"
+          version = "0.1.0"
+          requires-python = ">=3.11"
+          dependencies = ["requests>=2.31", "fastapi"]
+          [project.optional-dependencies]
+          dev = ["pytest", "black"]
+      Install with: pip install -e .  or  pip install -e ".[dev]"
+
+26. OTHER ENVIRONMENT AND PACKAGE TOOLS
+------------------------------------------------------------------------------
+  Tool        | Environment + dependencies             | Key commands
+  ------------|----------------------------------------|----------------------
+  venv + pip  | standard library; simplest             | python -m venv .venv
+              |                                        | pip install -r ...
+  virtualenv  | older third-party; faster, more        | virtualenv .venv
+              | options                                |
+  pipenv      | Pipfile + Pipfile.lock                 | pipenv install pkg
+                                                       | pipenv shell
+  poetry      | pyproject.toml + poetry.lock;          | poetry add requests
+              | also builds/publishes packages         | poetry install
+                                                       | poetry run pytest
+  uv          | very fast all-in-one (Rust): venv,     | uv venv
+              | pip, lock files, Python versions       | uv pip install pkg
+                                                       | uv add pkg; uv sync
+                                                       | uv run python app.py
+  conda/mamba | environments incl. non-Python libs;   | conda create -n x
+              | popular in data science                | python=3.12
+                                                       | conda activate x
+  pyenv       | installs/switches Python VERSIONS      | pyenv install 3.12.4
+              | (Linux/macOS; pyenv-win)               | pyenv local 3.12.4
+  pipx        | install command-line apps in isolated  | pipx install black
+              | environments                           |
+  tox / nox   | test across several Python versions    | tox
+  Docker      | isolates the whole OS-level runtime    | docker build/run
+
+  Lock files (poetry.lock, Pipfile.lock, uv.lock, pinned requirements) record
+  the exact version of every dependency, giving identical installs on every
+  machine.
+
+conda recap:
+    conda create -n ds python=3.12 && conda activate ds
+    conda install numpy pandas        pip install package (when not on conda)
+    conda env export > environment.yml
+    conda env create -f environment.yml
+    conda deactivate        conda env list
+
+27. VIRTUAL ENVIRONMENTS WITH TOOLS
+------------------------------------------------------------------------------
+    VS Code   Ctrl+Shift+P > Python: Select Interpreter > .venv. New terminals
+              auto-activate it. Status bar shows the active interpreter.
+    PyCharm   Settings > Project > Python Interpreter > Add > New virtualenv.
+    Jupyter   pip install ipykernel; python -m ipykernel install --user
+              --name myproj --display-name "Python (myproj)".
+    Git       add .venv/ to .gitignore; commit requirements.txt.
+    CI        recreate the environment from requirements.txt on every build
+              (GitHub Actions setup-python + pip install -r requirements.txt;
+              cache: pip speeds it up).
+    Docker    COPY requirements.txt . ; RUN pip install --no-cache-dir -r
+              requirements.txt  (often no venv needed inside a container).
+    Scripts   run a tool without activating: .venv/bin/python app.py or
+              .venv\Scripts\python.exe app.py (handy in cron/Task Scheduler).
+
+28. VIRTUAL ENVIRONMENT PROBLEMS AND FIXES
+------------------------------------------------------------------------------
+  Symptom                                  | Cause and fix
+  -----------------------------------------|---------------------------------
+  Activate.ps1 cannot be loaded (scripts   | execution policy:
+  disabled)                                | Set-ExecutionPolicy -Scope
+                                           | Process RemoteSigned
+  No (.venv) in the prompt                 | not activated, or wrong shell
+                                           | script; open a new terminal
+  Packages installed globally by mistake   | venv not active when running pip;
+                                           | use python -m pip and check
+                                           | `pip --version`
+  ModuleNotFoundError although installed   | different interpreter in the IDE
+                                           | or notebook; select the venv
+  Moved/renamed folder, venv is broken     | paths are absolute: delete and
+                                           | recreate from requirements.txt
+  The virtual environment was not created  | Debian/Ubuntu: sudo apt install
+  successfully / ensurepip not available   | python3-venv
+  Wrong Python version in the venv         | the venv uses the interpreter
+                                           | that created it; recreate with
+                                           | py -3.x / python3.x
+  pip: command not found / No module named | venv created --without-pip, or
+  pip                                      | Python not installed correctly:
+                                           | python -m ensurepip --upgrade
+  Dependency conflict / ResolutionImpossible| incompatible pins; loosen
+                                           | versions, check pip install -v
+  Install fails: requires compiler / wheel | install build tools or choose
+                                           | versions with wheels
+  Windows-only package fails on Linux      | use markers:
+                                           | pywin32; sys_platform=="win32"
+  Slow or blocked downloads                | use a mirror/proxy: pip install
+                                           | --index-url URL / --proxy URL
+  Old pip warnings                         | python -m pip install -U pip
+
+
+==============================================================================
+              C. GIT AND VIRTUAL ENVIRONMENTS TOGETHER
+==============================================================================
+
+29. A COMPLETE PROJECT WORKFLOW
+------------------------------------------------------------------------------
+Starting a new project:
+    mkdir shop-api && cd shop-api
+    git init -b main
+    python -m venv .venv
+    .venv\Scripts\activate                 (or source .venv/bin/activate)
+    pip install fastapi uvicorn pytest
+    pip freeze > requirements.txt
+    (create .gitignore containing .venv/, __pycache__/, .env ...)
+    (write README.md with setup steps; add main.py and tests/)
+    git add .
+    git status                             # make sure .venv is NOT listed
+    git commit -m "Initial project setup"
+    # on GitHub create an empty repo "shop-api", then:
+    git remote add origin git@github.com:you/shop-api.git
+    git push -u origin main
+
+A teammate (or you on another computer) starts working:
+    git clone git@github.com:you/shop-api.git
+    cd shop-api
+    python -m venv .venv
+    .venv\Scripts\activate
+    pip install -r requirements.txt
+    pytest -q                              # everything works the same
+
+Adding a feature:
+    git switch -c feature/orders
+    pip install httpx                      # new dependency
+    pip freeze > requirements.txt          # record it
+    ... code, test ...
+    git add -A
+    git commit -m "feat: add orders endpoint"
+    git push -u origin feature/orders
+    open a pull request, CI runs pytest, review, merge, delete the branch
+    git switch main && git pull
+
+README setup section (what others will follow):
+    ## Setup
+    python -m venv .venv
+    source .venv/bin/activate        # Windows: .venv\Scripts\activate
+    pip install -r requirements.txt
+    ## Run
+    uvicorn main:app --reload
+    ## Test
+    pytest
+
+Always commit:   source code, tests, requirements.txt (or pyproject.toml),
+                 README, LICENSE, .gitignore, .github/workflows/*.yml,
+                 lock files.
+Never commit:    .venv/, __pycache__/, .env and secrets, build/dist, large
+                 data, editor-specific local settings.
+
+
+==============================================================================
+                    D. CHECKLIST AND INTERVIEW Q&A
+==============================================================================
+
+30. CHECKLIST
+------------------------------------------------------------------------------
+  1. Git is the tool on your machine; GitHub is a hosting service.
+  2. Flow: working directory -> git add -> staging area -> git commit -> local
+     repo -> git push -> remote.
+  3. git status and git diff --staged before every commit.
+  4. Commit small, with imperative, meaningful messages.
+  5. Branch per task; keep main working; merge via pull requests.
+  6. fetch downloads; pull = fetch + merge (or rebase).
+  7. Undo safely: restore (files), revert (shared history), reset (local
+     only), reflog (recovery).
+  8. Never rebase or force-push shared branches (use --force-with-lease on
+     your own).
+  9. .gitignore: .venv/, __pycache__/, .env; tracked files need git rm
+     --cached.
+ 10. Secrets in Git history must be rotated, not just deleted.
+ 11. One virtual environment per project (.venv); activate before pip.
+ 12. requirements.txt (pip freeze) or pyproject.toml/lock files make the
+     environment reproducible; commit them, not the venv.
+ 13. Use python -m pip; check sys.prefix / which python to confirm the venv.
+ 14. Recreate a venv instead of moving it.
+
+
+==============================================================================
+                  E. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+GIT AND GITHUB
+Q1. What is the difference between Git and GitHub?
+A.  Git is a distributed version control system that runs locally. GitHub is a
+    cloud platform that hosts Git repositories and adds pull requests, issues,
+    Actions (CI/CD), code review and project tools. GitLab and Bitbucket are
+    alternatives.
+
+Q2. What are the three areas/states in Git?
+A.  Working directory (modified files), staging area/index (files marked for
+    the next commit) and the repository (committed snapshots in .git). Files
+    move working directory -> git add -> staging -> git commit -> repository.
+
+Q3. What is the difference between git add and git commit?
+A.  git add stages changes (chooses what will be in the next snapshot);
+    git commit records the staged snapshot in the history with a message.
+
+Q4. What is the difference between git fetch and git pull?
+A.  fetch downloads new commits and updates remote-tracking branches
+    (origin/main) without touching your working files. pull = fetch + merge
+    (or rebase with --rebase) into the current branch.
+
+Q5. git merge vs git rebase?
+A.  merge joins histories with a merge commit and preserves the real history.
+    rebase replays your commits on top of another branch, creating new
+    commits and a linear history. Never rebase commits that have been shared.
+
+Q6. Explain fast-forward vs three-way merge.
+A.  Fast-forward: the target branch has no new commits, so Git just moves its
+    pointer. Three-way: both branches diverged, so Git combines them using
+    their common ancestor and creates a merge commit with two parents.
+
+Q7. How do you resolve a merge conflict?
+A.  Open the conflicted files, choose the final content and remove the
+    <<<<<<<, ======= and >>>>>>> markers, git add the files, then git commit
+    (or git merge --continue). git merge --abort cancels the merge.
+
+Q8. git reset vs git revert vs git restore?
+A.  reset moves the branch pointer back (--soft keeps changes staged,
+    --mixed unstages them, --hard discards them) and rewrites history.
+    revert creates a new commit that undoes an earlier commit - safe for
+    pushed history. restore changes files in the working directory or index.
+
+Q9. How do you undo the last commit but keep the changes? And one that is
+    already pushed?
+A.  Local: git reset --soft HEAD~1 (changes stay staged) or git reset HEAD~1.
+    Pushed/shared: git revert HEAD, then push, because reset would rewrite
+    published history.
+
+Q10. What is HEAD? What is a detached HEAD?
+A.  HEAD points to the current commit (normally via the current branch). In
+    detached HEAD it points directly to a commit (for example after checking
+    out an old commit or tag), so new commits belong to no branch; create one
+    with git switch -c name to keep them.
+
+Q11. What does .gitignore do and why does it sometimes not work?
+A.  It lists patterns of untracked files Git should ignore (.venv/,
+    __pycache__/, .env). It does not affect files already tracked: run
+    git rm --cached file and commit to stop tracking them.
+
+Q12. What is git stash used for?
+A.  To save uncommitted changes temporarily and clean the working tree (for
+    example to switch branches), then restore them with git stash pop.
+
+Q13. How do you change the last commit message or add a forgotten file?
+A.  git add forgotten.py; git commit --amend (edit the message, or
+    --no-edit). Do not amend commits you have already pushed to a shared
+    branch.
+
+Q14. What is cherry-pick?
+A.  git cherry-pick <hash> applies the changes of one specific commit onto the
+    current branch as a new commit.
+
+Q15. Fork vs clone vs branch?
+A.  A fork is your server-side copy of someone else's repository on GitHub; a
+    clone is a local copy of a repository; a branch is a line of development
+    inside one repository.
+
+Q16. What is a pull request?
+A.  A GitHub request to merge one branch into another, with a diff,
+    discussion, automated checks and code review before the merge. Merge
+    options: merge commit, squash and merge, rebase and merge.
+
+Q17. What is origin? What is upstream?
+A.  origin is the default name of the remote you cloned from. "Upstream" can
+    mean the remote branch your local branch tracks (set by push -u), or in
+    open-source workflows the original repository that you forked.
+
+Q18. HTTPS vs SSH for GitHub?
+A.  HTTPS uses a URL plus a Personal Access Token or credential manager (no
+    passwords). SSH uses a key pair: the public key is added to GitHub, the
+    private key stays on your machine; no tokens to enter each time.
+
+Q19. How do you view a compact history of all branches?
+A.  git log --oneline --graph --all (add --decorate to show branch names).
+
+Q20. How do you delete a branch locally and on the remote?
+A.  git branch -d name (or -D to force); git push origin --delete name.
+
+Q21. Why is git push --force dangerous? What is safer?
+A.  It overwrites the remote history and can erase other people's commits.
+    git push --force-with-lease refuses if the remote has commits you have not
+    seen. Never force-push shared branches such as main.
+
+Q22. What does git commit -am do? What does it miss?
+A.  It stages all MODIFIED and DELETED tracked files and commits them. It does
+    not include new (untracked) files.
+
+Q23. How do you stop tracking a file but keep it on disk?
+A.  git rm --cached file (then add it to .gitignore and commit).
+
+Q24. What is git reflog and when do you use it?
+A.  A local log of every move of HEAD and branch tips. Use it to recover
+    commits after a bad reset, rebase or deleted branch:
+    git reflog; git switch -c rescue <hash>.
+
+Q25. What if you accidentally committed a password or API key?
+A.  Revoke/rotate the secret immediately. Removing it in a later commit is not
+    enough; rewrite history with git filter-repo or BFG and force-push, and
+    put the file in .gitignore.
+
+Q26. What makes a good commit message?
+A.  Short imperative subject (about 50 characters), a blank line, an optional
+    body explaining why, one logical change per commit, optionally the
+    Conventional Commits prefix (feat:, fix:, docs:).
+
+Q27. What does git diff show compared with git diff --staged?
+A.  git diff: working directory vs staging area (unstaged changes).
+    git diff --staged: staging area vs the last commit (what will be
+    committed). git diff HEAD: both combined.
+
+Q28. How do you contribute to an open-source project?
+A.  Fork the repo, clone your fork, add the original as upstream, create a
+    branch, commit, push to your fork, open a pull request, respond to
+    review, and keep your fork synced with git fetch upstream.
+
+Q29. What is GitHub Actions? Give an example use.
+A.  GitHub's CI/CD service driven by YAML workflows in .github/workflows. A
+    typical Python workflow checks out the code, sets up Python, installs
+    requirements.txt and runs pytest on every push and pull request.
+
+Q30. What is the difference between a lightweight and an annotated tag?
+A.  A lightweight tag is just a name for a commit. An annotated tag
+    (git tag -a v1.0 -m "...") is a full object with tagger, date and message,
+    recommended for releases.
+
+VIRTUAL ENVIRONMENTS
+Q31. What is a virtual environment and why use one?
+A.  An isolated directory containing its own Python interpreter link and
+    site-packages, so each project has its own dependencies and versions. It
+    avoids version conflicts, keeps the system Python clean and makes projects
+    reproducible.
+
+Q32. How do you create, activate and deactivate one?
+A.  python -m venv .venv; activate with .venv\Scripts\activate (CMD),
+    .venv\Scripts\Activate.ps1 (PowerShell), source .venv/Scripts/activate
+    (Git Bash) or source .venv/bin/activate (Linux/macOS); leave with
+    deactivate.
+
+Q33. What does activating do? Is it required?
+A.  It prepends the venv's Scripts/bin folder to PATH, sets VIRTUAL_ENV and
+    changes the prompt, so python and pip refer to the venv. It is only a
+    convenience; calling .venv/bin/python directly gives the same result.
+
+Q34. How can you check you are inside a virtual environment?
+A.  The prompt shows (.venv); where/which python points inside .venv; or in
+    Python: sys.prefix != sys.base_prefix is True; pip --version shows the
+    venv path.
+
+Q35. What does pip freeze > requirements.txt do and how is it used?
+A.  It writes every installed package with its exact version. On another
+    machine create a venv and run pip install -r requirements.txt to
+    reproduce the environment.
+
+Q36. Should the .venv folder be committed to Git?
+A.  No. It is large, platform-specific and contains absolute paths. Add it to
+    .gitignore and commit requirements.txt (or pyproject.toml and a lock
+    file) so the environment can be recreated.
+
+Q37. What is inside a venv folder?
+A.  pyvenv.cfg (base Python path and settings), Scripts/ or bin/ with the
+    python and pip executables and activate scripts, Lib/site-packages (or
+    lib/python3.x/site-packages) with installed packages, and Include.
+
+Q38. venv vs virtualenv vs conda vs poetry vs pipenv vs uv?
+A.  venv is built into Python and creates environments. virtualenv is an
+    older, feature-rich third-party equivalent. conda manages environments
+    and non-Python libraries (data science). Poetry, pipenv and uv also manage
+    dependencies with lock files (pyproject.toml/poetry.lock, Pipfile.lock,
+    uv.lock); uv is extremely fast and can install Python versions too.
+
+Q39. Why use python -m pip instead of pip?
+A.  It runs the pip belonging to that exact interpreter, avoiding installing
+    into a different Python than the one you run.
+
+Q40. What does --system-site-packages do?
+A.  It lets the environment also see packages installed in the base Python
+    (include-system-site-packages = true). By default a venv is fully
+    isolated.
+
+Q41. Can you move or copy a venv to another folder or computer?
+A.  No. Its scripts contain absolute paths and it is tied to the OS and base
+    Python. Delete it and recreate it from requirements.txt.
+
+Q42. Why do you get ModuleNotFoundError after installing a package?
+A.  Usually pip installed into a different environment than the one running
+    the code (venv not activated, wrong IDE interpreter, wrong Jupyter
+    kernel). Compare pip --version with the python you run, print
+    sys.executable, and select the right interpreter.
+
+Q43. How do you separate development and production dependencies?
+A.  Keep requirements.txt for runtime and requirements-dev.txt (starting with
+    -r requirements.txt) for tools such as pytest and black, or use
+    optional-dependencies / dependency groups in pyproject.toml.
+
+Q44. What do ==, >=, ~= and != mean in a requirements file?
+A.  == exact version, >= minimum version, ~=8.0 compatible release (>=8.0 and
+    <9.0), != excludes a version. Pin exact versions (==) for applications,
+    use ranges for libraries.
+
+Q45. What is a lock file and why is it useful?
+A.  A file recording the exact version (and hashes) of every direct and
+    indirect dependency (poetry.lock, uv.lock, Pipfile.lock, pip-compile
+    output). Installing from it yields identical environments everywhere.
+
+Q46. How does a new teammate set up your project?
+A.  git clone the repository, create a venv (python -m venv .venv), activate
+    it, run pip install -r requirements.txt, and follow the README to run and
+    test the code.
+
+Q47. How do you run a script in a venv from a scheduler without activating?
+A.  Call the venv's interpreter by full path, e.g.
+    /path/project/.venv/bin/python app.py or
+    C:\path\project\.venv\Scripts\python.exe app.py.
+
+Q48. What is pyenv and how is it different from venv?
+A.  pyenv installs and switches between Python VERSIONS; venv creates
+    isolated PACKAGE environments for one Python version. They are often used
+    together (pyenv chooses the version, venv isolates the packages).
+
+Q49. Why shouldn't you use sudo pip install?
+A.  It modifies the system Python and can break OS tools (and modern
+    distributions block it under PEP 668). Use a virtual environment, or pipx
+    for command-line tools.
+
+Q50. Why combine Git and virtual environments in every project?
+A.  Git preserves and shares the code and history; the virtual environment
+    plus requirements.txt preserves the exact dependencies. Together anyone
+    can clone, recreate the environment and run the project identically; CI
+    does the same on every push.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

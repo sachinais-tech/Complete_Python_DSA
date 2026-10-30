@@ -1,0 +1,1305 @@
+==============================================================================
+          DEVELOPMENT TOOLS: INSTALLING PYTHON, VS CODE SETUP AND
+                  JUPYTER NOTEBOOK - COMPLETE NOTES
+==============================================================================
+
+
+1. OVERVIEW
+------------------------------------------------------------------------------
+A working development environment is the first step of every project. This
+file covers the three tools almost every Python learner uses.
+
+    A. Installing Python  - installers, PATH, pip, virtual environments,
+                            multiple versions, conda, troubleshooting
+    B. VS Code setup      - install, extensions, interpreter, running,
+                            debugging, formatting, testing, shortcuts
+    C. Jupyter Notebook   - install, kernels, cells, magics, export, best
+                            practices
+    D. Checklist and interview questions
+
+What each tool is:
+    Python    the language and its interpreter (CPython) + standard library
+    pip       the package installer that fetches libraries from PyPI
+    venv      isolated environments, one per project
+    VS Code   a free, light source-code editor with a huge extension
+              ecosystem (turns into a Python IDE with the Python extension)
+    Jupyter   an interactive notebook environment: code, notes and results
+              in one document
+
+Typical setup order:
+    1. Install Python and check "python --version" and "pip --version".
+    2. Install VS Code and the Python extension.
+    3. Create a project folder and a virtual environment (.venv).
+    4. Select that interpreter in VS Code.
+    5. Install packages (pip install ...), including notebook if needed.
+    6. Run, debug, test and commit your code.
+
+
+==============================================================================
+                       A. INSTALLING PYTHON
+==============================================================================
+
+2. WHAT YOU ARE INSTALLING
+------------------------------------------------------------------------------
+    Python        high-level language; the reference implementation is
+                  CPython (written in C) - this is what python.org ships.
+    Interpreter   the program (python / python.exe) that runs your code. It
+                  compiles source to bytecode (cached in __pycache__) and
+                  executes it on the Python virtual machine.
+    Standard library  ready-made modules (os, math, json, re, datetime ...).
+    pip           package manager; installs third-party packages from PyPI.
+    IDLE          small bundled editor/shell (good for a quick start).
+    Python launcher (py)  Windows helper that picks a Python version.
+
+Versions:
+    - Python 3 only. Python 2 reached end of life on 1 January 2020.
+    - Version number: 3.MAJOR.MICRO, e.g. 3.12.4. A new minor version (3.x)
+      is released every October; each is supported for about five years.
+      Micro releases are bug/security fixes.
+    - Install the latest stable 3.x release (3.12 or newer is a good choice
+      today). Avoid alpha/beta/release-candidate builds for real work.
+    - Some libraries lag behind the newest Python; if a package fails to
+      install, check which Python versions it supports.
+    - Check the version you run:  python --version
+
+Other Python implementations/distributions: PyPy (fast JIT), MicroPython and
+CircuitPython (microcontrollers), Jython, IronPython; Anaconda/Miniconda
+(Python + conda packages, popular for data science).
+
+3. BEFORE YOU INSTALL: CHECK WHAT YOU ALREADY HAVE
+------------------------------------------------------------------------------
+    python --version          python3 --version         py --version (Windows)
+    where python  (CMD) / Get-Command python (PowerShell) / which python3
+    pip --version
+
+Notes:
+    - macOS and Linux ship a "system Python" used by the OS tools. Do not
+      remove or modify it; install your own version alongside.
+    - On Windows, typing python without a real installation may open the
+      Microsoft Store. Install from python.org instead (or disable the
+      "App execution aliases" for python.exe in Settings).
+    - On Linux/macOS the command is usually python3 (and pip3).
+
+4. INSTALLING ON WINDOWS (python.org INSTALLER)
+------------------------------------------------------------------------------
+Steps:
+    1. Open https://www.python.org/downloads/ and download the latest
+       "Windows installer (64-bit)".
+    2. Run the installer. On the FIRST screen tick:
+          [x] Use admin privileges when installing py.exe   (if offered)
+          [x] Add python.exe to PATH          <-- very important
+       Then choose "Install Now" (or "Customize installation").
+    3. In "Customize installation" you can keep the optional features:
+       pip, tcl/tk and IDLE, documentation, py launcher, test suite; and in
+       Advanced Options: install for all users, associate .py files, add
+       Python to environment variables, precompile standard library.
+    4. At the end click "Disable path length limit" (allows paths longer
+       than 260 characters), then Close.
+    5. Open a NEW terminal (old windows do not see the new PATH) and verify.
+
+    Default install folder (current user):
+        C:\Users\<you>\AppData\Local\Programs\Python\Python312\
+        ...\Python312\Scripts\      <- pip.exe and other tools (also on PATH)
+    Verify:
+        > python --version
+        Python 3.12.x
+        > pip --version
+        pip 24.x from ...\site-packages\pip (python 3.12)
+        > py --version             (the launcher)
+        > py -0                    list every installed Python
+        > py -3.12 script.py       run with a specific version
+
+    If you forgot "Add to PATH": re-run the installer > Modify/Repair, or add
+    both the Python folder and its Scripts folder to PATH (System Properties >
+    Environment Variables > Path > Edit), then open a new terminal.
+
+    Alternatives: winget install Python.Python.3.12   (command line);
+    Microsoft Store (works, but can behave differently with paths);
+    Anaconda/Miniconda.
+
+    Execution policy: PowerShell may block virtual-environment activation
+    scripts; for the current session only:
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+5. INSTALLING ON macOS
+------------------------------------------------------------------------------
+    Option 1 - Official installer: download the macOS universal installer
+               (.pkg) from python.org, run it, then use python3 in Terminal.
+    Option 2 - Homebrew (recommended by many developers):
+               /bin/bash -c "$(curl -fsSL <Homebrew install script URL>)"
+               brew install python
+               brew upgrade python         (later, to update)
+    Option 3 - pyenv to manage several versions (section 10).
+
+    Verify:  python3 --version    pip3 --version    which python3
+    Apple's built-in python3 (or Xcode command line tools) is for the system;
+    prefer your own installation in a virtual environment.
+
+6. INSTALLING ON LINUX
+------------------------------------------------------------------------------
+Most distributions include Python 3. Install or update with the package
+manager, plus venv and pip support:
+
+    Debian / Ubuntu :  sudo apt update
+                       sudo apt install python3 python3-pip python3-venv
+    Fedora / RHEL   :  sudo dnf install python3 python3-pip
+    Arch            :  sudo pacman -S python python-pip
+    openSUSE        :  sudo zypper install python3 python3-pip
+    Check:             python3 --version    pip3 --version
+
+Newer versions than the distro offers: use pyenv, the deadsnakes PPA
+(Ubuntu), conda or uv, or build from source:
+    ./configure --enable-optimizations
+    make -j$(nproc)
+    sudo make altinstall        (altinstall does NOT replace system python3)
+
+Important: recent distributions mark the system Python as "externally
+managed" (PEP 668). Running  pip install package  system-wide then fails with
+"error: externally-managed-environment". Use a virtual environment (or pipx
+for command-line tools) instead of forcing it with --break-system-packages.
+
+7. VERIFYING THE INSTALLATION AND FIRST PROGRAM
+------------------------------------------------------------------------------
+    python --version                  Python 3.12.x
+    python -c "print('Hello')"        Hello
+    python -c "import sys; print(sys.executable)"    which Python is running
+    python -m site                    paths used for packages
+    python -m ensurepip --version     pip bundled with Python
+
+Interactive shell (REPL):
+    > python
+    >>> 2 + 3
+    5
+    >>> print("Hello, Python!")
+    Hello, Python!
+    >>> exit()       (or Ctrl+Z then Enter on Windows, Ctrl+D elsewhere)
+
+Script:
+    hello.py :
+        print("Hello, World!")
+    run:   python hello.py       (Windows launcher: py hello.py)
+    The file must be in the current folder, or give its path.
+
+Other ways to run code: IDLE (bundled), VS Code, PyCharm, Jupyter, online
+playgrounds. A shebang line  #!/usr/bin/env python3  plus chmod +x lets Unix
+systems run a script directly.
+
+8. pip - THE PACKAGE INSTALLER
+------------------------------------------------------------------------------
+    python -m pip install requests           install (preferred form)
+    pip install requests==2.31.0             exact version
+    pip install "requests>=2.30,<3"          version range
+    pip install -U requests                  upgrade a package
+    pip install -r requirements.txt          install a list
+    pip uninstall requests
+    pip list                                 installed packages
+    pip show requests                        details and location
+    pip freeze > requirements.txt            record exact versions
+    pip check                                find broken dependencies
+    python -m pip install --upgrade pip      upgrade pip itself
+    pip install -e .                         editable install of your project
+
+    - python -m pip uses the pip of THAT python, avoiding the classic bug of
+      installing into the wrong Python.
+    - pip downloads from PyPI (pypi.org); wheels (.whl) install quickly,
+      source distributions may need a compiler.
+    - pipx install black         installs command-line tools in their own
+                                 isolated environments.
+    - Behind a proxy: pip install --proxy http://host:port pkg.
+    - ModuleNotFoundError after installing usually means pip and python
+      belong to different installations/environments: compare
+      `pip --version` and `python --version`, or use python -m pip.
+
+9. VIRTUAL ENVIRONMENTS (venv)
+------------------------------------------------------------------------------
+A virtual environment is a folder with its own Python interpreter link and its
+own site-packages, so every project has independent dependencies.
+
+    python -m venv .venv                    create (in the project folder)
+    Activate:
+        Windows CMD        .venv\Scripts\activate
+        Windows PowerShell .venv\Scripts\Activate.ps1
+        Git Bash           source .venv/Scripts/activate
+        Linux / macOS      source .venv/bin/activate
+    (.venv) appears in the prompt.
+    pip install requests pytest             goes into .venv only
+    pip freeze > requirements.txt
+    deactivate                              leave it
+    rmdir /s /q .venv   or   rm -rf .venv   delete it (recreate any time)
+
+Rules of thumb:
+    - One virtual environment per project; name it .venv.
+    - Never commit .venv to Git (add it to .gitignore); commit
+      requirements.txt (or pyproject.toml) instead.
+    - Do not move or copy a .venv between folders/computers; recreate it.
+    - Use `python -m venv --upgrade-deps .venv` to start with a fresh pip.
+    - Check you are inside: `python -c "import sys; print(sys.prefix)"` or
+      where python / which python.
+
+10. SEVERAL PYTHON VERSIONS AND VERSION MANAGERS
+------------------------------------------------------------------------------
+  Tool            | Platform           | Use
+  ----------------|--------------------|-----------------------------------
+  py launcher     | Windows            | py -3.11, py -3.12, py -0
+  pyenv           | Linux, macOS       | pyenv install 3.12.4; pyenv local
+                  | (pyenv-win: Win)   | 3.12.4 (per project version file)
+  conda / mamba   | all                | conda create -n proj python=3.11
+  uv              | all                | very fast: uv venv, uv pip install,
+                  |                    | uv python install 3.12
+  pipx            | all                | install CLI tools in isolation
+  Docker          | all                | python:3.12 image, no local install
+
+    py -3.11 -m venv .venv311       make an environment for a chosen version
+    pyenv versions                  list; pyenv global 3.12.4
+    Tools such as tox/nox test your code on several versions.
+
+11. ANACONDA / MINICONDA (CONDA)
+------------------------------------------------------------------------------
+Anaconda is a distribution of Python plus 250+ scientific packages, Jupyter
+and the conda package/environment manager. Miniconda is the small version
+(Python + conda only).
+
+    conda --version
+    conda create -n ds python=3.12        create an environment
+    conda activate ds                     use it (conda deactivate to leave)
+    conda install numpy pandas matplotlib
+    conda install -c conda-forge package  from the conda-forge channel
+    pip install package                   pip also works inside a conda env
+    conda env list                        list environments
+    conda list                            installed packages
+    conda env export > environment.yml    share the environment
+    conda env create -f environment.yml
+    conda remove -n ds --all              delete the environment
+    Prompt: (base) is the default environment; avoid installing everything
+    in it.
+
+  conda vs pip + venv:
+    conda manages Python itself AND non-Python libraries (compilers, CUDA,
+    C libraries), handy for data science; pip + venv is lighter, standard for
+    web and general development. Do not mix them carelessly in one
+    environment (install with conda first, pip last).
+
+12. UPDATING AND UNINSTALLING
+------------------------------------------------------------------------------
+    - A new minor version (3.12 -> 3.13) is a separate installation. Install
+      it alongside, create new virtual environments with it, then reinstall
+      packages from requirements.txt.
+    - Micro updates (3.12.3 -> 3.12.4): download the new installer for the
+      same minor version; it upgrades in place.
+    - Uninstall: Windows - Settings > Apps > Python; macOS - remove the
+      framework folder or `brew uninstall python`; Linux - package manager
+      (but never remove the system python3).
+    - Remove leftover PATH entries after uninstalling.
+
+13. TROUBLESHOOTING INSTALLATION PROBLEMS
+------------------------------------------------------------------------------
+  Symptom                                   | Likely cause / fix
+  ------------------------------------------|--------------------------------
+  'python' is not recognized (Windows)      | PATH missing; reinstall with
+                                            | "Add python.exe to PATH" or use
+                                            | py; open a NEW terminal
+  Microsoft Store opens when typing python | alias to the Store stub; install
+                                            | from python.org or turn off the
+                                            | alias in App execution aliases
+  python vs python3 confusion               | Linux/macOS: use python3 and
+                                            | pip3 (or python -m pip)
+  pip installs to the wrong Python          | use python -m pip; check
+                                            | `pip --version`
+  ModuleNotFoundError after pip install     | different environment active;
+                                            | check sys.executable
+  Activate.ps1 cannot be loaded (policy)    | Set-ExecutionPolicy -Scope
+                                            | Process RemoteSigned
+  externally-managed-environment (Linux)    | use a venv or pipx
+  SSL / certificate errors with pip         | outdated certificates, proxy or
+                                            | firewall; upgrade pip; set
+                                            | proxy / --trusted-host (with
+                                            | care)
+  Permission denied while installing        | do not use sudo pip; use a venv
+                                            | or pip install --user
+  Failed building wheel / needs compiler    | install build tools (Visual
+                                            | Studio Build Tools, build-
+                                            | essential) or use a version
+                                            | that has wheels
+  Two Pythons, wrong one runs               | order of PATH; use full path or
+                                            | py -3.x; check where python
+  'No module named venv' (Debian/Ubuntu)    | sudo apt install python3-venv
+  Path too long (Windows)                   | enable long paths (installer
+                                            | option or registry)
+
+
+==============================================================================
+                         B. VS CODE SETUP
+==============================================================================
+
+14. WHAT IS VS CODE?
+------------------------------------------------------------------------------
+Visual Studio Code (VS Code) is a free, open-source, cross-platform code
+editor from Microsoft. It is fast and light, and extensions add language
+support, debugging, Git, notebooks, remote development and more.
+
+  Editor vs IDE:
+    Editor (VS Code)  : light, flexible; features come from extensions.
+    IDE (PyCharm)     : heavy, feature-rich out of the box for one ecosystem.
+    Note: VS Code (editor) is different from Visual Studio (full IDE).
+
+Install:
+    1. Download from https://code.visualstudio.com/ (User Installer is fine).
+    2. During setup tick:
+          [x] Add "Open with Code" action to the file/folder context menu
+          [x] Register Code as an editor for supported file types
+          [x] Add to PATH (lets you type  code .  in a terminal)
+    3. Start it, sign in (optional) to enable Settings Sync.
+    macOS: drag to Applications, then Command Palette > "Shell Command:
+    Install 'code' command in PATH".   Linux: .deb/.rpm or snap/flatpak.
+    Check:  code --version        Open a folder:  code .
+
+15. THE USER INTERFACE
+------------------------------------------------------------------------------
+    Activity Bar (left icons): Explorer, Search, Source Control, Run and
+                               Debug, Extensions, Testing, ...
+    Side Bar                 : content of the selected view (files, search)
+    Editor area              : tabs, split editors (Ctrl+\)
+    Panel (bottom)           : Terminal, Problems, Output, Debug Console
+    Status Bar (bottom)      : branch, errors/warnings, line/column,
+                               indentation, encoding, line endings, language,
+                               and the selected PYTHON INTERPRETER
+    Command Palette (Ctrl+Shift+P): search and run ANY command
+    Quick Open (Ctrl+P): jump to a file by name
+
+16. EXTENSIONS FOR PYTHON
+------------------------------------------------------------------------------
+Open Extensions with Ctrl+Shift+X, search, Install.
+
+  Extension (publisher)                | Purpose
+  -------------------------------------|----------------------------------
+  Python (Microsoft)  [essential]      | run/debug, interpreter selection,
+                                       | testing, environments
+  Pylance (Microsoft) [installed with  | fast IntelliSense, auto-imports,
+  Python]                              | type checking
+  Python Debugger (debugpy)            | debugging (installed with Python)
+  Jupyter (Microsoft)                  | notebooks (.ipynb) inside VS Code
+  Ruff (Astral)                        | very fast linter and formatter
+  Black Formatter                      | opinionated code formatter
+  Pylint / Flake8                      | linters (optional)
+  autoDocstring                        | generates docstring templates
+  GitLens                              | rich Git history/blame
+  Error Lens                           | shows errors inline
+  Code Spell Checker                   | catches typos in code/comments
+  Rainbow CSV / SQLite Viewer          | data file helpers
+  Thunder Client / REST Client         | test APIs from the editor
+  Remote - WSL / SSH / Dev Containers  | develop inside Linux/containers
+  Docker, GitHub Copilot (optional)    | containers, AI assistance
+  Material Icon Theme, themes          | looks
+
+    Command line:  code --install-extension ms-python.python
+                   code --list-extensions
+    Disable extensions you do not use; too many slow VS Code down.
+    Only install trusted publishers (look for the verified badge).
+
+17. FIRST PROJECT WORKFLOW
+------------------------------------------------------------------------------
+    1. Create a folder:   mkdir myproject && cd myproject
+    2. Open it:           code .       (or File > Open Folder)
+       Choose "Yes, I trust the authors" to enable all features.
+    3. Create the environment:  Ctrl+Shift+P > "Python: Create Environment"
+       > Venv > pick a Python  (or in the terminal: python -m venv .venv)
+    4. Select the interpreter:  Ctrl+Shift+P > "Python: Select Interpreter"
+       > choose  .venv\Scripts\python.exe  (Windows) or  .venv/bin/python
+       The status bar now shows the version and (.venv).
+    5. New file:  main.py   (Explorer > New File, or Ctrl+N then Ctrl+S)
+          print("Hello from VS Code")
+    6. Run it:  click the Run (triangle) button at the top right, or press
+       F5 (debug) / Ctrl+F5 (run without debugging), or type in the
+       terminal:  python main.py
+    7. Install packages in the integrated terminal (it auto-activates the
+       selected venv):
+          (.venv) > pip install requests pytest
+    8. Initialise Git:  Source Control view > Initialize Repository (add a
+       .gitignore containing .venv/ and __pycache__/).
+
+Typical project layout:
+    myproject/
+        .venv/            (virtual environment, not committed)
+        .vscode/          (settings.json, launch.json - optional, shareable)
+        src/ or app/      (code)
+        tests/
+        requirements.txt
+        README.md
+        .gitignore
+
+18. SELECTING THE INTERPRETER (MOST COMMON SETUP ISSUE)
+------------------------------------------------------------------------------
+VS Code runs, lints, tests and debugs with the interpreter shown in the
+status bar. If it is wrong you see "Import could not be resolved" or
+ModuleNotFoundError although the package is installed.
+
+    Ctrl+Shift+P > Python: Select Interpreter
+        - lists system Pythons, .venv folders, conda environments
+        - "Enter interpreter path..." for a custom location
+    Workspace setting:
+        "python.defaultInterpreterPath": ".venv/Scripts/python.exe"
+    Check which one a terminal uses:
+        python -c "import sys; print(sys.executable)"
+    After creating a new venv, VS Code usually offers to select it; if the
+    terminal does not show (.venv), open a NEW terminal (Ctrl+Shift+`).
+    Notebooks use a separate KERNEL picker (section 36).
+
+19. RUNNING CODE
+------------------------------------------------------------------------------
+    Run Python File            triangle button / Ctrl+F5 / terminal command
+    Debug Python File          F5
+    Run selected text          select lines > Shift+Enter  (sends to a Python
+                               REPL terminal)
+    Run current line           Shift+Enter with no selection
+    Integrated terminal        Ctrl+`   (new: Ctrl+Shift+`)
+    Choose the shell           terminal dropdown > Select Default Profile
+                               (PowerShell, Command Prompt, Git Bash, WSL)
+    Arguments / input          run in the terminal: python main.py arg1
+    Interactive window         add  # %%  markers in a .py file to create
+                               notebook-like cells (Run Cell: Shift+Enter)
+    Run code snippet in REPL   Command Palette > "Python: Start Terminal REPL"
+
+    The integrated terminal starts in the project folder, so relative paths
+    resolve there. Output appears in the Terminal panel; input() waits there.
+
+20. SETTINGS
+------------------------------------------------------------------------------
+Open: File > Preferences > Settings (Ctrl+,) or edit JSON with
+"Preferences: Open User Settings (JSON)".
+
+  User settings      apply everywhere      (global settings.json)
+  Workspace settings apply to one project  (.vscode/settings.json - commit it
+                                            to share team conventions)
+
+Useful .vscode/settings.json for Python:
+    {
+      "python.defaultInterpreterPath": ".venv/Scripts/python.exe",
+      "editor.formatOnSave": true,
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "[python]": {
+        "editor.rulers": [88],
+        "editor.tabSize": 4,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        }
+      },
+      "files.autoSave": "afterDelay",
+      "files.trimTrailingWhitespace": true,
+      "files.insertFinalNewline": true,
+      "files.exclude": { "**/__pycache__": true, "**/.pytest_cache": true },
+      "python.analysis.typeCheckingMode": "basic",
+      "python.testing.pytestEnabled": true,
+      "python.testing.pytestArgs": ["tests"],
+      "terminal.integrated.defaultProfile.windows": "PowerShell",
+      "editor.minimap.enabled": false,
+      "editor.fontSize": 14,
+      "editor.wordWrap": "on"
+    }
+    (Use "charliermarsh.ruff" as the defaultFormatter if you prefer Ruff.)
+
+Other handy settings: "editor.bracketPairColorization.enabled": true,
+"editor.inlayHints.enabled", "editor.stickyScroll.enabled",
+"workbench.colorTheme", "window.zoomLevel", "files.encoding": "utf8".
+
+Settings Sync (account icon > Turn on Settings Sync) copies settings,
+extensions, snippets and shortcuts to your other machines.
+Profiles: separate sets of extensions/settings (e.g. "Python", "Web").
+
+21. FORMATTING, LINTING AND TYPE CHECKING
+------------------------------------------------------------------------------
+  Tool        | Role                               | Example
+  ------------|------------------------------------|-----------------------
+  Formatter   | rewrites layout (spacing, quotes)  | Black, Ruff format,
+              |                                    | autopep8
+  Linter      | finds problems and style issues    | Ruff, Flake8, Pylint
+  Type checker| checks type hints                  | Pylance (basic), mypy
+
+    Format Document: Shift+Alt+F (Windows/Linux)  /  Shift+Option+F (macOS)
+    Format on save: "editor.formatOnSave": true
+    Quick fix / import suggestions: Ctrl+.
+    Problems panel (Ctrl+Shift+M) lists warnings/errors with line numbers;
+    squiggly underlines mark them in the editor.
+    PEP 8 style: 4 spaces, snake_case names, lines up to 79-88 characters.
+
+    First time you format, VS Code asks for a default formatter: choose one
+    (Black or Ruff). If nothing happens, set "editor.defaultFormatter".
+    Linting is provided by extensions (Ruff / Pylint / Flake8); the old
+    "python.linting.*" settings of the Python extension are deprecated.
+    Install the tools in the project's venv for reproducible results:
+        pip install black ruff mypy
+
+22. DEBUGGING IN VS CODE
+------------------------------------------------------------------------------
+Steps:
+    1. Click in the gutter left of a line number to set a BREAKPOINT (red
+       dot) or press F9.
+    2. Press F5 and pick "Python File" (current file).
+    3. Execution pauses at the breakpoint. Inspect VARIABLES, WATCH
+       expressions, the CALL STACK and use the DEBUG CONSOLE to evaluate
+       code.
+    4. Step through the program.
+
+  Key            | Action
+  ---------------|-----------------------------------------------------------
+  F5             | start debugging / continue to the next breakpoint
+  F10            | step OVER (run the line, do not enter functions)
+  F11            | step INTO a function call
+  Shift+F11      | step OUT of the current function
+  Shift+F5       | stop        Ctrl+Shift+F5  restart
+  F9             | toggle breakpoint
+
+Breakpoint types (right-click the red dot): conditional (i == 5), hit count,
+logpoint (prints a message without stopping, no code edit needed).
+Exception breakpoints: pause when an exception is raised or uncaught.
+"justMyCode": true skips library code while stepping.
+
+.vscode/launch.json (Run and Debug view > create a launch.json):
+    {
+      "version": "0.2.0",
+      "configurations": [
+        {
+          "name": "Python: Current File",
+          "type": "debugpy",
+          "request": "launch",
+          "program": "${file}",
+          "console": "integratedTerminal",
+          "args": [],
+          "justMyCode": true
+        },
+        {
+          "name": "FastAPI",
+          "type": "debugpy",
+          "request": "launch",
+          "module": "uvicorn",
+          "args": ["main:app", "--reload"],
+          "jinja": true
+        },
+        {
+          "name": "Pytest current file",
+          "type": "debugpy",
+          "request": "launch",
+          "module": "pytest",
+          "args": ["${file}"]
+        }
+      ]
+    }
+    (older versions of the extension used "type": "python")
+    Variables: ${file}, ${workspaceFolder}, ${fileBasenameNoExtension},
+    ${env:NAME}; add "env": {"DEBUG": "1"} or
+    "envFile": "${workspaceFolder}/.env".
+
+23. TESTING AND GIT IN VS CODE
+------------------------------------------------------------------------------
+Testing:
+    - Ctrl+Shift+P > "Python: Configure Tests" > pytest > tests folder.
+    - The Testing view (beaker icon) discovers tests, shows pass/fail icons,
+      runs one test, a file or all, and debugs a failing test.
+    - Requires the framework installed in the selected venv (pip install
+      pytest) and test files named test_*.py.
+
+Git (built in):
+    - Source Control view (Ctrl+Shift+G): changed files, diffs, stage (+),
+      commit message box and tick, branches in the status bar, pull/push
+      (sync) button, merge-conflict editor.
+    - Clone: Command Palette > Git: Clone. Terminal Git works too.
+    - Coloured gutters show added/modified/deleted lines; GitLens adds blame.
+    - Keep .venv, __pycache__/, .env and notebooks' checkpoint folders in
+      .gitignore.
+
+24. KEYBOARD SHORTCUTS (WINDOWS/LINUX; macOS USES Cmd INSTEAD OF Ctrl)
+------------------------------------------------------------------------------
+  General
+    Ctrl+Shift+P     Command Palette         Ctrl+P    quick open file
+    Ctrl+,           Settings                Ctrl+B    toggle side bar
+    Ctrl+`           toggle terminal         Ctrl+Shift+`  new terminal
+    Ctrl+Shift+E / F / G / D / X   Explorer, Search, Git, Debug, Extensions
+    Ctrl+\           split editor            Ctrl+W    close editor tab
+    Ctrl+K Z         zen mode                Ctrl+S    save
+    Ctrl+K S         save all files
+  Editing
+    Ctrl+/           toggle line comment     Shift+Alt+A  block comment
+    Alt+Up/Down      move line               Shift+Alt+Up/Down  copy line
+    Ctrl+Shift+K     delete line             Ctrl+Enter / Ctrl+Shift+Enter
+                                             insert line below / above
+    Ctrl+D           select next match       Ctrl+Shift+L  select all matches
+    Alt+Click        add a cursor            Ctrl+Alt+Up/Down  more cursors
+    Ctrl+] / Ctrl+[  indent / outdent        Tab / Shift+Tab (selection)
+    Ctrl+Space       IntelliSense            Ctrl+Shift+Space  parameter hints
+    Ctrl+.           quick fix               Shift+Alt+F  format document
+  Navigation
+    F12              go to definition        Alt+F12  peek definition
+    Shift+F12        find references         F2       rename symbol everywhere
+    Ctrl+Shift+O     go to symbol in file    Ctrl+T   go to symbol in project
+    Ctrl+G           go to line              Ctrl+Tab switch editors
+    Alt+Left/Right   navigate back/forward
+  Search
+    Ctrl+F / Ctrl+H  find / replace in file  Ctrl+Shift+F / H  across files
+  Run/debug
+    F5  Ctrl+F5  F9  F10  F11  Shift+F11  Shift+F5   (section 22)
+
+25. PRODUCTIVITY FEATURES
+------------------------------------------------------------------------------
+    - IntelliSense: completions, signature help, docstring hovers (hover over
+      a name), inlay hints for types.
+    - Multi-cursor editing (Alt+Click, Ctrl+D) for changing many lines at
+      once; column selection with Shift+Alt+Drag.
+    - Snippets: type a prefix and press Tab (for, def, class, if/main).
+      Custom ones: Command Palette > "Snippets: Configure Snippets" > python.
+          "main guard": {
+              "prefix": "ifmain",
+              "body": ["if __name__ == \"__main__\":",
+                       "    ${1:main()}"]}
+    - Outline view and breadcrumbs for navigating large files; code folding
+      (Ctrl+Shift+[ and ]).
+    - Refactoring: rename symbol (F2), extract method/variable (Ctrl+.),
+      organise imports.
+    - Tasks (.vscode/tasks.json) to run build/test commands from the Palette.
+    - Multi-root workspaces (.code-workspace) for several folders.
+    - Remote development: connect to WSL, SSH servers or Dev Containers and
+      work as if the code were local (Remote - WSL: "code ." inside WSL).
+    - Live Share for pair programming; GitHub Copilot for AI suggestions.
+    - Command line: code file.py, code -r . (reuse window), code --diff a b.
+
+26. COMMON VS CODE PROBLEMS
+------------------------------------------------------------------------------
+  Symptom                                    | Fix
+  -------------------------------------------|-------------------------------
+  Import "x" could not be resolved           | wrong interpreter selected, or
+  (Pylance warning) / ModuleNotFoundError    | package not installed in it
+  'python' not recognized in VS Code         | restart VS Code after install
+  terminal                                   | (PATH refresh) or use py
+  venv not activating in terminal            | execution policy (PowerShell);
+                                             | open a new terminal; or switch
+                                             | the profile to Command Prompt
+  Run button runs the wrong Python           | choose the interpreter; check
+                                             | the status bar
+  Format on save does nothing                | no default formatter set or
+                                             | extension not installed
+  Tests not discovered                       | pytest not installed in the
+                                             | venv; wrong testpaths; syntax
+                                             | error in test file
+  Breakpoints are grey/not hit               | code not executed, wrong file,
+                                             | or justMyCode/launch config
+  IntelliSense slow                          | large folders; exclude them
+                                             | (files.watcherExclude,
+                                             | python.analysis.exclude)
+  Terminal opens in the wrong folder         | open the project FOLDER, not a
+                                             | single file
+  Garbled output / encoding errors           | set files.encoding utf8 and
+                                             | PYTHONIOENCODING=utf-8
+  Extension conflicts                        | disable one linter/formatter
+                                             | that duplicates another
+  Reset everything                           | "Developer: Reload Window",
+                                             | disable all extensions, new
+                                             | profile
+
+
+==============================================================================
+                      C. JUPYTER NOTEBOOK
+==============================================================================
+
+27. WHAT IS JUPYTER?
+------------------------------------------------------------------------------
+Jupyter (Julia + Python + R) is an open-source project for interactive
+computing. A NOTEBOOK (.ipynb file) mixes executable code, formatted text
+(Markdown), equations, tables, charts and results in one document. It is
+widely used for data analysis, machine learning, teaching and experiments.
+
+Parts:
+    Notebook document  a JSON file (.ipynb) with a list of cells, their
+                       outputs and metadata.
+    Kernel             a separate process that runs the code (the Python
+                       interpreter via ipykernel). It keeps variables in
+                       memory between cells.
+    Server             serves the notebook in your browser
+                       (http://localhost:8888).
+    Front end          the web interface where you edit and run cells.
+
+Architecture:  browser <-> Jupyter server <-> kernel (python process)
+
+Products:
+  Name            | What it is
+  ----------------|-------------------------------------------------------
+  Jupyter Notebook| classic single-document interface (version 7 is built on
+                  | JupyterLab components)
+  JupyterLab      | next-generation interface: tabs, file browser, terminal,
+                  | multiple notebooks, extensions
+  VS Code         | opens .ipynb files with the Jupyter extension
+  Google Colab    | free hosted notebooks with GPU/TPU, nothing to install
+  Kaggle Notebooks| hosted notebooks with datasets and competitions
+  JupyterHub      | multi-user server for classes and teams
+  nbviewer        | static viewing of notebooks online
+
+Good for: exploring data, visualisation, quick prototypes, tutorials,
+reproducible reports. Not ideal for: production services, large applications,
+tests/CI (keep reusable code in .py modules).
+
+28. INSTALLING AND LAUNCHING
+------------------------------------------------------------------------------
+Inside a virtual environment:
+    python -m venv .venv  and activate it
+    pip install notebook              classic Notebook (v7)
+    pip install jupyterlab            JupyterLab
+    pip install ipykernel             only the kernel (for VS Code)
+    jupyter --version                 check
+
+With Anaconda: Jupyter is already installed (Anaconda Navigator or
+`jupyter notebook`). With conda: conda install -c conda-forge notebook.
+
+Start:
+    cd my_project                      the folder where files should live
+    jupyter notebook                   starts the server, opens the browser
+    jupyter lab                        JupyterLab
+    The terminal prints a URL like  http://localhost:8888/tree?token=abc123...
+    Options:  --port 8889   --no-browser   --notebook-dir=path
+    jupyter notebook list              running servers and tokens
+    Stop: press Ctrl+C in the terminal twice (or confirm with y), or use
+    File > Shut Down in the web page. Closing the browser tab does NOT stop
+    the server or the kernel.
+
+Security: the token protects the server. Do not expose it to the internet
+without a password/HTTPS; do not share notebooks with credentials inside.
+Set a password: jupyter notebook password.
+
+Dashboard (the "Files" page): lists the folder's files; buttons New (Python 3
+notebook, text file, folder, terminal), Upload, Delete, Rename; tabs Files /
+Running / Clusters.
+
+29. KERNELS AND VIRTUAL ENVIRONMENTS
+------------------------------------------------------------------------------
+A notebook runs in the environment of its KERNEL. A classic mistake: the
+package is installed in .venv but Jupyter was started from another Python,
+so `import x` fails.
+
+    Make the venv available as a kernel (run with the venv activated):
+        pip install ipykernel
+        python -m ipykernel install --user --name myenv \
+               --display-name "Python (myenv)"
+    jupyter kernelspec list              installed kernels
+    jupyter kernelspec remove myenv      delete one
+    In the notebook: Kernel > Change kernel > "Python (myenv)".
+
+    Check inside a notebook:
+        import sys; sys.executable        path of the Python that is running
+    Install packages from a notebook into the running kernel's environment:
+        %pip install pandas              (preferred over !pip install)
+        %conda install numpy             (in conda environments)
+    After installing, restart the kernel if the package was already imported.
+
+    Other languages have kernels too (R, Julia, JavaScript, Bash ...).
+
+30. THE INTERFACE: CELLS AND MODES
+------------------------------------------------------------------------------
+A notebook is a list of CELLS.
+
+  Cell type  | Contents                        | Output
+  -----------|---------------------------------|---------------------------
+  Code       | Python code (In [n]:)           | printed text, the value of
+             |                                 | the last expression
+             |                                 | (Out [n]:), plots, tables
+  Markdown   | formatted text, headings, math  | rendered text when run
+  Raw        | text passed through unchanged   | none (used by nbconvert)
+
+    In [1]: x = 10
+    In [2]: x * 2
+    Out[2]: 20
+    In [3]: print("hi")
+    hi
+    In [4]: import math
+            math.sqrt(16)
+    Out[4]: 4.0
+    - Only the value of the LAST expression in a cell is displayed
+      automatically; use print() or display() for others.
+    - A trailing semicolon (plt.plot(x);) hides the output value.
+    - [*] beside a cell means it is running or waiting for the kernel.
+    - In[n] / Out[n] are lists you can use: Out[2], _ (last output),
+      __ (before that), _2 (output of cell 2).
+
+Two modes:
+    Edit mode    green border, cursor inside the cell (press Enter)
+    Command mode blue border, keyboard works on cells (press Esc)
+
+Menu: File, Edit, View, Insert, Cell/Run, Kernel, Widgets, Help. Toolbar
+buttons: save, add cell, cut/copy/paste, run, interrupt (stop), restart
+kernel, cell type selector.
+
+31. KEYBOARD SHORTCUTS
+------------------------------------------------------------------------------
+  Both modes
+    Shift+Enter    run the cell and select the next (create one at the end)
+    Ctrl+Enter     run the cell and stay
+    Alt+Enter      run the cell and insert a new cell below
+    Ctrl+S         save (autosave also runs)
+  Edit mode
+    Esc            switch to command mode
+    Tab            code completion          Shift+Tab  show docstring/tooltip
+    Ctrl+/         comment/uncomment        Ctrl+Z / Ctrl+Y  undo / redo
+    Ctrl+Shift+-   split the cell at the cursor
+  Command mode (press Esc first)
+    Enter          switch to edit mode
+    A / B          insert a cell Above / Below
+    D D            delete the selected cell (press D twice)
+    Z              undo cell deletion
+    M / Y          change cell to Markdown / Code
+    C / X / V      copy / cut / paste cell
+    Shift+M        merge selected cells    Shift+Up/Down  select several cells
+    L              toggle line numbers     O  toggle output
+    I I            interrupt the kernel (stop a running cell)
+    0 0            restart the kernel (press 0 twice)
+    H              show the shortcut list  Ctrl+Shift+P  command palette
+
+32. MARKDOWN CELLS
+------------------------------------------------------------------------------
+    # Heading 1        ## Heading 2        ### Heading 3
+    **bold**   *italic*   `inline code`   ~~strike~~
+    - bullet            1. numbered         > quote
+    [link text](https://example.com)       ![alt](image.png)
+    ```python
+    code block
+    ```
+    | col A | col B |
+    |-------|-------|
+    | 1     | 2     |
+    Equations (LaTeX):  $E = mc^2$  inline,   $$\sum_{i=1}^{n} i$$  display
+    Horizontal rule: ---      HTML tags are allowed.
+    Run the cell (Shift+Enter) to render it; double-click to edit again.
+    Use headings to structure the notebook (they build a table of contents).
+
+33. MAGIC COMMANDS AND SHELL ACCESS
+------------------------------------------------------------------------------
+IPython "magics" extend the notebook. One % applies to a single line; %% to
+the whole cell (must be the first line of the cell).
+
+  Command                 | Purpose
+  ------------------------|------------------------------------------------
+  %lsmagic                | list all magics         %magic  full help
+  %timeit expr            | time a statement (many runs, mean +- std dev)
+  %%timeit                | time a whole cell
+  %time expr / %%time     | time a single run
+  %run script.py          | run a script in the notebook's namespace
+  %load script.py         | paste a file's text into the cell
+  %%writefile name.py     | save the cell contents as a file
+  %who  %whos             | list variables (whos: types and values)
+  %reset                  | clear all variables
+  %matplotlib inline      | show plots inside the notebook (default in new
+                          | versions; "widget" for interactive plots)
+  %pwd  %cd path  %ls     | working directory, change it, list files
+  %env NAME=value         | environment variables
+  %pip install pkg        | install into the kernel's environment
+  %history -n             | show past inputs
+  %debug / %pdb on        | post-mortem debugging after an exception
+  %load_ext autoreload    | reload edited .py modules automatically
+  %autoreload 2           |   (use with the line above)
+  %%bash  %%html  %%sql   | run the cell as bash, render HTML, run SQL
+  %%capture out           | capture the cell's output into a variable
+
+    %timeit sum(range(1000))
+    # 12.3 us +- 0.1 us per loop (mean +- std. dev. of 7 runs, 100000 loops
+    # each)             <- the numbers vary with your computer
+    %%writefile hello.py
+    print("hi")
+    %run hello.py                 # hi
+
+Shell commands with !:
+    !ls          !dir          !pip list          !git status
+    files = !ls                   capture the output into a list
+    name = "data"; !echo {name}   Python variable inside a shell command
+    In Windows shells use dir instead of ls (or %ls, which works everywhere).
+
+Help inside the notebook:
+    len?          short help (docstring) in a pane
+    len??         source code if available
+    obj.<Tab>     list attributes and methods
+    Shift+Tab     tooltip with the signature and docstring
+
+34. DISPLAYING RESULTS, PLOTS AND WIDGETS
+------------------------------------------------------------------------------
+    from IPython.display import display, HTML, Image, Markdown, clear_output
+    display(df1); display(df2)          show several objects in one cell
+    display(HTML("<b>bold</b>"))        display(Image("pic.png"))
+    display(Markdown("**hello**"))
+    print(...) shows plain text; the last expression shows a rich view
+    (a pandas DataFrame becomes an HTML table).
+
+Plotting:
+    import matplotlib.pyplot as plt
+    %matplotlib inline
+    plt.plot([1, 2, 3], [1, 4, 9])
+    plt.title("Squares"); plt.show()
+    Other libraries render directly: seaborn, plotly, bokeh, altair.
+
+Data tools:
+    import pandas as pd
+    df = pd.read_csv("data.csv")
+    df.head()         df.describe()         df.info()
+
+Widgets and progress bars:
+    pip install ipywidgets tqdm
+    from ipywidgets import interact
+    @interact(x=(0, 10))
+    def square(x): return x * x       (a slider that re-runs the function)
+    from tqdm.notebook import tqdm
+    for i in tqdm(range(1000)): ...
+
+35. SAVING, EXPORTING AND SHARING
+------------------------------------------------------------------------------
+    - Notebooks autosave; File > Save and Checkpoint creates a restore point
+      (stored in a hidden .ipynb_checkpoints folder).
+    - Download/Export (File > Download as): Notebook (.ipynb), Python (.py),
+      HTML, Markdown, PDF (needs LaTeX/pandoc), slides.
+    - Command line (nbconvert):
+          jupyter nbconvert --to html notebook.ipynb
+          jupyter nbconvert --to script notebook.ipynb      (-> notebook.py)
+          jupyter nbconvert --to pdf notebook.ipynb
+          jupyter nbconvert --to notebook --execute notebook.ipynb
+          jupyter nbconvert --clear-output --inplace notebook.ipynb
+    - Parameterised or automated runs: papermill; pair notebooks with .py
+      files (jupytext).
+    - Share: send the .ipynb, publish on GitHub (renders notebooks), nbviewer,
+      Colab, or export to HTML/PDF for non-programmers.
+    - Version control: .ipynb files contain outputs and metadata, so diffs are
+      noisy. Clear outputs before committing (nbstripout) or use jupytext.
+    - A notebook is JSON:
+          {"cells": [{"cell_type": "code", "source": [...], "outputs": [...],
+                      "execution_count": 1, "metadata": {}}],
+           "metadata": {"kernelspec": {...}}, "nbformat": 4,
+           "nbformat_minor": 5}
+
+36. NOTEBOOKS IN VS CODE AND GOOGLE COLAB
+------------------------------------------------------------------------------
+VS Code (Jupyter extension + Python extension):
+    - Open any .ipynb file, or Ctrl+Shift+P > "Create: New Jupyter Notebook".
+    - Click "Select Kernel" (top right) and choose your .venv interpreter;
+      VS Code may ask to install ipykernel - accept.
+    - Run cells with the play button or Shift+Enter; add Code / Markdown cells
+      with the + buttons; Variables view and data viewer (open a DataFrame);
+      debug cells; Git diff of notebooks; export via "..." menu.
+    - Interactive Window: in a normal .py file, mark cells with  # %%  and run
+      them with Shift+Enter; results appear on the side, no .ipynb needed.
+          # %%
+          import math
+          math.sqrt(16)
+          # %% [markdown]
+          # Notes in markdown
+    - No server to start: the extension runs the kernel for you.
+
+Google Colab (colab.research.google.com):
+    - Runs in the browser with a Google account; free CPU, limited GPU/TPU.
+    - Files live in a temporary virtual machine (mount Google Drive to keep
+      data): from google.colab import drive; drive.mount('/content/drive').
+    - Install packages with !pip install pkg; sessions disconnect after
+      inactivity and the environment resets.
+
+37. BEST PRACTICES AND PITFALLS
+------------------------------------------------------------------------------
+Hidden state is the biggest trap. Variables live in the kernel, not in the
+file, and cells can be run in any order:
+    - A cell may work only because an earlier (now deleted or edited) cell
+      once defined a variable.
+    - Run order shown by the numbers In [3], In [1], In [7] may not match the
+      top-to-bottom order of the document.
+    - Deleting a cell does not delete the variable it created.
+    Always verify reproducibility: Kernel > "Restart & Run All". The notebook
+    must run top to bottom without errors before you share it.
+
+Good habits:
+    1. Put all imports in the first cell; keep configuration at the top.
+    2. Write short cells that do one thing; explain with Markdown headings.
+    3. Move reusable functions into .py modules and import them (use
+       %autoreload while developing).
+    4. Name the notebook and the kernel after the project; use a virtual
+       environment per project and record requirements.txt.
+    5. Avoid secrets (API keys, passwords) in cells and outputs; use
+       environment variables.
+    6. Clear large outputs before committing; keep data files out of Git.
+    7. Use relative paths from the notebook's folder (the working directory is
+       the notebook's location).
+    8. Restart the kernel to free memory; interrupt (I I) a runaway loop.
+    9. Do not rely on notebooks for production code or unit tests; convert to
+       scripts (nbconvert --to script) when it matures.
+   10. Print less: very long outputs slow the browser.
+
+Common problems:
+  Symptom                                | Fix
+  ---------------------------------------|----------------------------------
+  ModuleNotFoundError in notebook        | kernel uses another Python; check
+                                         | sys.executable; ipykernel install;
+                                         | %pip install
+  Package installed but import fails     | restart the kernel after install
+  Cell stuck at [*]                      | long computation or infinite loop;
+                                         | Kernel > Interrupt, then Restart
+  "Kernel died" / dead kernel            | out of memory or crash; restart,
+                                         | reduce data, check the terminal
+  Changes in my .py module not visible   | module cached; %autoreload 2 or
+                                         | restart the kernel
+  Plots do not show                      | %matplotlib inline; call plt.show()
+  Results differ after reopening         | outputs are saved from the last
+                                         | run; the kernel state is NOT
+                                         | restored; run all cells
+  File not found                         | check %pwd; paths are relative to
+                                         | the notebook's folder
+  Port already in use                    | jupyter notebook --port 8889
+  Token / login page                     | copy the URL with the token from
+                                         | the terminal output
+
+Notebook vs script:
+  Notebook (.ipynb)                    | Script (.py)
+  -------------------------------------|-----------------------------------
+  interactive, step by step            | runs top to bottom in one go
+  keeps state between cells            | fresh state every run
+  mixes code, text and charts          | code only
+  great for exploration and teaching   | great for apps, automation, tests
+  hard to version-control and test     | easy to diff, lint, test, deploy
+
+
+==============================================================================
+                  D. CHECKLIST AND INTERVIEW Q&A
+==============================================================================
+
+38. CHECKLIST
+------------------------------------------------------------------------------
+  1. Install Python 3 from python.org (tick "Add python.exe to PATH" on
+     Windows); verify python --version and pip --version in a NEW terminal.
+  2. Use python -m pip so pip matches the interpreter.
+  3. One virtual environment (.venv) per project; activate it; never commit
+     it; keep requirements.txt.
+  4. Linux/macOS: python3; do not touch the system Python; PEP 668 means use a
+     venv.
+  5. Use the py launcher (Windows), pyenv, conda or uv for several versions.
+  6. VS Code: install the Python extension; open the project FOLDER; select
+     the interpreter; use the integrated terminal.
+  7. Configure formatter (Black/Ruff), linter, pytest and format-on-save in
+     .vscode/settings.json.
+  8. Debug with breakpoints (F9), F5, F10 (over), F11 (into); launch.json for
+     custom configurations.
+  9. Jupyter: pip install notebook; jupyter notebook; Shift+Enter runs a cell;
+     Esc = command mode, Enter = edit mode.
+ 10. Register venvs as kernels with ipykernel; use %pip install.
+ 11. Hidden state: finish with Kernel > Restart & Run All.
+ 12. Keep notebooks for exploration; move stable logic into .py modules.
+
+
+==============================================================================
+                  E. INTERVIEW QUESTIONS & ANSWERS
+==============================================================================
+
+INSTALLING PYTHON
+Q1. How do you install Python on Windows and verify it?
+A.  Download the installer from python.org, run it with "Add python.exe to
+    PATH" ticked, and finish. Open a new terminal and check python --version
+    and pip --version (py --version works through the launcher).
+
+Q2. What does the PATH option do during installation? What if you forgot it?
+A.  It adds the Python and Scripts folders to the PATH variable so the shell
+    finds python and pip from any folder. If forgotten, re-run the installer
+    (Modify), use the py launcher, or add the folders to PATH manually and
+    open a new terminal.
+
+Q3. What is the difference between python, python3, py and pip?
+A.  python/python3 start the interpreter (python3 is the usual name on
+    Linux/macOS because python may be missing or be Python 2 on old systems).
+    py is the Windows launcher that selects a version (py -3.12). pip installs
+    packages; python -m pip guarantees the pip of that interpreter.
+
+Q4. What is pip and what is PyPI?
+A.  pip is Python's package installer; PyPI (Python Package Index) is the
+    online repository it downloads from. pip install name fetches the package
+    and its dependencies; pip freeze > requirements.txt records versions.
+
+Q5. Why use a virtual environment?
+A.  To isolate each project's dependencies and Python version so projects do
+    not conflict, to avoid modifying the system Python, and to make
+    installations reproducible (requirements.txt). Create with python -m venv
+    .venv and activate it.
+
+Q6. How do you activate a virtual environment in CMD, PowerShell, Git Bash
+    and on Linux/macOS?
+A.  CMD: .venv\Scripts\activate. PowerShell: .venv\Scripts\Activate.ps1
+    (may need Set-ExecutionPolicy -Scope Process RemoteSigned). Git Bash:
+    source .venv/Scripts/activate. Linux/macOS: source .venv/bin/activate.
+
+Q7. What does "externally-managed-environment" mean on Linux?
+A.  The distribution marks its system Python as managed by the OS package
+    manager (PEP 668), so pip refuses to install packages system-wide. Use a
+    virtual environment or pipx instead of forcing the install.
+
+Q8. How can several Python versions coexist and how do you choose one?
+A.  Install them side by side. Windows: py -3.11 / py -3.12. Linux/macOS:
+    pyenv, deadsnakes, python3.11 binaries. Also conda environments or uv.
+    Create each project's venv with the version you want
+    (py -3.11 -m venv .venv).
+
+Q9. Anaconda vs python.org + pip: what is the difference?
+A.  Anaconda bundles Python, many scientific packages, Jupyter and the conda
+    manager, which handles non-Python dependencies too (good for data
+    science). python.org + pip + venv is lighter and standard for general
+    development. Keep conda and pip usage in one environment minimal.
+
+Q10. After pip install, import still fails. What do you check?
+A.  That pip and python belong to the same environment: compare pip --version
+    with python --version, print sys.executable, activate the right venv, use
+    python -m pip install, and restart the kernel/IDE if needed.
+
+Q11. What is CPython? Is Python compiled or interpreted?
+A.  CPython is the reference implementation written in C. Source code is
+    compiled to bytecode (.pyc in __pycache__) which the Python virtual
+    machine interprets, so Python is usually described as interpreted with an
+    internal compile step.
+
+Q12. How do you upgrade Python or pip?
+A.  Install the new minor version alongside the old one, recreate virtual
+    environments and reinstall requirements. Upgrade pip with python -m pip
+    install --upgrade pip. Micro releases upgrade in place with the same
+    minor installer.
+
+VS CODE
+Q13. What is VS Code and how does it differ from an IDE like PyCharm?
+A.  VS Code is a light, free, extensible code editor; features such as Python
+    support, debugging and notebooks come from extensions. PyCharm is a full
+    IDE with built-in Python tooling. (VS Code is also not Visual Studio.)
+
+Q14. Which extensions do you need for Python in VS Code?
+A.  The Python extension (it pulls in Pylance and the debugger), plus
+    optionally Jupyter, a formatter/linter (Black, Ruff), autoDocstring,
+    GitLens and Error Lens.
+
+Q15. How do you select the Python interpreter in VS Code? Why does it matter?
+A.  Ctrl+Shift+P > Python: Select Interpreter (or click the status bar).
+    VS Code uses it to run, lint, test, debug and resolve imports, so the
+    wrong one causes "import could not be resolved" and
+    ModuleNotFoundError.
+
+Q16. How do you run and debug a Python file in VS Code?
+A.  Run: the triangle button or Ctrl+F5 (or python file.py in the terminal).
+    Debug: set breakpoints (F9) and press F5; step with F10 (over), F11
+    (into) and Shift+F11 (out); inspect Variables, Watch and the Debug
+    Console.
+
+Q17. What is launch.json?
+A.  A file in .vscode that defines debug configurations (program, module,
+    args, environment, console, justMyCode), e.g. debugging uvicorn
+    main:app or pytest.
+
+Q18. What is the difference between user settings and workspace settings?
+A.  User settings apply to all projects (global settings.json); workspace
+    settings live in .vscode/settings.json and apply only to that project and
+    can be committed to share conventions.
+
+Q19. Formatter vs linter vs type checker?
+A.  A formatter rewrites layout (Black, Ruff format); a linter reports
+    suspicious code and style problems (Ruff, Flake8, Pylint); a type checker
+    verifies type hints (Pylance, mypy). Format-on-save automates formatting.
+
+Q20. How do you open a project in VS Code from the terminal and why open the
+     folder?
+A.  code . in the project directory. Opening the folder gives VS Code the
+    project root for the interpreter, settings, tests, Git and relative paths.
+
+Q21. Name useful VS Code shortcuts.
+A.  Ctrl+Shift+P command palette, Ctrl+P quick open, Ctrl+` terminal, Ctrl+/
+    comment, Alt+Up/Down move line, Ctrl+D multi-select, F2 rename symbol,
+    F12 go to definition, Shift+Alt+F format, Ctrl+Shift+F search in files,
+    F5/F9/F10/F11 debugging.
+
+Q22. The VS Code terminal says 'python' is not recognized after installation.
+     Why?
+A.  The running VS Code process still has the old PATH. Restart VS Code (or
+    the computer), confirm PATH contains Python, or use py or the full path.
+
+Q23. How do you run unit tests in VS Code?
+A.  Install pytest in the selected venv, run Python: Configure Tests, choose
+    pytest and the tests folder; the Testing view discovers tests and can run
+    or debug them.
+
+JUPYTER
+Q24. What is a Jupyter Notebook and its main components?
+A.  An interactive document (.ipynb JSON) of code, Markdown and output cells.
+    Components: the notebook file, the web front end, the server, and the
+    kernel that executes code and holds variables in memory.
+
+Q25. What is a kernel? What do Restart, Interrupt and Restart & Run All do?
+A.  The process that runs the code (ipykernel for Python). Interrupt stops the
+    running cell; Restart kills the process and clears all variables; Restart
+    & Run All restarts and executes every cell in order to check that the
+    notebook is reproducible.
+
+Q26. What are the cell types and the two modes?
+A.  Code, Markdown and Raw cells. Edit mode (green border, typing in a cell)
+    and Command mode (blue border, cell operations; press Esc to enter and
+    Enter to leave).
+
+Q27. Which shortcuts run a cell?
+A.  Shift+Enter runs and moves to the next cell, Ctrl+Enter runs and stays,
+    Alt+Enter runs and inserts a new cell below.
+
+Q28. What are magic commands? Give examples.
+A.  IPython extras prefixed with % (line) or %% (cell): %timeit, %%timeit,
+    %run, %who, %matplotlib inline, %pip install, %%writefile, %load_ext
+    autoreload, %%bash. Shell commands start with !, e.g. !ls.
+
+Q29. What does a notebook print for the last expression?
+        x = 5
+        x + 1
+        x * 2
+A.  Only the last expression is displayed: Out[..]: 10. To see both, use
+    print() or display(). A trailing semicolon hides the output.
+
+Q30. What is hidden state in notebooks and how do you avoid problems?
+A.  Variables persist in the kernel and cells can be run out of order or
+    deleted, so results may depend on invisible history. Avoid by keeping a
+    linear order, and always use Kernel > Restart & Run All before sharing.
+
+Q31. How do you use a virtual environment's packages in Jupyter?
+A.  Install ipykernel in the venv, register it with python -m ipykernel
+    install --user --name myenv, then pick that kernel (Kernel > Change
+    kernel) or select the interpreter in VS Code. Use %pip install to install
+    into the running kernel's environment.
+
+Q32. Jupyter Notebook vs JupyterLab vs Google Colab?
+A.  Notebook: classic one-document interface. JupyterLab: a fuller workspace
+    with tabs, file browser, terminal and extensions. Colab: hosted notebooks
+    in the browser with free GPU and nothing to install, but temporary
+    storage.
+
+Q33. How do you convert a notebook to a Python script or HTML?
+A.  File > Download as, or jupyter nbconvert --to script notebook.ipynb and
+    jupyter nbconvert --to html notebook.ipynb.
+
+Q34. How do you start and stop the Jupyter server?
+A.  Start: jupyter notebook (or jupyter lab) in the project folder; it prints
+    a URL with a token. Stop: Ctrl+C twice in the terminal or File > Shut
+    Down. Closing the browser tab leaves the server and kernels running.
+
+Q35. When would you choose a notebook and when a script?
+A.  Notebooks for exploration, visualisation, teaching and quick prototypes.
+    Scripts/modules for production code, automation, testing, version control
+    and reuse.
+
+Q36. Why are notebooks awkward in Git and what helps?
+A.  The .ipynb JSON includes outputs, execution counts and metadata, giving
+    noisy diffs and merge conflicts. Clear outputs before committing
+    (nbstripout), pair with .py files (jupytext) or review via nbdime.
+
+Q37. How can you see the time a statement takes in a notebook?
+A.  %timeit statement (many runs, mean and standard deviation), %%timeit for
+    a cell, %time for one run.
+
+Q38. How can you run a Python notebook-like workflow in VS Code?
+A.  Open a .ipynb with the Jupyter extension and select a kernel, or use
+    # %% cell markers in a .py file to run cells in the Interactive Window.
+
+Q39. A package is installed but the notebook cannot import it. Why?
+A.  The kernel is running a different Python than the one pip installed into.
+    Check sys.executable, change the kernel, or use %pip install inside the
+    notebook, then restart the kernel.
+
+Q40. Give a recommended setup for a new Python learner.
+A.  Install the latest stable Python 3 (PATH ticked), VS Code with the Python
+    extension, create a project folder with python -m venv .venv, select it
+    as the interpreter, install packages with pip, use black/ruff and pytest,
+    and install notebook (or use the Jupyter extension) only for data
+    exploration.
+
+==============================================================================
+                                   END OF NOTES
+==============================================================================

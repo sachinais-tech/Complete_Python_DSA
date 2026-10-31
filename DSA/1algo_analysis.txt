@@ -1,0 +1,1111 @@
+==============================================================================
+ ALGORITHM ANALYSIS  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Time Complexity | Space Complexity | Big-O (and friends)
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  1.  What is Algorithm Analysis? Why do we need it?
+  2.  Ways to measure: Empirical vs Theoretical (RAM model)
+  3.  Input size, growth rate, and "what counts as a step"
+  4.  Time Complexity
+  5.  Space Complexity
+  6.  Asymptotic Notations: Big-O, Omega, Theta, little-o, little-omega
+  7.  Common Complexity Classes (ranked, with examples)
+  8.  Rules for Computing Big-O (drop constants, add vs multiply, etc.)
+  9.  Analyzing Loops (single, nested, dependent, logarithmic)
+ 10.  Analyzing Recursion (recursion tree, Master Theorem, recurrences)
+ 11.  Best / Worst / Average Case
+ 12.  Amortized Analysis
+ 13.  Complexity of Python built-ins (list, dict, set, str, deque, heapq)
+ 14.  Worked Examples (step by step)
+ 15.  Common Algorithm Complexity Cheat Sheet
+ 16.  Common Mistakes / Pitfalls
+ 17.  Interview Tips & Frequently Asked Questions
+ 18.  Practice Problems (with answers)
+ 19.  Quick Revision Summary
+
+
+==============================================================================
+1. WHAT IS ALGORITHM ANALYSIS?
+==============================================================================
+
+Algorithm  = finite, well-defined sequence of steps to solve a problem.
+Analysis   = predicting the RESOURCES an algorithm needs:
+               - Time   (how many operations / how long)
+               - Space  (how much memory)
+               - (also: bandwidth, energy, I/O - rarely asked)
+
+WHY ANALYZE?
+  - Compare algorithms independent of hardware/language.
+  - Predict how the algorithm SCALES when input grows (n = 10 vs 10^9).
+  - Choose the right algorithm/data structure before writing code.
+  - Interviews: "What is the complexity?" is asked for EVERY solution.
+
+KEY IDEA: We do NOT care about exact seconds. We care about HOW THE COST
+GROWS as input size n grows.
+
+Example: Searching a name in a phone book of n names.
+   Linear scan   -> up to n checks      (grows linearly)
+   Binary search -> about log2(n) checks (grows very slowly)
+   For n = 1,000,000: 1,000,000 checks vs ~20 checks.
+
+
+==============================================================================
+2. EMPIRICAL vs THEORETICAL ANALYSIS
+==============================================================================
+
+EMPIRICAL (a-posteriori): run code, time it (time.perf_counter()).
+   + Real numbers.
+   - Depends on machine, language, compiler, current CPU load, test inputs.
+   - Must implement the algorithm first.
+   - Cannot cover all inputs.
+
+THEORETICAL (a-priori): count basic operations as a function of n.
+   + Machine independent, done before coding, covers ALL inputs.
+   - Ignores constant factors (which can matter in practice).
+
+RAM MODEL (Random Access Machine) - the standard abstract model:
+   - Each basic operation takes ONE unit of time:
+       arithmetic (+ - * /), comparison, assignment, array index access,
+       function call/return (excluding body).
+   - Memory access is O(1) (any cell reachable in one step).
+   - Infinite memory, no cache effects, sequential execution.
+   - (Caveat: big-number arithmetic is NOT O(1); Python ints are arbitrary
+     precision. For typical interview problems assume O(1).)
+
+Python timing example:
+    import time
+    start = time.perf_counter()
+    result = my_function(data)
+    print(time.perf_counter() - start)
+
+
+==============================================================================
+3. INPUT SIZE, GROWTH RATE, BASIC OPERATIONS
+==============================================================================
+
+INPUT SIZE (n): the quantity that drives cost.
+   - Array/list/string  -> number of elements/characters.
+   - Number N (e.g. is_prime(N)) -> value N, OR number of bits = log N
+     (pseudo-polynomial trap! see Pitfalls).
+   - Graph              -> V (vertices) and E (edges).
+   - Matrix             -> rows x cols (m x n).
+   - Two inputs         -> use two variables: O(n + m), O(n * m).
+
+BASIC OPERATION: the operation that dominates the running time (e.g. the
+comparison in sorting, the inner-loop body). We count how many times it runs.
+
+GROWTH RATE: only the leading behaviour for LARGE n matters.
+   T(n) = 3n^2 + 5n + 20  ->  for large n the 3n^2 term dominates.
+   Therefore T(n) = O(n^2).
+
+Table of growth (n = 1, 10, 100, 1000, 10^6):
+   log n   :   0     3      7      10        20
+   n       :   1    10    100    1000      10^6
+   n log n :   0    33    664    ~10^4     2*10^7
+   n^2     :   1   100   10^4    10^6      10^12   (too slow!)
+   2^n     :   2  1024   10^30   astronomic
+   n!      :   1  3.6M   huge    huge
+
+
+==============================================================================
+4. TIME COMPLEXITY
+==============================================================================
+
+DEFINITION
+   Time complexity = a function T(n) giving the NUMBER OF BASIC OPERATIONS
+   an algorithm performs as a function of input size n. (Not wall-clock time.)
+
+STEPS TO COMPUTE
+   1. Identify input size n.
+   2. Identify the basic operation(s).
+   3. Count how many times they execute as a function of n (T(n)).
+   4. Simplify using asymptotic notation (drop constants + lower terms).
+
+EXAMPLE 1 - Constant time, O(1)
+    def first(arr):
+        return arr[0]            # 1 step regardless of len(arr)
+    # HOW: arr[0] is one address calculation (base + 0*size) whatever len(arr) is -> constant -> O(1).
+
+EXAMPLE 2 - Linear time, O(n)
+    def total(arr):
+        s = 0                    # 1
+        for x in arr:            # n iterations
+            s += x               # n
+        return s                 # 1
+    # T(n) = n + 2  ->  O(n)
+    # HOW: count every statement: s=0 (1) + loop body n times + return (1) = n + 2; drop the constant 2 -> O(n).
+
+EXAMPLE 3 - Quadratic time, O(n^2)
+    def pairs(arr):
+        for i in arr:            # n
+            for j in arr:        # n each
+                print(i, j)      # n*n executions
+    # T(n) = n^2 -> O(n^2)
+    # HOW: the outer loop runs n times and, for each pass, the inner loop runs n times -> n * n executions of print.
+
+EXAMPLE 4 - Logarithmic time, O(log n)
+    def count_halvings(n):
+        c = 0
+        while n > 1:
+            n //= 2              # n halves each time
+            c += 1
+        return c
+    # Runs log2(n) times -> O(log n)
+    # HOW: n -> n/2 -> n/4 -> ... -> 1: after k halvings the value is n/2^k; it reaches 1 when 2^k = n, i.e. k = log2(n).
+
+TYPES OF TIME COMPLEXITY ANALYSIS
+   - Best case, Worst case, Average case (see section 11).
+   - Amortized (see section 12).
+
+IMPORTANT: Time complexity describes the ALGORITHM, not the machine.
+Faster computer -> same complexity, smaller constant.
+
+
+==============================================================================
+5. SPACE COMPLEXITY
+==============================================================================
+
+DEFINITION
+   Space complexity = total memory an algorithm needs as a function of n.
+
+   Space = Fixed part + Variable part
+     Fixed part    : code, constants, simple variables (independent of n).
+     Variable part : memory that depends on input - dynamic structures,
+                     recursion stack.
+
+AUXILIARY SPACE vs TOTAL SPACE   (very common exam/interview question!)
+   Auxiliary space = EXTRA / temporary space used by the algorithm,
+                     NOT counting the input itself.
+   Total space     = Input space + Auxiliary space.
+   In interviews, "space complexity" usually means AUXILIARY space
+   (clarify if unsure!).
+
+   Example: merge sort  -> auxiliary O(n); heap sort -> auxiliary O(1).
+            Both have input of size n, so total is O(n) for both, but
+            heap sort is "in-place" (O(1) extra).
+
+IN-PLACE ALGORITHM: uses O(1) (or O(log n)) extra space; modifies the input.
+   e.g. reverse list by swapping ends, heap sort, quick sort (O(log n) stack).
+
+WHERE SPACE GOES
+   1. Variables / scalars              -> O(1)
+   2. New arrays, lists, dicts, sets   -> proportional to their size
+   3. RECURSION CALL STACK             -> depth of recursion * frame size
+   4. Output (often excluded; state your convention)
+
+EXAMPLES
+    # O(1) space
+    def total(arr):
+        s = 0
+        for x in arr: s += x
+        return s
+
+    # O(n) space - builds a new list
+    def squares(arr):
+        return [x * x for x in arr]
+
+    # O(n) space - recursion stack depth n (no tail-call optimisation in Python)
+    def fact(n):
+        if n <= 1: return 1
+        return n * fact(n - 1)
+
+    # O(log n) space - recursion depth log n
+    def binary_search_rec(arr, t, lo, hi):
+        if lo > hi: return -1
+        mid = (lo + hi) // 2
+        if arr[mid] == t: return mid
+        if arr[mid] < t: return binary_search_rec(arr, t, mid + 1, hi)
+        return binary_search_rec(arr, t, lo, mid - 1)
+    # Iterative binary search = O(1) space.
+
+    # O(n^2) space - 2D table
+    dp = [[0] * n for _ in range(n)]
+
+    # NOTE: Naive Fibonacci recursion = O(2^n) time but only O(n) space
+    # (stack depth n; branches run one at a time, not simultaneously).
+
+TIME-SPACE TRADE-OFF
+   Often you can buy speed with memory (and vice versa):
+     - Memoization / DP: extra O(n) memory turns O(2^n) fib into O(n).
+     - Hash set for lookups: O(n) memory makes "contains" O(1) vs O(n).
+     - Two-sum: brute force O(n^2) time/O(1) space  vs  hash map
+       O(n) time/O(n) space.
+
+PYTHON GOTCHA - slicing copies!
+    arr[1:]   creates a NEW list: O(n) time AND O(n) space.
+    Recursive code like f(arr[1:]) silently becomes O(n^2) time/space.
+    Pass indices (lo, hi) instead.
+    Likewise s = s + "x" in a loop is O(n^2); use list + "".join().
+
+
+==============================================================================
+6. ASYMPTOTIC NOTATIONS
+==============================================================================
+
+Asymptotic = behaviour as n -> infinity. Used to describe growth of T(n).
+All are about FUNCTIONS (bounds), not directly about cases. You can give a
+Big-O for best, worst, or average case separately.
+
+6.1  BIG-O  -  O(g(n))  -  UPPER BOUND ("at most", grows no faster than)
+--------------------------------------------------------------------------
+Formal definition:
+   f(n) = O(g(n)) iff there exist positive constants c and n0 such that
+        0 <= f(n) <= c * g(n)   for all n >= n0.
+
+Meaning: beyond some point n0, f is always below c*g.
+Usually used for the WORST-CASE guarantee: "it will never take more than...".
+
+PROOF EXAMPLE: Show 3n + 2 = O(n).
+   3n + 2 <= 3n + 2n = 5n   for n >= 1.   So c = 5, n0 = 1.  QED.
+
+PROOF EXAMPLE: Show 3n^2 + 5n + 7 = O(n^2).
+   For n >= 1: 5n <= 5n^2 and 7 <= 7n^2.
+   So f(n) <= (3+5+7) n^2 = 15 n^2.  c = 15, n0 = 1.
+
+NOTE: Big-O is not necessarily tight. 3n+2 = O(n) AND O(n^2) AND O(2^n)
+are all TRUE statements. We usually give the TIGHTEST one.
+
+6.2  BIG-OMEGA  -  Omega(g(n))  -  LOWER BOUND ("at least")
+--------------------------------------------------------------------------
+   f(n) = Omega(g(n)) iff exist c > 0, n0 such that
+        f(n) >= c * g(n)   for all n >= n0.
+Used for best-case / "cannot do better than".
+   Example: any comparison sort is Omega(n log n) in the worst case.
+
+6.3  BIG-THETA  -  Theta(g(n))  -  TIGHT BOUND ("exactly, up to constants")
+--------------------------------------------------------------------------
+   f(n) = Theta(g(n)) iff exist c1, c2 > 0, n0 such that
+        c1 * g(n) <= f(n) <= c2 * g(n)   for all n >= n0.
+Equivalent:  f = O(g)  AND  f = Omega(g).
+   Example: 3n + 2 = Theta(n).    Merge sort is Theta(n log n) in all cases.
+
+6.4  LITTLE-o  -  o(g(n))  -  STRICT upper bound (grows strictly slower)
+   f(n) = o(g(n)) iff lim (n->inf) f(n)/g(n) = 0.
+   Example: n = o(n^2), but n != o(n).
+
+6.5  LITTLE-omega  -  omega(g(n))  -  STRICT lower bound
+   f(n) = omega(g(n)) iff lim f(n)/g(n) = infinity.
+   Example: n^2 = omega(n).
+
+ANALOGY WITH NUMBERS (good for memory):
+   f = O(g)      ~   f <= g
+   f = Omega(g)  ~   f >= g
+   f = Theta(g)  ~   f =  g
+   f = o(g)      ~   f <  g
+   f = omega(g)  ~   f >  g
+
+LIMIT TEST (quick way to compare f and g):
+   L = lim f(n)/g(n)
+     L = 0           -> f = o(g)  (so also O(g))
+     0 < L < inf     -> f = Theta(g)
+     L = infinity    -> f = omega(g)  (so also Omega(g))
+
+PROPERTIES
+   Reflexive : f = Theta(f), f = O(f)
+   Symmetric : f = Theta(g)  <=>  g = Theta(f)
+   Transitive: f=O(g), g=O(h) => f=O(h)  (same for Omega, Theta)
+   Transpose symmetry: f = O(g) <=> g = Omega(f)
+   Sum       : O(f) + O(g) = O(max(f, g))
+   Product   : O(f) * O(g) = O(f * g)
+
+!! INTERVIEW CLARIFICATION (commonly confused) !!
+   "Big-O = worst case" is a COMMON SIMPLIFICATION. Strictly:
+     - Big-O / Omega / Theta are BOUNDS on a function.
+     - Best / worst / average are CASES (which function you bound).
+   E.g. "Insertion sort's best case is O(n) and worst case is O(n^2)" is valid.
+
+
+==============================================================================
+7. COMMON COMPLEXITY CLASSES (fastest -> slowest)
+==============================================================================
+
+ O(1)         Constant      Array index, hash lookup (avg), push/pop stack
+ O(log n)     Logarithmic   Binary search, balanced BST ops, heap push/pop
+ O(sqrt n)    Square root   Primality trial division up to sqrt(N)
+ O(n)         Linear        Single loop, linear search, traverse list
+ O(n log n)   Linearithmic  Merge sort, heap sort, quick sort (avg), sorted()
+ O(n^2)       Quadratic     Nested loops, bubble/selection/insertion sort
+ O(n^3)       Cubic         Naive matrix multiplication, Floyd-Warshall
+ O(2^n)       Exponential   Subsets, naive Fibonacci, brute-force knapsack
+ O(n!)        Factorial     Permutations, brute-force Travelling Salesman
+
+ORDER:  1 < log n < sqrt(n) < n < n log n < n^2 < n^3 < 2^n < n!  (< n^n)
+
+PRACTICAL LIMITS (assuming ~10^8 simple ops/sec, ~1 s, competitive coding):
+   n <= 10-11     -> O(n!)         works
+   n <= 20-25     -> O(2^n)        works
+   n <= 400-500   -> O(n^3)
+   n <= 5,000     -> O(n^2)
+   n <= 10^6      -> O(n log n)
+   n <= 10^7-10^8 -> O(n)
+   n <= 10^18     -> O(log n) / O(1)
+ Use the constraints in a problem to guess the intended complexity!
+
+WHY exponential is "bad": doubling the machine speed only adds +1 to the
+solvable n. Polynomial algorithms scale; exponential ones don't.
+
+Examples:
+ O(1):      x = arr[5]
+ O(log n):  while n > 0: n //= 2
+ O(n):      for x in arr: ...
+ O(n log n):sorted(arr)
+ O(n^2):    for i..: for j..:
+ O(2^n):    def fib(n): return n if n<2 else fib(n-1)+fib(n-2)
+ O(n!):     itertools.permutations(arr)  (generating all of them)
+# HOW: O(1): one address calculation. O(log n): n halves each step. O(n): the body runs once per element. O(n log n): ~n comparisons per level x log n levels.
+# O(n^2): n x n. O(2^n): every call spawns 2 calls and the depth is n -> 2^n calls. O(n!): n x (n-1) x (n-2) ... arrangements.
+
+
+==============================================================================
+8. RULES FOR COMPUTING BIG-O
+==============================================================================
+
+RULE 1 - DROP CONSTANTS            O(5n) -> O(n);  O(n/2) -> O(n)
+RULE 2 - DROP LOWER-ORDER TERMS    O(n^2 + n + 1) -> O(n^2)
+         (keep the dominant term only)
+RULE 3 - SEQUENTIAL STEPS ADD      Step A then Step B  -> O(A + B) -> O(max)
+         for a: ...   # O(n)
+         for b: ...   # O(n^2)
+         total O(n + n^2) = O(n^2)
+RULE 4 - NESTED STEPS MULTIPLY     Loop inside loop -> O(outer * inner)
+RULE 5 - DIFFERENT INPUTS = DIFFERENT VARIABLES
+         for a in A: for b in B: -> O(a * b)   NOT O(n^2)
+         for a in A: ...; for b in B: ... -> O(a + b)   NOT O(n)
+RULE 6 - IF/ELSE: take the branch with the larger cost (worst case),
+         plus the condition cost.
+RULE 7 - FUNCTION CALL: cost of the call = cost of the function body.
+RULE 8 - LOGS: log base doesn't matter in Big-O:
+         log_a n = log_b n / log_b a  (constant factor). So O(log2 n)=O(log10 n).
+RULE 9 - Different exponentials/polynomials ARE different:
+         O(2^n) != O(3^n);  O(n^2) != O(n^3).
+         But log(n!) = Theta(n log n), and n^log(n) is NOT polynomial.
+RULE 10 - Constant loops: for i in range(1000000) is still O(1) if the bound
+          doesn't depend on n (though a huge constant in practice).
+
+USEFUL MATH
+   1 + 2 + ... + n            = n(n+1)/2          = O(n^2)
+   1 + 2 + 4 + ... + 2^k      = 2^(k+1) - 1       = O(2^k)  (geometric)
+   1 + 1/2 + 1/4 + ...        <= 2                = O(1)
+   n + n/2 + n/4 + ... + 1    <= 2n               = O(n)
+   1 + 1/2 + 1/3 + ... + 1/n  ~ ln n              = O(log n) (harmonic)
+   n * (1 + 1/2 + ... + 1/n)  = O(n log n)   (e.g. sieve-like loops)
+   log(n!) = Theta(n log n)   (Stirling)
+   a^log_b(n) = n^(log_b a)
+
+
+==============================================================================
+9. ANALYZING LOOPS
+==============================================================================
+
+(a) SIMPLE LOOP
+    for i in range(n): work()                  -> O(n)
+    # HOW: the body runs once per i -> n iterations x O(1) = n.
+
+(b) STEP LOOP  (i += k, k constant)
+    for i in range(0, n, 2): ...               -> n/2 -> O(n)
+    # HOW: i = 0, 2, 4, ... -> n/2 iterations; the constant 1/2 is dropped -> O(n).
+
+(c) MULTIPLICATIVE / DIVIDING LOOP
+    i = 1
+    while i < n: i *= 2                        -> O(log n)
+    while n > 0: n //= 2                       -> O(log n)
+    i = n
+    while i > 1: i = i // 3                    -> O(log n)   (base 3)
+    # HOW: doubling: i = 1, 2, 4, ... reaches n after k steps where 2^k = n -> k = log2(n). Halving n runs the same sequence backwards.
+    #      Dividing by 3 gives log3(n) = log2(n)/log2(3): a constant multiple, so still O(log n).
+
+(d) NESTED INDEPENDENT LOOPS
+    for i in range(n):
+        for j in range(n): ...                 -> O(n^2)
+    for i in range(n):
+        for j in range(m): ...                 -> O(n*m)
+    # HOW: the outer loop runs n times and the inner loop runs n (or m) times for each -> n*n (or n*m).
+
+(e) DEPENDENT (TRIANGULAR) NESTED LOOPS
+    for i in range(n):
+        for j in range(i): ...                 -> 0+1+...+(n-1) = n(n-1)/2
+                                                  -> O(n^2)
+    # HOW: the inner loop runs i times for i = 0, 1, ..., n-1: 0+1+...+(n-1) = n(n-1)/2 = n^2/2 - n/2; drop the constant and the lower term -> n^2.
+
+(f) NESTED: linear outer, logarithmic inner
+    for i in range(n):
+        j = 1
+        while j < n: j *= 2                    -> O(n log n)
+    # HOW: the inner while doubles j from 1 up to n = log2(n) iterations, and it does so for EVERY outer i -> n * log2(n).
+
+(g) TRICKY: inner loop doubles with outer variable
+    for i in range(1, n+1):
+        j = 1
+        while j <= i: j *= 2                   -> sum of log i = log(n!) = O(n log n)
+    # HOW: for outer value i the inner loop runs log2(i) times; the total is sum of log2(i) for i=1..n = log2(n!) ~ n*log2(n) (Stirling's approximation).
+
+(h) TRICKY: outer is multiplicative, inner linear in outer var
+    i = 1
+    while i < n:
+        for j in range(i): work()
+        i *= 2
+    # inner runs 1 + 2 + 4 + ... + n/2 ~ n    -> O(n)   (geometric!)
+    # HOW: the inner loop runs i times with i = 1, 2, 4, ..., n/2: a geometric sum = n - 1 < n. The doubling outer loop does NOT multiply by log n
+    #      because the inner work grows with i.
+
+(i) TRICKY: outer linear, inner depends on n/i  (harmonic)
+    for i in range(1, n+1):
+        for j in range(0, n, i): work()
+    # n/1 + n/2 + ... + n/n = n * H(n)         -> O(n log n)
+    # HOW: for a given i the inner loop jumps by i, so it runs n/i times. Total = n/1 + n/2 + ... + n/n = n * (1 + 1/2 + ... + 1/n) = n * H(n) ~ n * ln(n).
+
+(j) TRICKY: sqrt loop
+    i = 1
+    while i * i <= n: i += 1                   -> O(sqrt n)
+    # HOW: the loop stops when i*i > n, i.e. i > sqrt(n), so it runs sqrt(n) times.
+
+(k) TWO POINTERS (looks nested, but isn't)
+    i = 0
+    for j in range(n):
+        while i < n and cond(i, j): i += 1     # i never goes backward
+    # total moves of i <= n, of j = n         -> O(n)  (amortized)
+    # HOW: j moves n times; i only ever increases and stops at n, so the inner while runs at most n times IN TOTAL across the whole outer loop
+    #      -> n + n = 2n = O(n), not O(n^2).
+
+(l) CONSECUTIVE LOOPS
+    for ... n: ...
+    for ... n: ...                             -> O(n) + O(n) = O(n)
+    # HOW: two separate loops: n + n = 2n -> O(n). Sequential blocks ADD; only nested blocks multiply.
+
+(m) LOOP WITH BREAK: worst case counts as if no early break (unless you can
+    prove otherwise); best case may be O(1).
+
+(n) THREE nested -> O(n^3); k nested loops -> O(n^k).
+
+QUICK TRICK: count how many times the INNERMOST statement executes.
+
+
+==============================================================================
+10. ANALYZING RECURSION
+==============================================================================
+
+A recursive algorithm's time is described by a RECURRENCE RELATION:
+    T(n) = (number of subproblems) * T(size of each) + (work to split/merge)
+
+10.1 COMMON RECURRENCES
+-----------------------------------------------------------------------
+ Recurrence                   Solution        Example
+ T(n) = T(n-1) + O(1)         O(n)            factorial, linear recursion
+ T(n) = T(n-1) + O(n)         O(n^2)          selection-sort style, quicksort worst
+ T(n) = T(n-1) + O(log n)     O(n log n)
+ T(n) = 2T(n-1) + O(1)        O(2^n)          Tower of Hanoi, naive fib-ish
+ T(n) = T(n-1) + T(n-2) + O(1) O(phi^n)~O(2^n) naive Fibonacci (phi~1.618)
+ T(n) = T(n/2) + O(1)         O(log n)        binary search
+ T(n) = T(n/2) + O(n)         O(n)            quickselect avg (geometric)
+ T(n) = 2T(n/2) + O(1)        O(n)            tree traversal / array max D&C
+ T(n) = 2T(n/2) + O(n)        O(n log n)      merge sort, quicksort best/avg
+ T(n) = 2T(n/2) + O(n log n)  O(n log^2 n)
+ T(n) = 3T(n/2) + O(n)        O(n^log2(3))    Karatsuba ~ O(n^1.585)
+ T(n) = 7T(n/2) + O(n^2)      O(n^log2(7))    Strassen ~ O(n^2.81)
+ # HOW (unrolling each recurrence): T(n)=T(n-1)+1 -> n ones = n.  T(n)=T(n-1)+n -> n+(n-1)+...+1 = n^2/2.  T(n)=2T(n-1)+1 -> 1+2+4+...+2^(n-1) = 2^n - 1.
+ #      T(n)=T(n/2)+1 -> log2(n) halvings x 1.  T(n)=2T(n/2)+n -> n per level x log2(n) levels.  T(n)=2T(n/2)+1 -> 1+2+4+...+n/2 ~ n (leaves dominate).
+ T(n) = T(n/2) + T(n/2) + ...  (see Master theorem)
+
+10.2 METHODS TO SOLVE
+-----------------------------------------------------------------------
+ (1) SUBSTITUTION / BACK-SUBSTITUTION (unrolling)
+     T(n) = T(n-1) + 1
+          = T(n-2) + 2
+          = ...
+          = T(n-k) + k      stop at n-k = 1 -> k = n-1
+          = T(1) + n - 1 = O(n)
+
+     T(n) = 2T(n/2) + n
+          = 4T(n/4) + 2n
+          = 8T(n/8) + 3n
+          = 2^k T(n/2^k) + k n     stop at n/2^k = 1 -> k = log n
+          = n T(1) + n log n = O(n log n)
+
+ (2) RECURSION TREE METHOD
+     Draw the tree; compute cost per level; sum over levels.
+     Merge sort: each level costs n; depth = log n  -> n log n.
+       Level 0:       n
+       Level 1:  n/2     n/2          (total n)
+       Level 2: n/4 n/4 n/4 n/4       (total n)
+       ... log n levels.
+
+ (3) MASTER THEOREM  (for divide-and-conquer)
+     Applies to  T(n) = a T(n/b) + f(n),  a >= 1, b > 1
+     Let  c_crit = log_b(a)   (compare f(n) with n^c_crit)
+
+     Case 1: f(n) = O(n^(c_crit - eps)), eps > 0       (leaves dominate)
+             => T(n) = Theta(n^c_crit)
+     Case 2: f(n) = Theta(n^c_crit * log^k n), k >= 0 (balanced)
+             => T(n) = Theta(n^c_crit * log^(k+1) n)
+             (most common: k=0 -> Theta(n^c_crit log n))
+     Case 3: f(n) = Omega(n^(c_crit + eps)) AND regularity
+             a f(n/b) <= k f(n) for some k<1          (root dominates)
+             => T(n) = Theta(f(n))
+
+     EXAMPLES
+       Merge sort: T = 2T(n/2) + n.  a=2,b=2 -> n^1. f = n = n^1 -> Case 2
+                   => Theta(n log n).
+       Binary search: T = T(n/2) + 1. a=1,b=2 -> n^0 = 1. f=1 -> Case 2
+                   => Theta(log n).
+       Tree traversal: T = 2T(n/2) + 1. n^1 vs 1 -> Case 1 => Theta(n).
+       T = T(n/2) + n: n^0=1 vs n -> Case 3 => Theta(n).
+       T = 4T(n/2) + n: n^2 vs n -> Case 1 => Theta(n^2).
+       T = 4T(n/2) + n^2: Case 2 => Theta(n^2 log n).
+       T = 3T(n/2) + n^2: n^1.58 vs n^2 -> Case 3 => Theta(n^2).
+       T = 2T(n/2) + n log n: NOT case 2 with k=0; k=1 => Theta(n log^2 n).
+     Master theorem does NOT apply when: a is not constant, subproblems are
+     unequal (T(n/3)+T(2n/3)), f(n) is not polynomially larger/smaller, or
+     the recurrence is subtractive (T(n-1)).
+
+ (4) AKRA-BAZZI (generalisation; rarely needed) handles unequal splits.
+     T(n) = T(n/3) + T(2n/3) + n  -> Theta(n log n).
+
+10.3 SUBTRACTIVE RECURRENCES  T(n) = a T(n-b) + f(n)
+     a = 1:   T(n) = T(n-1) + f(n)  -> sum of f  (e.g. f=1 -> n, f=n -> n^2)
+     a > 1:   exponential, T(n) = O(a^(n/b) * f(n))
+         T(n) = 2T(n-1) + 1 -> O(2^n)
+         T(n) = 3T(n-1) + 1 -> O(3^n)
+
+10.4 RECURSION SPACE
+     Space = max DEPTH of the call stack * frame size (+ any extra memory).
+       factorial(n)            depth n         -> O(n)
+       naive fib(n)            depth n         -> O(n)  (NOT 2^n)
+       binary search recursive depth log n     -> O(log n)
+       merge sort              depth log n + O(n) merge buffer -> O(n)
+       quick sort              depth log n avg, n worst -> O(log n)..O(n)
+       DFS on graph            depth up to V   -> O(V)
+     Python default recursion limit ~1000 (sys.setrecursionlimit to change);
+     deep recursion -> RecursionError. Convert to iteration if needed.
+
+10.5 MEMOIZATION effect
+     Naive fib: O(2^n) time. With memo (functools.lru_cache): each n computed
+     once -> O(n) time, O(n) space. General formula for DP:
+         Time = (number of states) * (work per state).
+
+10.6 WORKED RECURRENCE EXAMPLES
+   Power(x, n) naive: T(n) = T(n-1)+1 -> O(n)
+   Power(x, n) fast : T(n) = T(n/2)+1 -> O(log n)
+   # HOW: naive power: n+1 calls. Fast power: n halves every call -> log2(n) calls.
+       def power(x, n):
+           if n == 0: return 1
+           half = power(x, n // 2)
+           return half * half if n % 2 == 0 else half * half * x
+       (Calling power twice instead of storing `half` makes it 2T(n/2)+1 = O(n)!)
+
+   Subsets of n items: T(n) = 2T(n-1) + O(1) -> O(2^n) (with copying O(n*2^n))
+   # HOW: 2 branches per call, depth n -> 2^n leaves; copying a subset of up to n items multiplies by n.
+   Permutations of n: n * (n-1) * ... = O(n!) (with copying O(n * n!))
+   # HOW: n choices for the first slot, n-1 for the second, ... -> n x (n-1) x ... x 1 = n!.
+
+
+==============================================================================
+11. BEST, WORST, AVERAGE CASE
+==============================================================================
+
+ BEST CASE    : input for which algorithm does the LEAST work. (Lower bound
+                on running time; rarely useful alone.)
+ WORST CASE   : input for which it does the MOST work. Gives a GUARANTEE.
+                The default measure in analysis and interviews.
+ AVERAGE CASE : expected cost over a probability distribution of inputs
+                (usually uniform). Harder to compute.
+ EXPECTED     : for randomised algorithms (e.g. randomised quicksort), averaged
+                over the algorithm's own random choices - not the input.
+
+ Example - LINEAR SEARCH in list of n:
+    Best    : target at index 0          -> O(1)
+    Worst   : target last / absent       -> O(n)
+    Average : target equally likely anywhere -> (n+1)/2 comparisons -> O(n)
+    # HOW: if the target is equally likely at any of n positions, the average position is (1+2+...+n)/n = (n+1)/2 comparisons -> O(n).
+
+ Example - BINARY SEARCH: best O(1), worst/avg O(log n).
+
+ Example - QUICK SORT:
+    Best/Avg : balanced partitions    -> O(n log n)
+    Worst    : already sorted + bad pivot (first/last) -> O(n^2)
+    # HOW: a bad pivot (min/max) leaves one side empty: n + (n-1) + ... + 1 = n^2/2 comparisons -> O(n^2).
+    Fix      : random pivot / median-of-three -> expected O(n log n)
+
+ Example - INSERTION SORT: best (already sorted) O(n); worst (reverse) O(n^2).
+    # HOW: sorted input -> each element is compared once (n-1 compares). Reversed -> element i shifts past i larger items: 1+2+...+(n-1) = n(n-1)/2.
+ Example - HASH TABLE lookup: avg O(1), worst O(n) (all keys collide).
+    # HOW: if every key hashes to the same bucket, the chain holds n items and a lookup scans them all.
+ Example - BST ops: balanced O(log n); degenerate (sorted inserts) O(n).
+    # HOW: sorted inserts build a chain of height n; each operation then walks that chain.
+
+ Remember: Worst-case ≠ Big-O only; you can express each case with
+ O, Omega, or Theta.
+
+
+==============================================================================
+12. AMORTIZED ANALYSIS
+==============================================================================
+
+Amortized cost = AVERAGE cost per operation over a WORST-CASE SEQUENCE of
+operations. No probability involved (unlike average-case). Guarantees that
+a sequence of n operations costs O(n) total even if one op is expensive.
+
+CLASSIC: Dynamic array (Python list.append)
+   - Most appends: O(1).
+   - When full, allocate 2x capacity and copy all: O(n), but rare.
+   - n appends cost: n + (1 + 2 + 4 + ... + n) <= n + 2n = 3n
+     => amortized O(1) per append.
+   # HOW: n appends = n writes + resize copies of 1+2+4+... (< n) items = < 3n steps in total; 3n / n appends = O(1) per append.
+   (Python over-allocates by ~12.5% growth pattern, not exactly 2x, still O(1)
+    amortized.)
+
+METHODS (know names):
+   1. Aggregate method : total cost of n ops / n.
+   2. Accounting (banker's) method : charge each op extra "credit" to pay for
+      later expensive ops.
+   3. Potential method : define potential function Phi on data structure state.
+
+OTHER EXAMPLES
+   - Binary counter increment: amortized O(1) (each bit flips rarely).
+   # HOW: over n increments bit 0 flips n times, bit 1 flips n/2 times, bit 2 n/4 times ... total < 2n flips -> about 2 flips per increment.
+   - Stack with multipop: amortized O(1) per op.
+   - Two-pointer / monotonic stack sliding window: each element pushed &
+     popped once -> O(n) total although inner `while` exists.
+     # HOW: every element is pushed once and popped at most once -> 2n operations over n elements.
+   - Union-Find with path compression + union by rank: amortized ~O(alpha(n)).
+   - Hash table resize: amortized O(1) insert.
+
+Interview line: "list.append is O(1) amortized, O(n) worst-case for a single call."
+
+
+==============================================================================
+13. COMPLEXITY OF PYTHON BUILT-INS (CPython)
+==============================================================================
+
+LIST (dynamic array)
+   Operation                         Time
+   a[i], a[i] = x                    O(1)
+   len(a)                            O(1)
+   a.append(x)                       O(1) amortized
+   a.pop()  (from end)               O(1)
+   a.pop(i) / a.insert(i, x)         O(n)   (shifts elements)
+   a.pop(0) / a.insert(0, x)         O(n)   <- use collections.deque instead
+   x in a / a.index(x) / a.count(x)  O(n)
+   a.remove(x)                       O(n)
+   a.extend(b)                       O(k)   (k = len(b))
+   a + b                             O(n + k)
+   a[i:j] (slice)                    O(j - i)  (copy!)
+   a.reverse()                       O(n)
+   a.sort() / sorted(a)              O(n log n)  (Timsort; best O(n) on sorted)
+   min(a) / max(a) / sum(a)          O(n)
+   a * k                             O(n*k)
+   list(range(n)) / list comp        O(n)
+ # HOW (list): O(1) = fixed address math. insert/pop at i shift n-i items. in/index/count scan up to n items. slice copies j-i items.
+ #      sort = n log n comparisons (Timsort); best case O(n) when the data is already one sorted run.
+
+DICT / SET (hash table)
+   d[k], d[k]=v, del d[k], k in d    O(1) average, O(n) worst (collisions)
+   len(d)                            O(1)
+   iteration over d                  O(n)
+   d.keys()/values()/items() view    O(1) to create, O(n) to iterate
+   d.copy()                          O(n)
+   set union a|b                     O(len(a)+len(b))
+   set intersection a&b              O(min(len(a), len(b)))
+   set difference a-b                O(len(a))
+ # HOW (dict/set): hash -> bucket -> compare keys = constant on average; worst case all keys collide -> scan n. Iteration visits n entries.
+ #      a|b touches both sets; a&b loops over the smaller set and probes the other; a-b loops over a.
+   Keys must be hashable (immutable). Since Python 3.7 dict keeps insertion order.
+
+STRING (immutable)
+   len(s), s[i]                      O(1)
+   s[i:j]                            O(j-i)
+   s + t                             O(len(s)+len(t))   (new string!)
+   building via += in loop           O(n^2) worst; use "".join(list) -> O(n)
+   x in s / s.find(x)                O(n*m) worst naive (CPython uses optimised
+                                      algorithm, often O(n+m) typical)
+   s.split(), s.join(), s.replace()  O(n)
+   s == t                            O(min(len))
+   s[::-1]                           O(n)
+ # HOW (str): strings are immutable, so every operation that builds a new string copies its characters -> O(length). Substring search tries
+ #      the pattern at each start position: up to n*m.
+
+COLLECTIONS.DEQUE (doubly-ended queue)
+   append/appendleft/pop/popleft     O(1)
+   d[i] (middle index)               O(n)
+   Use for BFS queues, sliding windows.
+
+HEAPQ (binary min-heap on a list)
+   heappush / heappop                O(log n)
+   heap[0] (peek min)                O(1)
+   heapify(list)                     O(n)   (not n log n!)
+   nlargest(k, a) / nsmallest(k, a)  O(n log k)
+   (Max-heap trick: push negatives.)
+
+BISECT (on sorted list)
+   bisect_left / bisect_right        O(log n)
+   insort                            O(n) (insertion shifts)
+
+OTHER
+   sorted(), list.sort()             O(n log n), stable, O(n) extra space
+   len / min / max / sum / any / all O(n) (len O(1))
+   sum(range(n))                     O(n)
+   n-th Fibonacci with lru_cache     O(n)
+   itertools.permutations(n items)   O(n!) items; combinations O(C(n,k))
+   Counter(a)                        O(n)
+   copy.deepcopy                     O(size of object)
+   Tuple: same as list but immutable; indexing O(1), hashing O(n).
+   int ops: +,- O(digits); * more than O(digits) for huge ints.
+ # HOW (deque/heapq/bisect): deque ends are O(1) (pointers to both end blocks). Heap height = log2(n), so push/pop = log n; heapify sifts down the
+ #      lower half only -> O(n). bisect is binary search (log n); insort also shifts items -> O(n).
+
+
+==============================================================================
+14. WORKED EXAMPLES
+==============================================================================
+
+EXAMPLE A - Find T(n) and Big-O
+    def f(n):
+        s = 0                         # 1
+        for i in range(n):            # n+1 checks
+            s += i                    # n
+        for i in range(n):            # n
+            for j in range(n):        # n*n
+                s += i * j            # n*n
+        return s                      # 1
+    T(n) = 2n^2 + 3n + 3  ->  O(n^2).  Space O(1).
+    # HOW: the nested pair runs n*n times at 2 steps each = 2n^2; the single loops add ~3n; plus ~3 constant steps. Keep the dominant term 2n^2, drop the 2 -> n^2.
+
+EXAMPLE B - Two Sum
+    Brute force: for i: for j>i: if a[i]+a[j]==t   -> O(n^2) time, O(1) space.
+    Hash map:    seen = {}; for x: if t-x in seen... -> O(n) time, O(n) space.
+    Sorted + two pointers: O(n log n) sort + O(n) scan, O(1) extra (in-place).
+    # HOW: brute force checks n(n-1)/2 pairs. Hash map: n lookups of O(1) average. Sort + two pointers: n log n to sort + n steps to scan; sorting dominates.
+
+EXAMPLE C - Is there a duplicate?
+    set(arr) compare len: O(n) time, O(n) space.
+    sort then adjacent check: O(n log n) time, O(1)/O(n) space (sort in-place).
+    nested loops: O(n^2) time, O(1) space.
+    # HOW: set(arr) = n inserts. Sorting = n log n, then n-1 neighbour comparisons. Nested loops = n(n-1)/2 pairs.
+
+EXAMPLE D - Power set via recursion
+    Number of subsets = 2^n; each subset up to n elements to copy:
+    time O(n * 2^n), space O(n) recursion + O(n * 2^n) if storing output.
+    # HOW: 2^n subsets x up to n items copied for each subset.
+
+EXAMPLE E - Is N prime?
+    for i in range(2, int(N**0.5) + 1): if N % i == 0: return False
+    -> O(sqrt N) time (but exponential in number of bits of N).
+    # HOW: trial division tries divisors 2..sqrt(N) -> sqrt(N) iterations. N has b = log2(N) bits, so sqrt(N) = 2^(b/2): exponential in the INPUT SIZE b.
+
+EXAMPLE F - Count digits / convert to binary
+    while n: n //= 10; c += 1   -> O(log n) (number of digits).
+    # HOW: each pass removes one decimal digit; the number of digits is log10(n) + 1 -> O(log n).
+
+EXAMPLE G - Merge two sorted arrays of sizes m, n
+    Two pointers: O(m + n) time, O(m + n) space for result.
+    # HOW: each loop step outputs exactly one element, so there are m + n steps.
+
+EXAMPLE H - Fibonacci options
+    Naive recursion       O(2^n) time, O(n) space
+    Memoized recursion    O(n) time,  O(n) space
+    Bottom-up table       O(n) time,  O(n) space
+    Two variables         O(n) time,  O(1) space
+    Matrix exponentiation O(log n) time, O(1) space
+    # HOW: naive: ~2^n calls, depth n. Memo / table: n subproblems at O(1) each. Two variables: keep only the last 2 values.
+    #      Matrix power: n is halved each time -> log2(n) matrix multiplications of constant size.
+    (Binet formula - float precision, not reliable.)
+
+EXAMPLE I - Loop with multiple terms
+    for i in range(n):          # O(n)
+        for j in range(100):    # O(1) constant
+            ...
+    -> O(100 n) = O(n)
+    # HOW: the inner loop is a fixed 100 iterations -> 100 * n steps; the constant 100 is dropped -> O(n).
+
+EXAMPLE J - String building
+    s = ""
+    for ch in chars: s += ch        # O(n^2) worst (new string each time;
+                                    #  CPython sometimes optimises in-place)
+    "".join(chars)                  # O(n)
+    # HOW: iteration k copies a string of length k -> 1+2+...+n = n^2/2 characters; join copies each character once -> n.
+
+EXAMPLE K - Hidden cost
+    for i in range(n):
+        if arr[i] in other_list:     # `in` on list is O(m)
+            ...
+    -> O(n * m), NOT O(n).  Convert other_list to set -> O(n + m).
+    # HOW: 'in other_list' scans up to m items for each of the n elements -> n*m. A set lookup is O(1) average -> n probes + m to build the set.
+
+EXAMPLE L - Sorting inside loop
+    for _ in range(n): arr.sort()    -> O(n * n log n) = O(n^2 log n)
+    # HOW: one sort costs n log n and it is repeated n times.
+
+EXAMPLE M - Recursion with two calls but halving
+    def f(n):
+        if n <= 1: return
+        f(n // 2); f(n // 2);
+        for i in range(n): pass
+    T(n) = 2T(n/2) + n -> O(n log n).  Space O(log n) (stack).
+    # HOW: two calls on n/2 plus a loop of n per call: n work per level x log2(n) levels; stack depth log2(n).
+
+EXAMPLE N - Recursion tree not full
+    def f(n):
+        if n <= 0: return
+        f(n - 1); f(n - 2)
+    ~ Fibonacci tree. O(1.618^n), upper-bounded as O(2^n). Space O(n).
+
+
+==============================================================================
+15. COMPLEXITY CHEAT SHEET OF COMMON ALGORITHMS
+==============================================================================
+
+SORTING
+ Algorithm        Best        Average      Worst       Space     Stable
+ Bubble           O(n)*       O(n^2)       O(n^2)      O(1)      Yes
+ Selection        O(n^2)      O(n^2)       O(n^2)      O(1)      No
+ Insertion        O(n)        O(n^2)       O(n^2)      O(1)      Yes
+ Merge            O(n log n)  O(n log n)   O(n log n)  O(n)      Yes
+ Quick            O(n log n)  O(n log n)   O(n^2)      O(log n)  No
+ Heap             O(n log n)  O(n log n)   O(n log n)  O(1)      No
+ Counting         O(n + k)    O(n + k)     O(n + k)    O(k)      Yes
+ Radix            O(d(n+k))   O(d(n+k))    O(d(n+k))   O(n + k)  Yes
+ Bucket           O(n + k)    O(n + k)     O(n^2)      O(n)      Yes
+ Tim (Python)     O(n)        O(n log n)   O(n log n)  O(n)      Yes
+ # HOW (table): bubble/selection/insertion count pairs, n(n-1)/2; merge/heap/quick(avg) do ~n work per level over log n levels;
+ #      counting/radix/bucket never compare - they scan the items and k counters.
+ (* with early-exit "swapped" flag)
+ Comparison sorts can't beat Omega(n log n) in the worst case
+ (decision tree has n! leaves -> height >= log2(n!) = Theta(n log n)).
+
+SEARCHING
+ Linear search               O(n) time,   O(1) space
+ Binary search (sorted)      O(log n) time, O(1) iter / O(log n) recursive
+ Hash lookup                 O(1) avg,    O(n) worst
+ BST search                  O(log n) avg/balanced, O(n) worst
+ Interpolation search        O(log log n) uniform data, O(n) worst
+ # HOW: linear search checks up to n items; binary search halves the range (log2 n steps); hash jumps straight to a bucket;
+ #      interpolation guesses the position from the value, needing ~log log n steps on uniform data.
+
+DATA STRUCTURES
+ Structure           Access   Search   Insert   Delete   Space
+ Array/List          O(1)     O(n)     O(n)     O(n)     O(n)
+ Dynamic append end  -        -        O(1)am   O(1)     O(n)
+ Singly Linked List  O(n)     O(n)     O(1)@head/known node  O(1)*  O(n)
+ Doubly Linked List  O(n)     O(n)     O(1)     O(1)*    O(n)
+ Stack (array/LL)    -        O(n)     O(1)     O(1)     O(n)
+ Queue (deque/LL)    -        O(n)     O(1)     O(1)     O(n)
+ Hash Table          -        O(1)avg  O(1)avg  O(1)avg  O(n)   (worst O(n))
+ BST (unbalanced)    O(n) worst for all operations; O(log n) average
+ AVL / Red-Black     O(log n) for search/insert/delete   O(n) space
+ Binary Heap         peek O(1); insert O(log n); extract O(log n); build O(n)
+ Trie                O(L) per op (L = key length)   O(total chars) space
+ Segment/Fenwick     O(log n) query/update
+ # HOW: arrays = address math to access, shifting to insert/delete. Linked lists = walking pointers to access, rewiring to insert/delete.
+ #      Hash = jump to a bucket. Trees = walk one root-to-leaf path = the height (log n if balanced). Heap = height log n.
+
+GRAPHS (V vertices, E edges)
+ BFS / DFS              O(V + E) (adjacency list), O(V^2) (adj matrix); space O(V)
+ Dijkstra (binary heap) O((V + E) log V)
+ Bellman-Ford           O(V * E)
+ Floyd-Warshall         O(V^3), space O(V^2)
+ Prim (heap)            O(E log V)
+ Kruskal                O(E log E) = O(E log V)
+ Topological sort       O(V + E)
+ # HOW: BFS/DFS/Topo: each vertex once + each edge once. Heap-based algorithms: each edge pushes onto a heap (log V). Bellman-Ford: V-1 rounds over E edges.
+ #      Floyd-Warshall: three nested loops of V.
+
+COMMON PATTERNS
+ Binary search on answer          O(log(range) * check cost)
+ Sliding window / two pointers    O(n)
+ Prefix sums                      O(n) build, O(1) query
+ DP over n states, O(1) transition  O(n)
+ DP 2D (n x m)                    O(n*m) time & space (often reducible)
+ Backtracking subsets / perms     O(2^n) / O(n!)
+ 0/1 Knapsack DP                  O(n*W) (pseudo-polynomial)
+ LCS / Edit distance              O(n*m)
+ Matrix multiplication naive      O(n^3)
+ # HOW: window/two pointers: each pointer moves forward at most n times. Prefix sums: one pass to build, a subtraction to query.
+ #      DP: (number of states) x (work per state). Backtracking: the number of leaves of the decision tree.
+
+
+==============================================================================
+16. COMMON MISTAKES / PITFALLS
+==============================================================================
+
+ 1. Saying "two loops => O(n^2)". Sequential loops are O(n); only NESTED loops
+    multiply. Also, nested loops with different bounds are O(n*m).
+ 2. Counting hidden costs: slicing, `in` on a list, string concatenation,
+    list.pop(0), list.insert(0,...), sorted() inside loop, deepcopy.
+ 3. Confusing space of recursion: stack depth counts as space!
+    "No extra array" does not mean O(1) if it's recursive.
+ 4. Naive fib space is O(n), not O(2^n).
+ 5. Forgetting to reduce: O(2n + 5) -> O(n); O(n^2 + n) -> O(n^2).
+ 6. Treating O(n + m) as O(n) when m is an independent input.
+ 7. Calling Big-O "the worst case" - it's an upper bound; the worst case is
+    a separate concept. (Fine in casual speech; know the difference.)
+ 8. Assuming hash table is always O(1). It's average-case; worst O(n).
+ 9. Mixing log bases is fine in Big-O, but don't mix log with sqrt or n.
+10. Treating a big constant as free. 1000n can beat n^2 only for n > 1000.
+    In practice constant factors and cache behaviour matter, but asymptotic
+    analysis answers "how does it scale?".
+11. Pseudo-polynomial: for a number N, an O(N) loop is O(2^b) in the number
+    of bits b. Knapsack O(nW), counting up to N, etc. are pseudo-polynomial.
+12. heapify is O(n), not O(n log n) (sift-down work shrinks geometrically).
+13. Building a string/list with + inside a loop -> O(n^2).
+14. Dropping the output size: generating all subsets is at least O(2^n)
+    because output itself has that many items.
+15. Binary search needs SORTED data; sorting first costs O(n log n).
+16. Amortized O(1) != worst-case O(1) for each call.
+17. Unbalanced BST degenerates to O(n); balanced needed for O(log n).
+18. Confusing O(n) with exact n: Big-O of "n/2 iterations" is still O(n).
+19. Forgetting that recursion on arr[1:] copies the list.
+20. Forgetting log of a number N is the number of digits/bits.
+
+
+==============================================================================
+17. INTERVIEW TIPS & FREQUENTLY ASKED QUESTIONS
+==============================================================================
+
+HOW TO ANSWER "What's the complexity?"
+   1. State variables clearly ("n = length of array, m = length of string").
+   2. Give time AND space (auxiliary), and say which case.
+   3. Justify in one sentence ("one pass, hash map stores up to n elements").
+   4. Mention trade-offs and whether you can do better ("sorting would give
+      O(n log n) time but O(1) space").
+   5. Mention best/avg/worst if they differ (quick sort, hash tables).
+
+INTERVIEW WORKFLOW:  brute force -> state its complexity -> identify the
+bottleneck -> optimise (hash map, sort, two pointers, DP, heap) -> state new
+complexity -> discuss trade-off.
+
+Q&A
+ Q1. Difference between Big-O, Theta, Omega?
+     O = upper bound (<=), Omega = lower bound (>=), Theta = tight (=).
+ Q2. Is O(2n) different from O(n)? No - constants are dropped.
+ Q3. Is O(log2 n) different from O(log10 n)? No - differ by a constant.
+ Q4. Which is bigger, 2^n or n!? n! grows faster. And n^n > n!.
+ Q5. Which is bigger, n log n or n^1.1? n^1.1 for large n.
+ Q6. Which is bigger, log(n)^k or n^eps? Any positive power of n beats any
+     power of log n. (n^0.01 > (log n)^100 eventually.)
+ Q7. Why is the minimum comparison-sort time Omega(n log n)? Decision tree
+     with n! leaves has height >= log2(n!) = Theta(n log n).
+ Q8. Why is building a heap O(n)? Most nodes are near the bottom and sift only
+     a few levels: sum_{h} (n/2^(h+1)) * h = O(n).
+ Q9. Time complexity of recursive fib? O(2^n) (tighter O(phi^n)).
+     How to improve? Memoization O(n); iterative O(n) time O(1) space;
+     matrix power / fast doubling O(log n).
+ Q10. Time complexity of list.append in Python? Amortized O(1).
+ Q11. Is dictionary lookup always O(1)? No: average O(1), worst O(n).
+ Q12. Space complexity of merge sort? O(n) auxiliary (+ O(log n) stack).
+      Quick sort? O(log n) average stack, O(n) worst.
+ Q13. Time complexity of DFS/BFS? O(V+E); matrix representation O(V^2).
+ Q14. Is O(n) always better than O(n log n)? Asymptotically yes; for small n
+      constants/cache may reverse it (e.g. insertion sort for tiny arrays;
+      Timsort uses it for runs < ~32-64).
+ Q15. What is the complexity of nested loop where inner runs j<i?
+      n(n-1)/2 -> O(n^2).
+ Q16. What does "in-place" mean? O(1) (sometimes O(log n)) extra memory.
+ Q17. What is a stable sort? Equal keys keep original relative order.
+ Q18. P vs NP (one-liner): P = solvable in polynomial time; NP = verifiable in
+      polynomial time; NP-complete = hardest in NP (TSP-decision, SAT,
+      subset sum, etc.). No known polynomial algorithms; exponential brute
+      force. Unknown whether P = NP.
+ Q19. How do you measure complexity of a function with several params?
+      Keep all independent variables: O(V + E), O(n*m), O(n log k).
+ Q20. Can an algorithm be both O(n) and O(n^2)? Yes - Big-O is an upper bound
+      (not tight). Give the tightest bound; Theta if exact.
+ Q21. Time complexity of reading input of size n? At least Omega(n).
+ Q22. How to deduce the target complexity from constraints?
+      n<=10^5 -> O(n log n); n<=1000 -> O(n^2); n<=20 -> O(2^n) etc.
+
+ONE-LINE ANSWERS TO MEMORISE
+   "Binary search halves the search space each step, so O(log n)."
+   "Merge sort splits log n times and merges n per level: O(n log n)."
+   "Hash map trades O(n) space for O(1) average lookups."
+   "Recursion space equals the maximum call-stack depth."
+   "Amortized means averaged over a worst-case sequence of operations."
+
+
+==============================================================================
+18. PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+Find the TIME (and space) complexity:
+
+P1.  for i in range(n): for j in range(n): for k in range(n): x += 1
+P2.  for i in range(n): for j in range(i, n): x += 1
+P3.  i = n
+     while i > 0: print(i); i //= 2
+P4.  for i in range(n): for j in range(1, n, ...doubling j *= 2): x += 1
+P5.  def f(n): return 1 if n <= 1 else f(n-1) + f(n-1)
+P6.  def f(n): return 1 if n <= 1 else f(n//2) + 1
+P7.  for i in range(n): for j in range(m): for k in range(100): ...
+P8.  def f(n):
+         if n <= 1: return
+         f(n//2); f(n//2); f(n//2)
+         for i in range(n): pass
+P9.  i = 1
+     while i < n:
+         for j in range(n): pass
+         i *= 2
+P10. for i in range(1, n): for j in range(i, n, i): pass
+P11. Python: s = []; for x in arr: s.insert(0, x)
+P12. Python: result = ""; for w in words: result += w   (n words)
+P13. Python: x in list_of_n inside a loop of m iterations
+P14. def f(arr):
+         if len(arr) <= 1: return arr
+         mid = len(arr)//2
+         return merge(f(arr[:mid]), f(arr[mid:]))   (merge is O(n))
+P15. Is 3^n = O(2^n)?  Is 2^(n+1) = O(2^n)?  Is 2^(2n) = O(2^n)?
+P16. Order by growth: n log n, n^2, 2^n, log n, n, sqrt(n), n!, 1000, n^3
+P17. Prove: 5n^2 + 3n = Theta(n^2).
+
+---- ANSWERS ----
+P1.  O(n^3), space O(1).
+P2.  n + (n-1) + ... + 1 = n(n+1)/2 -> O(n^2).
+P3.  O(log n).
+P4.  Outer n * inner log n -> O(n log n).
+P5.  T(n) = 2T(n-1)+1 -> O(2^n) time, O(n) space (stack).
+P6.  T(n) = T(n/2)+1 -> O(log n) time, O(log n) space.
+P7.  O(100 * n * m) -> O(n*m).
+P8.  a=3, b=2, f=n: n^log2(3)=n^1.58 > n -> Case 1 -> Theta(n^1.585).
+P9.  log n outer iterations * n inner -> O(n log n).
+P10. n/1 + n/2 + ... = n * H(n) -> O(n log n).
+P11. insert(0) is O(n) each -> O(n^2) total. Use deque.appendleft -> O(n).
+P12. Repeated concatenation -> O(n^2) worst. Use "".join(words) -> O(total len).
+P13. O(m * n) -> convert list to set: O(n + m).
+P14. Slicing costs O(n) per level, same as merge: T(n) = 2T(n/2)+O(n)
+     = O(n log n) time; space O(n) per level... total O(n log n) allocated
+     overall but O(n) live at a time (plus O(log n) stack) -> O(n).
+P15. 3^n: NO (ratio (3/2)^n -> inf). 2^(n+1) = 2*2^n: YES. 2^(2n) = 4^n: NO.
+P16. 1000 < log n < sqrt(n) < n < n log n < n^2 < n^3 < 2^n < n!
+P17. 5n^2 <= 5n^2+3n <= 8n^2 for n>=1 -> c1=5, c2=8, n0=1. QED.
+
+
+==============================================================================
+19. QUICK REVISION SUMMARY
+==============================================================================
+
+ - Algorithm analysis predicts how time/space GROW with input size n.
+ - Time complexity = number of basic operations T(n); space complexity =
+   memory used (auxiliary = extra beyond input). Recursion stack counts.
+ - Big-O (<=, upper), Omega (>=, lower), Theta (=, tight). Little o/omega are
+   strict. Formal: f <= c*g for n >= n0.
+ - Simplify: drop constants and lower-order terms; add sequential parts,
+   multiply nested parts; use separate variables for separate inputs.
+ - Order: 1 < log n < sqrt n < n < n log n < n^2 < n^3 < 2^n < n!.
+ - Loops: halving/doubling -> log n; triangular nested -> n^2;
+   harmonic -> n log n; geometric sums -> n; two pointers -> n.
+ - Recursion: write recurrence; solve by unrolling, recursion tree, or Master
+   theorem T(n)=aT(n/b)+f(n) comparing f(n) to n^(log_b a).
+     T(n/2)+1 -> log n ; 2T(n/2)+n -> n log n ; 2T(n-1)+1 -> 2^n ;
+     T(n-1)+n -> n^2.
+ - Cases: best / worst / average / expected (randomised); amortized = average
+   over a worst-case sequence (list.append O(1) amortized).
+ - Python gotchas: slicing copies, list.insert/pop(0) O(n), `in` on list O(n),
+   string += in loop O(n^2), heapify O(n), sort O(n log n), dict/set O(1) avg.
+ - Space trade-off: memoization/hash maps use extra memory to cut time.
+ - In interviews: state variables, give time + space, justify, mention
+   trade-offs, and present brute force -> optimised path.
+
+==============================================================================
+ END OF NOTES
+==============================================================================

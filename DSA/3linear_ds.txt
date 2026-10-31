@@ -1,0 +1,1210 @@
+==============================================================================
+ LINEAR DATA STRUCTURES  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Linked Lists | Stack | Queue | Deque
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  0.  What is a linear data structure?
+  PART 1: LINKED LISTS
+      1.1  Concept, node, memory picture
+      1.2  Linked list vs array
+      1.3  Singly linked list: implementation + operations (with steps)
+      1.4  Doubly linked list
+      1.5  Circular linked list
+      1.6  Dummy (sentinel) node trick
+      1.7  Classic linked-list problems with solving steps
+  PART 2: STACK
+      2.1  Concept (LIFO), operations
+      2.2  Implementations in Python (list, deque, linked list)
+      2.3  Applications
+      2.4  Classic stack problems with solving steps
+      2.5  Monotonic stack
+      2.6  Expression evaluation: infix, postfix, prefix
+  PART 3: QUEUE
+      3.1  Concept (FIFO), operations
+      3.2  Implementations (deque, circular array, linked list, two stacks)
+      3.3  Circular queue
+      3.4  Priority queue (brief)
+      3.5  Applications and classic problems with steps
+  PART 4: DEQUE
+      4.1  Concept, operations
+      4.2  collections.deque internals
+      4.3  Applications (sliding window max, palindromes, 0-1 BFS)
+  5.  Comparison table of all structures
+  6.  Common mistakes and edge cases
+  7.  Interview tips and FAQs
+  8.  Practice problems (with answers)
+  9.  Quick revision summary
+
+
+==============================================================================
+ 0. WHAT IS A LINEAR DATA STRUCTURE?
+==============================================================================
+
+A LINEAR data structure arranges elements in a SEQUENCE: each element has at
+most one predecessor and one successor (first has no predecessor, last has no
+successor). Traversal visits elements one after another.
+
+    [A] -> [B] -> [C] -> [D]
+
+Linear : array, linked list, stack, queue, deque.
+Non-linear: tree, graph, heap (elements have hierarchical / many relations).
+
+Two storage styles:
+   CONTIGUOUS (array-based)   : elements side by side in memory.
+   LINKED (pointer-based)     : elements scattered, connected by references.
+
+Stack, queue and deque are ABSTRACT DATA TYPES (ADTs): they define behaviour
+(which operations and rules), not storage. Each can be built on an array
+or on a linked list.
+
+   Structure   Access rule
+   Stack       Last In  First Out  (LIFO)   - one open end (top)
+   Queue       First In First Out  (FIFO)   - insert at rear, remove at front
+   Deque       insert/remove at BOTH ends
+
+
+##############################################################################
+ PART 1 : LINKED LISTS
+##############################################################################
+
+==============================================================================
+1.1  CONCEPT
+==============================================================================
+
+A LINKED LIST is a chain of NODES. Each node holds DATA and a REFERENCE
+(pointer) to the next node. The list is accessed through a HEAD pointer
+(reference to the first node). The last node's next is None.
+
+    head
+     |
+     v
+   +------+------+     +------+------+     +------+------+
+   | 10   |  o---+---> | 20   |  o---+---> | 30   | None |
+   +------+------+     +------+------+     +------+------+
+    data   next          data   next          data   next
+
+Nodes live at arbitrary memory addresses (NOT contiguous):
+
+    address 900: [30|None]   address 100: [10|->500]   address 500: [20|->900]
+
+Node in Python:
+    class Node:
+        def __init__(self, data):
+            self.data = data
+            self.next = None
+
+TYPES
+   Singly linked   : each node -> next only.
+   Doubly linked   : each node -> next AND prev.
+   Circular        : last node points back to the first (singly or doubly).
+
+==============================================================================
+1.2  LINKED LIST vs ARRAY
+==============================================================================
+
+   Feature                    Array / Python list        Linked list
+   -------------------------  -------------------------  ---------------------
+   Memory                     contiguous                 scattered nodes
+   Access by index            O(1)                       O(n)
+   Search                     O(n) (O(log n) if sorted)  O(n)
+   Insert/delete at front     O(n)                       O(1)
+   Insert/delete at end       O(1) amortized (append)    O(n) singly w/o tail;
+                                                         O(1) with tail (insert)
+   Insert/delete in middle    O(n) (shifting)            O(1) once node found
+                                                         (finding it is O(n))
+   Extra memory per element   none                       1-2 pointers
+   Cache performance          excellent                  poor
+   Size                       resizing needed            grows/shrinks per node
+   Random access / binary srch yes                       no
+   # HOW: an array finds index i with base + i*size (one step) -> O(1); a linked list has no such formula, so reaching index i
+   #      means following i next-pointers -> O(i) -> O(n). Insert at array front shifts n items -> O(n); at a list head it
+   #      rewires 1 pointer -> O(1). Middle insert/delete in a list is O(1) only AFTER you hold the node; finding it costs O(n).
+
+USE LINKED LIST WHEN: frequent insert/delete at front or known positions,
+unknown size, building stacks/queues, LRU caches, adjacency lists.
+USE ARRAY WHEN: random access, iteration speed, memory efficiency matter.
+
+==============================================================================
+1.3  SINGLY LINKED LIST - IMPLEMENTATION + OPERATIONS
+==============================================================================
+
+    class Node:
+        def __init__(self, data, next=None):
+            self.data = data
+            self.next = next
+
+    class LinkedList:
+        def __init__(self):
+            self.head = None
+            self.size = 0
+
+OPERATION COMPLEXITY (singly, head only)
+   Insert at head      O(1)
+   Insert at tail      O(n)  (O(1) if you keep a tail pointer)
+   Insert at position  O(n)
+   Delete head         O(1)
+   Delete tail         O(n)  (need the second-last node)
+   Delete by value     O(n)
+   Search              O(n)
+   Traversal           O(n)
+   Space               O(n)
+   # HOW: cost = (steps to REACH the spot) + (pointer rewiring, constant). Head: reach 0 nodes -> O(1). Tail without a tail
+   #      pointer: follow n-1 next-pointers -> O(n). Search/traverse touch each of the n nodes once -> O(n). Space: n nodes.
+
+--- TRAVERSAL ---------------------------------------------------------------
+    Steps: 1) cur = head
+           2) while cur is not None: use cur.data; cur = cur.next
+    def traverse(self):
+        cur = self.head
+        while cur:
+            print(cur.data, end=" -> ")
+            cur = cur.next
+        print("None")
+
+--- INSERT AT HEAD ----------------------------------------------------------
+    Steps: 1) create new node
+           2) new.next = head
+           3) head = new
+    Before: head -> [10] -> [20]
+    After : head -> [5]  -> [10] -> [20]
+    def insert_head(self, data):
+        self.head = Node(data, self.head)
+        self.size += 1
+
+--- INSERT AT TAIL ----------------------------------------------------------
+    Steps: 1) create new node
+           2) if list empty: head = new; done
+           3) cur = head; while cur.next: cur = cur.next    (reach last node)
+           4) cur.next = new
+    def insert_tail(self, data):
+        new = Node(data)
+        if not self.head:
+            self.head = new
+        else:
+            cur = self.head
+            while cur.next:
+                cur = cur.next
+            cur.next = new
+        self.size += 1
+
+--- INSERT AFTER A GIVEN NODE (O(1)) ----------------------------------------
+    # HOW: we already hold the node, so there is no walking: 2 pointer assignments (new.next = node.next; node.next = new) -> O(1).
+    Steps: 1) new.next = node.next
+           2) node.next = new          (ORDER MATTERS - else you lose the rest)
+    Diagram: A -> B        insert X after A
+             X.next = B ;  A.next = X      =>   A -> X -> B
+
+--- INSERT AT POSITION i ----------------------------------------------------
+    Steps: 1) if i == 0: insert at head
+           2) walk to node at index i-1 (prev)
+           3) new.next = prev.next; prev.next = new
+
+--- DELETE BY VALUE ---------------------------------------------------------
+    Steps: 1) if head is None: return
+           2) if head.data == val: head = head.next; return
+           3) prev = head; cur = head.next
+           4) while cur: if cur.data == val: prev.next = cur.next; return
+                         prev = cur; cur = cur.next
+    Diagram: delete 20   head -> 10 -> 20 -> 30
+             prev=10, cur=20 => prev.next = cur.next  => 10 -> 30
+             (node 20 becomes unreachable and is garbage-collected)
+    def delete(self, val):
+        if not self.head: return
+        if self.head.data == val:
+            self.head = self.head.next
+            self.size -= 1
+            return
+        prev, cur = self.head, self.head.next
+        while cur:
+            if cur.data == val:
+                prev.next = cur.next
+                self.size -= 1
+                return
+            prev, cur = cur, cur.next
+
+--- SEARCH ------------------------------------------------------------------
+    Steps: walk from head comparing data; return index/node or -1. O(n).
+    # HOW: worst case the target is last or absent -> n node visits, O(1) each -> O(n).
+
+--- DELETE LAST NODE --------------------------------------------------------
+    Steps: 1) if empty: return; if one node: head=None
+           2) cur = head; while cur.next.next: cur = cur.next
+           3) cur.next = None
+
+--- GET NODE AT INDEX -------------------------------------------------------
+    Steps: cur = head; repeat i times: cur = cur.next. O(i).
+
+==============================================================================
+1.4  DOUBLY LINKED LIST (DLL)
+==============================================================================
+
+Each node has prev and next.
+
+    None <- [prev|10|next] <-> [prev|20|next] <-> [prev|30|next] -> None
+            ^head                                  ^tail
+
+    class DNode:
+        def __init__(self, data):
+            self.data = data
+            self.prev = None
+            self.next = None
+
+ADVANTAGES: traverse both directions; delete a node in O(1) when you hold a
+reference to it (no need to find predecessor); with head AND tail pointers,
+insert/delete at BOTH ends in O(1).
+# HOW: with the node in hand, delete = fix prev.next and next.prev (a few assignments); head AND tail pointers remove all walking -> O(1).
+DISADVANTAGES: extra memory for prev; more pointers to update (bug-prone).
+
+--- INSERT AFTER NODE p (new node x) ----------------------------------------
+    Steps: 1) x.prev = p
+           2) x.next = p.next
+           3) if p.next: p.next.prev = x
+           4) p.next = x
+    Diagram:  p <-> q      becomes    p <-> x <-> q
+
+--- DELETE NODE x -----------------------------------------------------------
+    Steps: 1) if x.prev: x.prev.next = x.next  else head = x.next
+           2) if x.next: x.next.prev = x.prev  else tail = x.prev
+    Diagram:  p <-> x <-> q   becomes   p <-> q
+
+Used in: LRU cache, browser history, undo/redo, deque implementation.
+
+==============================================================================
+1.5  CIRCULAR LINKED LIST
+==============================================================================
+
+Last node points to the first (no None at the end).
+
+        +--------------------------------+
+        v                                |
+      [10] -> [20] -> [30] -> [40] ------+
+
+Traversal stop condition: come back to the start node
+    cur = head
+    while True:
+        visit(cur); cur = cur.next
+        if cur is head: break
+Uses: round-robin scheduling, circular buffers, Josephus problem, music playlists
+on repeat. Keeping a pointer to the TAIL gives O(1) access to both ends
+(tail.next is head).
+
+==============================================================================
+1.6  DUMMY (SENTINEL) NODE TRICK
+==============================================================================
+
+Create a fake node before the real head to remove special cases for head
+insertion/deletion.
+
+    dummy -> [1] -> [2] -> [3]
+    cur = dummy
+    ... build / modify using cur.next ...
+    return dummy.next
+
+Makes "delete head", "merge lists", "remove all x" much simpler.
+
+==============================================================================
+1.7  CLASSIC LINKED-LIST PROBLEMS  (with solving steps)
+==============================================================================
+
+--- L1. REVERSE A LINKED LIST (iterative) -----------------------------------
+    Steps: 1) prev = None; cur = head
+           2) while cur:
+                 nxt = cur.next      # save next
+                 cur.next = prev     # flip the arrow
+                 prev = cur          # advance prev
+                 cur = nxt           # advance cur
+           3) return prev            # new head
+    Diagram:
+      start :  None <- ?   1 -> 2 -> 3 -> None
+                 prev      cur
+      step 1:  None <- 1   2 -> 3 -> None
+                      prev cur
+      step 2:  None <- 1 <- 2   3 -> None
+                           prev cur
+      step 3:  None <- 1 <- 2 <- 3     cur=None, prev=3  => head = 3
+    Time O(n), Space O(1).
+    # HOW: 'while cur' runs once per node (n iterations), each doing 4 pointer assignments (constant) -> O(n); prev/cur/nxt only -> O(1) space.
+    def reverse(head):
+        prev, cur = None, head
+        while cur:
+            cur.next, prev, cur = prev, cur, cur.next
+        return prev
+    Recursive: reverse(head.next); head.next.next = head; head.next = None
+               (O(n) stack space).
+
+--- L2. FIND MIDDLE NODE (fast & slow pointers) -----------------------------
+    Steps: 1) slow = fast = head
+           2) while fast and fast.next: slow = slow.next; fast = fast.next.next
+           3) slow is the middle (second middle if even length)
+    Diagram: 1 -> 2 -> 3 -> 4 -> 5
+             s,f                   start
+                 s    f            after 1 step
+                      s       f    after 2 steps (f.next None) => middle = 3
+    Time O(n), Space O(1).
+    # HOW: fast jumps 2 nodes per iteration, so it reaches the end after ~n/2 iterations -> O(n); two pointers -> O(1) space.
+
+--- L3. DETECT CYCLE (Floyd's tortoise & hare) ------------------------------
+    Steps: 1) slow = fast = head
+           2) while fast and fast.next:
+                 slow = slow.next; fast = fast.next.next
+                 if slow is fast: return True
+           3) return False
+    Why it works: inside a loop the fast pointer gains 1 node per step on the
+    slow one, so it must eventually land on it.
+    Diagram: 1 -> 2 -> 3 -> 4
+                       ^    |
+                       +----+     fast and slow meet inside the loop.
+    Time O(n), Space O(1). (Hash set of visited nodes: O(n) space.)
+    # HOW: no cycle -> fast reaches the end in n/2 steps. With a cycle, once both pointers are inside it the gap changes by 1 per step,
+    #      so they meet within one cycle length -> still O(n). Two pointers = O(1) space vs a visited set holding up to n nodes = O(n).
+
+--- L4. FIND CYCLE START ----------------------------------------------------
+    Steps: 1) detect meeting point with Floyd
+           2) reset slow = head, keep fast at the meeting point
+           3) move both ONE step at a time; where they meet = cycle entrance
+    Proof sketch: distance(head -> entrance) = distance(meeting -> entrance)
+    going around the loop (mod cycle length).
+
+--- L5. MERGE TWO SORTED LISTS ----------------------------------------------
+    Steps: 1) dummy = tail = Node(0)
+           2) while a and b: attach smaller node to tail.next; advance that list
+                             and tail
+           3) tail.next = a or b   (attach leftover)
+           4) return dummy.next
+    Diagram: a: 1->3->5    b: 2->4
+             result: 1 -> 2 -> 3 -> 4 -> 5
+    Time O(n+m), Space O(1).
+    # HOW: each loop iteration attaches ONE node and advances a pointer; there are n+m nodes -> O(n+m); nodes are relinked, not copied -> O(1) space.
+    def merge(a, b):
+        dummy = tail = Node(0)
+        while a and b:
+            if a.data <= b.data: tail.next, a = a, a.next
+            else:                tail.next, b = b, b.next
+            tail = tail.next
+        tail.next = a or b
+        return dummy.next
+
+--- L6. REMOVE N-th NODE FROM END -------------------------------------------
+    Steps: 1) dummy -> head; fast = slow = dummy
+           2) move fast n+1 steps ahead (gap of n between them)
+           3) move both until fast is None
+           4) slow.next = slow.next.next
+    Diagram (n=2): 1 2 3 4 5   slow stops at 3 (node before the one to remove: 4)
+    Time O(n), Space O(1). One pass.
+    # HOW: 'fast' walks n+1 steps, then both walk until fast ends: ~L steps total (L = list length, written n here) -> one pass, O(1) space.
+
+--- L7. PALINDROME LINKED LIST ----------------------------------------------
+    Steps: 1) find middle (slow/fast)
+           2) reverse the second half
+           3) compare first half with reversed second half node by node
+           4) (optional) restore the list
+    Time O(n), Space O(1).
+    # HOW: find middle = L/2 steps, reverse 2nd half = L/2, compare = L/2 -> ~1.5L -> O(L); the reversal is in place -> O(1) space.
+
+--- L8. INTERSECTION OF TWO LISTS --------------------------------------------
+    Steps: 1) p = headA, q = headB
+           2) while p is not q:
+                 p = p.next if p else headB
+                 q = q.next if q else headA
+           3) return p (intersection node or None)
+    Why: both pointers travel lenA + lenB nodes in total, so they line up.
+    Time O(n+m), Space O(1).
+    # HOW: each pointer walks its own list then the other: lenA + lenB steps, after which both are at the same node (or both None) -> O(n+m).
+
+--- L9. REMOVE DUPLICATES FROM SORTED LIST ----------------------------------
+    Steps: cur = head; while cur and cur.next:
+              if cur.data == cur.next.data: cur.next = cur.next.next
+              else: cur = cur.next
+
+--- L10. ADD TWO NUMBERS (digits stored in reverse order) -------------------
+    Steps: 1) dummy, carry = 0
+           2) while a or b or carry:
+                 total = carry + (a.data if a) + (b.data if b)
+                 carry, digit = divmod(total, 10)
+                 append Node(digit); advance a, b
+    342 + 465: [2,4,3] + [5,6,4] = [7,0,8].
+
+--- L11. REORDER LIST  L0->Ln->L1->Ln-1... -----------------------------------
+    Steps: 1) find middle  2) reverse second half  3) interleave the halves.
+
+--- L12. REVERSE IN GROUPS OF k / REVERSE BETWEEN POSITIONS ------------------
+    Steps (between m and n): 1) walk to node before m  2) reverse n-m+1 nodes
+    using the prev/cur flip  3) reconnect the two ends.
+
+--- L13. COPY LIST WITH RANDOM POINTER ---------------------------------------
+    Steps (hash map): 1) map old->new for every node  2) second pass sets
+    next and random via the map. O(n) time/space.
+    # HOW: pass 1 creates n nodes and fills the dict (O(n)); pass 2 sets pointers with O(1) lookups -> O(n) time; dict holds n pairs -> O(n) space.
+    O(1)-space variant: interleave copies (A -> A' -> B -> B'), set randoms,
+    then separate.
+
+--- L14. SORT A LINKED LIST (merge sort) -------------------------------------
+    Steps: 1) find middle, split into two lists  2) recursively sort each
+    3) merge sorted halves.   Time O(n log n), Space O(log n) stack.
+    # HOW: T(n) = 2T(n/2) + O(n) (split with fast/slow + merge) -> log2(n) levels x n work per level = O(n log n); recursion depth log n -> O(log n) space.
+
+--- L15. ROTATE LIST RIGHT BY k ----------------------------------------------
+    Steps: 1) get length n and tail; k %= n
+           2) make it circular: tail.next = head
+           3) walk n-k-1 steps to new tail; new head = new_tail.next;
+              new_tail.next = None
+
+
+##############################################################################
+ PART 2 : STACK
+##############################################################################
+
+==============================================================================
+2.1  CONCEPT
+==============================================================================
+
+STACK = LIFO (Last In, First Out). Insertion and removal happen only at one
+end: the TOP. Like a stack of plates.
+
+         push(4)      +-----+
+                      |  4  | <- TOP
+                      +-----+
+                      |  3  |
+                      +-----+
+                      |  2  |
+                      +-----+
+                      |  1  |  <- BOTTOM
+                      +-----+
+
+OPERATIONS
+   push(x)    add x on top                    O(1)
+   pop()      remove and return top           O(1)
+   peek()/top() view top without removing     O(1)
+   is_empty() true if no elements             O(1)
+   size()     number of elements              O(1)
+   # HOW: a stack only ever touches its top: one append/pop at the end of a list, or one pointer change -> constant work
+   #      no matter how many items are inside -> O(1).
+Errors: UNDERFLOW (pop/peek on empty stack), OVERFLOW (push on a full
+fixed-capacity stack).
+
+TRACE:  push 1, push 2, push 3, pop -> 3, push 4, pop -> 4, pop -> 2
+        stack: [1] [1,2] [1,2,3] [1,2] [1,2,4] [1,2] [1]
+
+==============================================================================
+2.2  IMPLEMENTATIONS IN PYTHON
+==============================================================================
+
+(A) Python LIST (simplest; append/pop at end are O(1) amortized)
+    stack = []
+    stack.append(10)       # push
+    stack.append(20)
+    top = stack[-1]        # peek
+    x = stack.pop()        # pop
+    if not stack: ...      # empty check
+
+(B) collections.deque (true O(1) worst-case at both ends)
+    from collections import deque
+    stack = deque()
+    stack.append(x); stack.pop()
+
+(C) CLASS WRAPPER
+    class Stack:
+        def __init__(self): self._data = []
+        def push(self, x):  self._data.append(x)
+        def pop(self):
+            if not self._data: raise IndexError("pop from empty stack")
+            return self._data.pop()
+        def peek(self):
+            if not self._data: raise IndexError("peek from empty stack")
+            return self._data[-1]
+        def is_empty(self): return not self._data
+        def size(self): return len(self._data)
+
+(D) LINKED-LIST BASED (push/pop at head, O(1), no resizing)
+    class Node: data, next
+    push: new = Node(x); new.next = top; top = new
+    pop : val = top.data; top = top.next; return val
+
+    top -> [30] -> [20] -> [10] -> None
+
+(E) ARRAY-BASED with fixed capacity: array + top index (top = -1 when empty).
+    push: if top == cap-1: overflow; top++; arr[top]=x
+    pop : if top == -1: underflow; x = arr[top]; top--
+
+NOTE: Do NOT use list.pop(0) / insert(0, x) for a stack at the front - O(n).
+(queue.LifoQueue is a thread-safe stack but slower.)
+
+==============================================================================
+2.3  APPLICATIONS OF STACK
+==============================================================================
+
+   - Function call stack / recursion (each call = a stack frame)
+   - Undo / redo in editors, browser back button
+   - Balanced parentheses / syntax checking in compilers
+   - Expression evaluation and infix -> postfix conversion
+   - Depth-first search (iterative DFS), backtracking
+   - Next greater element and other monotonic-stack problems
+   - Reversing a string / list
+   - Converting recursion to iteration (explicit stack)
+   - Tower of Hanoi, maze solving
+
+RECURSION AND THE CALL STACK:
+    def f(n): return 1 if n==0 else n*f(n-1)    f(3):
+        |  f(0) -> 1   |   <- top
+        |  f(1)        |
+        |  f(2)        |
+        |  f(3)        |   frames pop as calls return.
+   Recursion depth too large -> stack overflow (Python: RecursionError ~1000).
+
+==============================================================================
+2.4  CLASSIC STACK PROBLEMS  (with solving steps)
+==============================================================================
+
+--- ST1. VALID PARENTHESES ---------------------------------------------------
+    Steps: 1) stack = []; match = {')':'(', ']':'[', '}':'{'}
+           2) for ch in s:
+                 if ch is an opening bracket: push ch
+                 else: if stack empty or stack.pop() != match[ch]: return False
+           3) return stack is empty
+    Trace "{[()]}":  push { ; push [ ; push ( ; ')' pops '(' ok ; ']' pops '['
+    ok ; '}' pops '{' ok ; empty => True.
+    Trace "([)]": push ( ; push [ ; ')' pops '[' != '(' => False.
+    Time O(n), Space O(n).
+    # HOW: each char is pushed at most once and popped at most once -> <= 2n stack operations of O(1) each -> O(n); in the worst case
+    #      (all opening brackets) the stack holds n chars -> O(n) space.
+
+--- ST2. REVERSE A STRING USING A STACK --------------------------------------
+    Steps: push every char; pop all into result. (Pop order = reverse.)
+
+--- ST3. MIN STACK (getMin in O(1)) ------------------------------------------
+    Keep a second stack of minimums (or push (value, current_min) pairs).
+    Steps: push(x): main.push(x); mins.push(min(x, mins.top() if mins else x))
+           pop(): main.pop(); mins.pop()
+           getMin(): mins.top()
+    Diagram:   main: 5 3 7 2      mins: 5 3 3 2   => min = 2
+    All operations O(1).
+    # HOW: push/pop touch the top of two stacks and getMin just reads the top of the 'mins' stack -> no scanning -> O(1).
+
+--- ST4. NEXT GREATER ELEMENT (monotonic stack; see 2.5) ---------------------
+
+--- ST5. DAILY TEMPERATURES (days until warmer) ------------------------------
+    Steps: 1) stack of indices (temperatures decreasing); ans = [0]*n
+           2) for i, t in enumerate(temps):
+                 while stack and temps[stack[-1]] < t:
+                     j = stack.pop(); ans[j] = i - j
+                 stack.append(i)
+    [73,74,75,71,69,72,76,73] -> [1,1,4,2,1,1,0,0].  Time O(n).
+    # HOW: each index is pushed once and popped at most once, even though a 'while' sits inside the 'for' -> <= 2n stack ops -> O(n).
+
+--- ST6. EVALUATE POSTFIX EXPRESSION (see 2.6) -------------------------------
+
+--- ST7. IMPLEMENT QUEUE USING TWO STACKS (see 3.2) --------------------------
+
+--- ST8. DECODE STRING  "3[a2[c]]" -> "accaccacc" -----------------------------
+    Steps: 1) stack of (previous_string, repeat_count); cur="" ; num=0
+           2) digit: num = num*10 + int(ch)
+              '[' : push (cur, num); cur=""; num=0
+              ']' : prev, k = pop(); cur = prev + cur*k
+              letter: cur += ch
+           3) return cur
+    Time O(output size).
+    # HOW: every character of the output is built once, so the work is proportional to the length of the output.
+
+--- ST9. LARGEST RECTANGLE IN HISTOGRAM --------------------------------------
+    Steps (monotonic increasing stack of indices):
+      1) append sentinel height 0 at the end; stack = []
+      2) for i, h in enumerate(heights):
+            while stack and heights[stack[-1]] > h:
+                height = heights[stack.pop()]
+                left   = stack[-1] if stack else -1
+                width  = i - left - 1
+                best = max(best, height*width)
+            stack.append(i)
+    [2,1,5,6,2,3] -> 10 (bars 5 and 6 at height 5, width 2).  O(n).
+    # HOW: each bar index is pushed once and popped once (2n operations); each pop computes one area in O(1) -> O(n).
+
+--- ST10. REMOVE ADJACENT DUPLICATES / REMOVE K-ADJACENT DUPLICATES -----------
+    Steps: iterate chars; if stack top equals ch (and count reaches k) pop;
+    else push. Stack holds (char, count) pairs.
+
+--- ST11. SIMPLIFY UNIX PATH --------------------------------------------------
+    Steps: split by '/'; for each part: '' or '.' skip; '..' pop if stack;
+    else push. Result = "/" + "/".join(stack).
+
+--- ST12. BASIC CALCULATOR (+ - with parentheses) ----------------------------
+    Steps: keep running result and sign; on '(' push (result, sign), reset;
+    on ')' pop and combine: result = prev_result + prev_sign*result.
+
+--- ST13. SORT A STACK USING RECURSION / ANOTHER STACK -------------------------
+    Steps (temp stack): while input not empty: tmp = input.pop();
+    while temp and temp.top > tmp: input.push(temp.pop()); temp.push(tmp).
+
+--- ST14. ITERATIVE DFS --------------------------------------------------------
+    Steps: stack=[start]; visited=set(); while stack: node=pop(); if visited
+    skip; mark; push unvisited neighbours.
+
+==============================================================================
+2.5  MONOTONIC STACK
+==============================================================================
+
+A stack whose elements stay in sorted order (increasing or decreasing). When
+a new element breaks the order, pop until it is restored. Each element is
+pushed and popped at most once => O(n) overall.
+
+USED FOR: next greater/smaller element, previous greater/smaller, daily
+temperatures, histogram, stock span, trapping rain water, sum of subarray
+minimums.
+
+NEXT GREATER ELEMENT (to the right)
+    Steps: 1) result = [-1]*n; stack = [] (indices, values decreasing)
+           2) for i in range(n):
+                 while stack and a[stack[-1]] < a[i]:
+                     result[stack.pop()] = a[i]
+                 stack.append(i)
+           3) indices left in stack have no greater element -> stay -1
+    Trace [4,5,2,10]:
+        i0 push 0                        stack [0]
+        i1 (5) pops 0 -> res[0]=5; push  stack [1]
+        i2 (2) push                      stack [1,2]
+        i3 (10) pops 2 -> res[2]=10, pops 1 -> res[1]=10 ; push 3
+        result [5,10,10,-1]
+    Circular array version: loop i in range(2n) using a[i % n].
+
+STOCK SPAN: pop while price[top] <= today; span = i - (stack top index or -1).
+
+==============================================================================
+2.6  EXPRESSION EVALUATION (INFIX / POSTFIX / PREFIX)
+==============================================================================
+
+   Infix   : operand operator operand      A + B * C      (needs precedence/parens)
+   Postfix : operand operand operator      A B C * +      (Reverse Polish Notation)
+   Prefix  : operator operand operand      + A * B C      (Polish Notation)
+   Postfix/prefix need NO parentheses and no precedence rules.
+
+PRECEDENCE (high -> low):   ^ (right assoc)   then   * /   then   + -
+(left-to-right for equal precedence except ^).
+
+--- EVALUATE POSTFIX ---------------------------------------------------------
+    Steps: 1) scan tokens left to right
+           2) operand -> push
+           3) operator -> pop b, pop a (b is the TOP), push (a op b)
+           4) result = the only item left
+    Trace "2 3 1 * + 9 -":
+        2        [2]
+        3        [2,3]
+        1        [2,3,1]
+        *        pop 1,3 -> 3*1=3     [2,3]
+        +        pop 3,2 -> 5         [5]
+        9        [5,9]
+        -        pop 9,5 -> 5-9 = -4  [-4]     answer -4
+    NOTE the order: first popped is the RIGHT operand (matters for - and /).
+
+--- INFIX -> POSTFIX (Shunting-yard) ------------------------------------------
+    Steps: 1) output = [], ops = []
+           2) scan tokens:
+                operand  -> append to output
+                '('      -> push on ops
+                ')'      -> pop ops to output until '(' ; discard '('
+                operator -> while ops top is an operator with higher precedence
+                            (or equal and op is left-associative):
+                                pop it to output
+                            then push the current operator
+           3) at end pop all remaining ops to output
+    Trace  A + B * C - D :
+        A        out: A
+        +        ops: +
+        B        out: A B
+        *        '*' > '+' so push     ops: + *
+        C        out: A B C
+        -        pop * (higher), pop + (equal, left-assoc) -> out: A B C * +
+                 ops: -
+        D        out: A B C * + D
+        end      pop -  -> A B C * + D -
+    Postfix: A B C * + D -
+
+--- INFIX -> PREFIX: reverse the infix (swap parentheses), convert to postfix,
+    reverse the result.
+
+--- EVALUATE PREFIX: scan RIGHT to LEFT; operator pops a (top) then b; push a op b.
+
+
+##############################################################################
+ PART 3 : QUEUE
+##############################################################################
+
+==============================================================================
+3.1  CONCEPT
+==============================================================================
+
+QUEUE = FIFO (First In, First Out). Insert at the REAR (back), remove from the
+FRONT. Like people in a line.
+
+     dequeue <-  FRONT [ 1 | 2 | 3 | 4 ] REAR  <- enqueue
+                  (oldest)           (newest)
+
+OPERATIONS
+   enqueue(x) / offer   add at rear                  O(1)
+   dequeue()  / poll    remove and return front      O(1)
+   front()/peek         view front                   O(1)
+   is_empty(), size()                                O(1)
+   # HOW: enqueue writes at the tail pointer and dequeue reads at the head pointer; nothing is shifted -> O(1) (with deque or linked list).
+Errors: underflow (dequeue empty), overflow (full fixed-size queue).
+
+TRACE: enqueue 1,2,3 -> [1,2,3]; dequeue -> 1 -> [2,3]; enqueue 4 -> [2,3,4].
+
+TYPES: simple queue, circular queue, deque (double-ended), priority queue.
+
+==============================================================================
+3.2  IMPLEMENTATIONS
+==============================================================================
+
+(A) collections.deque  (RECOMMENDED - O(1) at both ends)
+    from collections import deque
+    q = deque()
+    q.append(x)         # enqueue
+    x = q.popleft()     # dequeue
+    q[0]                # front
+    len(q), bool(q)
+
+(B) Python list - WRONG for big queues
+    q.pop(0) is O(n) (shifts everything). Fine for tiny inputs only.
+    # HOW: pop(0) removes index 0 and shifts the remaining n-1 items left -> n-1 moves -> O(n); doing it n times (e.g. BFS) = O(n^2).
+
+(C) LINKED LIST with head (front) and tail (rear)
+    enqueue: new node; if tail: tail.next = new else head = new; tail = new
+    dequeue: val = head.data; head = head.next; if head is None: tail = None
+    Diagram: head -> [1] -> [2] -> [3] <- tail
+    Both operations O(1).
+    # HOW: enqueue = 'tail.next = new; tail = new'; dequeue = 'head = head.next' -> a fixed number of pointer changes.
+
+(D) ARRAY with two indices (front, rear) - leads to wasted space ->
+    solved by the CIRCULAR QUEUE (below).
+
+(E) QUEUE USING TWO STACKS (classic interview question)
+    Two stacks: in_stack (for push), out_stack (for pop/peek).
+    Steps:
+      push(x): in_stack.append(x)
+      pop()  : if out_stack empty: move ALL items from in_stack to out_stack
+                 (reverses order); then out_stack.pop()
+      peek() : same transfer rule, return out_stack[-1]
+    Diagram:  push 1,2,3:  in=[1,2,3] out=[]
+              pop: transfer -> in=[] out=[3,2,1]; pop -> 1 (FIFO!)
+    Each element moves at most twice => amortized O(1) per operation.
+
+(F) STACK USING TWO QUEUES / ONE QUEUE
+    One-queue method: push(x): q.append(x); rotate the previous n-1 elements
+    behind it:  for _ in range(len(q)-1): q.append(q.popleft()).
+    Then popleft() returns the newest. push O(n), pop O(1).
+    # HOW: push appends then rotates the previous n-1 items behind it (n-1 popleft+append pairs) -> O(n); pop is one popleft -> O(1).
+
+(G) queue.Queue : thread-safe FIFO (put/get, blocks) - for multithreading.
+
+==============================================================================
+3.3  CIRCULAR QUEUE (fixed-capacity ring buffer)
+==============================================================================
+
+PROBLEM with a plain array queue: after dequeues, the front slots are wasted
+even though the array looks full.
+
+SOLUTION: wrap indices around with modulo.
+
+        index:   0     1     2     3     4
+               +-----+-----+-----+-----+-----+
+               |  E  |     |  C  |  D  |  .. |      capacity = 5
+               +-----+-----+-----+-----+-----+
+                 rear^      front^
+        enqueue wraps: rear = (rear + 1) % capacity
+
+Variables: arr[capacity], front, size (or front + rear with one empty slot).
+    class CircularQueue:
+        def __init__(self, k):
+            self.a = [None]*k; self.cap = k; self.front = 0; self.size = 0
+        def enqueue(self, x):
+            if self.size == self.cap: return False          # full
+            self.a[(self.front + self.size) % self.cap] = x
+            self.size += 1; return True
+        def dequeue(self):
+            if self.size == 0: return None                  # empty
+            x = self.a[self.front]
+            self.front = (self.front + 1) % self.cap
+            self.size -= 1; return x
+FULL vs EMPTY ambiguity: with only front/rear indices, front == rear can mean
+either; solve by keeping a size counter, or leaving one slot unused
+(full when (rear+1) % cap == front).
+Uses: buffers (keyboard, streaming), CPU scheduling, ring log.
+
+==============================================================================
+3.4  PRIORITY QUEUE (brief)
+==============================================================================
+
+Each element has a PRIORITY; the element with the highest (or lowest) priority
+leaves first, not necessarily the oldest. Usually implemented with a binary
+HEAP.
+    import heapq
+    h = []
+    heapq.heappush(h, (priority, item))      O(log n)
+    heapq.heappop(h)                         O(log n)  -> smallest priority first
+    h[0]                                     O(1) peek
+    # HOW: a binary heap has height log2(n); push sifts up / pop sifts down at most that many levels, O(1) per level -> O(log n).
+    #      h[0] is the smallest, so peek is a single read -> O(1).
+    Max-heap trick: push negative priorities.
+Applications: Dijkstra, task schedulers, merge k sorted lists, top-k problems.
+
+==============================================================================
+3.5  APPLICATIONS AND CLASSIC PROBLEMS  (with solving steps)
+==============================================================================
+
+APPLICATIONS: BFS (graphs, trees level order), CPU/job scheduling (round robin),
+printer queue, request handling in servers, buffering (IO, streaming),
+message queues, simulating real lines, cache FIFO policy.
+
+--- Q1. BFS (breadth-first search) -------------------------------------------
+    Steps: 1) queue = deque([start]); visited = {start}
+           2) while queue: node = queue.popleft(); process node
+                 for each neighbour not in visited: mark visited; append
+    Gives shortest path in an UNWEIGHTED graph. O(V + E).
+    # HOW: each vertex is enqueued once (V) and each edge is examined once from each endpoint (about E) -> O(V+E).
+    Diagram: A -> {B, C}, B -> {D}:   queue: [A] -> [B,C] -> [C,D] -> [D] -> []
+
+--- Q2. LEVEL-ORDER TRAVERSAL OF A BINARY TREE --------------------------------
+    Steps: 1) queue=[root]
+           2) while queue: n = len(queue)    # nodes in the current level
+                 for _ in range(n): node=popleft(); collect; push children
+                 append level list to result
+
+--- Q3. NUMBER OF RECENT CALLS / MOVING AVERAGE (queue as window) -------------
+    Steps: append new item; popleft while the oldest is outside the window.
+
+--- Q4. FIRST NON-REPEATING CHARACTER IN A STREAM -----------------------------
+    Steps: 1) count dict + queue of candidates
+           2) on each char: count++, append to queue
+           3) while queue front has count>1: popleft
+           4) answer = queue[0] if queue else none
+
+--- Q5. ROTTING ORANGES / MULTI-SOURCE BFS ------------------------------------
+    Steps: 1) push ALL rotten cells to queue (time 0)
+           2) BFS level by level; each level = +1 minute; rot fresh neighbours
+           3) answer = number of levels; -1 if fresh oranges remain.
+
+--- Q6. QUEUE REVERSAL ---------------------------------------------------------
+    Steps: pop all items into a stack, then push back into the queue.
+    (Or recursively: x = dequeue; reverse(rest); enqueue(x).)
+
+--- Q7. GENERATE BINARY NUMBERS 1..n -------------------------------------------
+    Steps: q = deque(["1"]); repeat n times: s=q.popleft(); output s;
+           q.append(s+"0"); q.append(s+"1").
+
+--- Q8. ROUND-ROBIN SCHEDULING --------------------------------------------------
+    Steps: queue of (process, remaining); pop front; run min(quantum, remaining);
+    if remaining > 0 append to back; else finished.
+
+--- Q9. JOSEPHUS PROBLEM (queue simulation) ------------------------------------
+    Steps: q = deque(range(1,n+1)); while len(q)>1: rotate(-(k-1)); q.popleft().
+    Last survivor = q[0].  O(n*k) (formula/DP gives O(n)).
+    # HOW: n-1 eliminations; each rotate(-(k-1)) moves k-1 items -> (n-1)(k-1) ~ n*k.
+
+--- Q10. IMPLEMENT QUEUE WITH TWO STACKS (see 3.2E) -----------------------------
+
+
+##############################################################################
+ PART 4 : DEQUE  (Double-Ended Queue, pronounced "deck")
+##############################################################################
+
+==============================================================================
+4.1  CONCEPT
+==============================================================================
+
+A DEQUE allows insertion and deletion at BOTH ends in O(1). It generalises
+both stack (use one end) and queue (insert one end, remove other).
+
+     appendleft ->  [ 1 | 2 | 3 | 4 ]  <- append
+     popleft    <-                     -> pop
+                  FRONT          REAR
+
+OPERATIONS (Python collections.deque)
+   d.append(x)         add at right       O(1)
+   d.appendleft(x)     add at left        O(1)
+   d.pop()             remove right       O(1)
+   d.popleft()         remove left        O(1)
+   d[0], d[-1]         peek ends          O(1)
+   d[i] (middle)       indexing           O(n)  (not O(1)!)
+   d.extend(it) / d.extendleft(it)  (extendleft reverses the order)
+   d.rotate(k)         rotate right by k (negative = left)   O(k)
+   d.clear(), len(d), x in d (O(n)), d.remove(x) (O(n))
+   # HOW: a deque keeps pointers to its first and last blocks, so end operations touch a fixed number of cells -> O(1); reaching index i
+   #      walks blocks from an end -> O(n); rotate(k) moves k items -> O(k); 'x in d' / remove(x) scan the items -> O(n).
+   deque(maxlen=k)     bounded deque: appending beyond k drops from the
+                       opposite end automatically (great for "last k items").
+
+Variants: INPUT-RESTRICTED deque (insert at one end only), OUTPUT-RESTRICTED
+deque (delete at one end only).
+
+==============================================================================
+4.2  collections.deque INTERNALS
+==============================================================================
+
+CPython deque = a DOUBLY LINKED LIST OF FIXED-SIZE BLOCKS (each block ~64
+items). Gives O(1) at the ends and good cache behaviour, but middle indexing
+walks blocks -> O(n).
+
+    [block A] <-> [block B] <-> [block C]
+     ^left                         ^right
+    Each block: array of 64 slots.
+
+Manual implementation alternatives: doubly linked list with head and tail
+(O(1) at both ends), or circular array with front/rear indices.
+
+DEQUE vs LIST (Python)
+   Operation            list            deque
+   append / pop (right) O(1) amortized  O(1)
+   appendleft/popleft   O(n)            O(1)
+   index in middle      O(1)            O(n)
+   memory               compact array   block list (more overhead)
+   Use deque for queues/BFS/sliding windows; list for random access.
+
+==============================================================================
+4.3  APPLICATIONS AND PROBLEMS  (with solving steps)
+==============================================================================
+
+APPLICATIONS: sliding-window maximum/minimum, palindrome checking, undo/redo
+with bounded history, work-stealing schedulers, 0-1 BFS, browser history,
+implementing both stack and queue, "last N" buffers (maxlen).
+
+--- D1. SLIDING WINDOW MAXIMUM (monotonic deque) -------------------------------
+    Keep INDICES in the deque with values in DECREASING order; front = max.
+    Steps: 1) dq = deque(); result = []
+           2) for i, x in enumerate(a):
+                 a) while dq and a[dq[-1]] <= x: dq.pop()   # smaller are useless
+                 b) dq.append(i)
+                 c) if dq[0] <= i - k: dq.popleft()          # out of window
+                 d) if i >= k - 1: result.append(a[dq[0]])
+    Trace a=[1,3,-1,-3,5,3,6,7], k=3:
+        i0: dq[0]
+        i1 (3): pops 0 -> dq[1]
+        i2 (-1): dq[1,2]                  window full -> max a[1]=3
+        i3 (-3): dq[1,2,3]                -> 3
+        i4 (5): pop 3,2,1 -> dq[4]        -> 5   (index 1 also expired)
+        i5 (3): dq[4,5]                   -> 5
+        i6 (6): pop 5,4 -> dq[6]          -> 6
+        i7 (7): pop 6 -> dq[7]            -> 7
+        result [3,3,5,5,6,7]       Time O(n), Space O(k)
+    # HOW: each index enters the deque once and leaves at most once (pop from back or popleft), so <= 2n deque ops over the whole loop
+    #      -> O(n); the deque never holds more than k indices -> O(k) space.
+
+--- D2. PALINDROME CHECK WITH DEQUE ---------------------------------------------
+    Steps: put chars into deque; while len>1: if popleft() != pop(): False.
+
+--- D3. LAST K ITEMS (bounded) ---------------------------------------------------
+    last = deque(maxlen=k); last.append(x)  # oldest auto-discarded
+
+--- D4. 0-1 BFS (edges of weight 0 or 1) -----------------------------------------
+    Steps: 1) dist = inf everywhere; dist[src]=0; dq=[src]
+           2) pop node from left; for each edge (v, w):
+                 if dist[u]+w < dist[v]: dist[v]=dist[u]+w
+                     if w == 0: appendleft(v) else: append(v)
+    Time O(V+E) - faster than Dijkstra's O(E log V).
+    # HOW: each edge is relaxed a constant number of times and deque ops are O(1) (no heap, so no log factor) -> O(V+E).
+
+--- D5. SHORTEST SUBARRAY WITH SUM >= K (with negatives; prefix sums + deque) -----
+    Steps: keep deque of indices of increasing prefix sums; pop from front while
+    prefix[i]-prefix[dq[0]] >= K (update best); pop from back while
+    prefix[dq[-1]] >= prefix[i]; append i.   O(n).
+    # HOW: each index is appended once and popped once (front or back) -> O(n) in total.
+
+--- D6. DESIGN CIRCULAR DEQUE -----------------------------------------------------
+    Fixed array + front index + size, with insertFront (front=(front-1)%cap),
+    insertLast ((front+size)%cap), deleteFront, deleteLast.
+
+--- D7. ROTATE ARRAY / JOSEPHUS using d.rotate() ------------------------------------
+
+
+==============================================================================
+ 5.  COMPARISON TABLE
+==============================================================================
+
+ Structure        Access rule       Insert            Delete          Access i
+ ---------------  ----------------  ----------------  --------------  --------
+ Array/list       by index          end O(1)am,       end O(1),       O(1)
+                                    middle O(n)       middle O(n)
+ Singly LL        sequential        head O(1)         head O(1)       O(n)
+ Doubly LL        sequential        both ends O(1)*   O(1) given node O(n)
+ Stack            LIFO              push O(1)         pop O(1)        top only
+ Queue            FIFO              enqueue O(1)      dequeue O(1)    front only
+ Deque            both ends         O(1) both ends    O(1) both ends  ends O(1)
+ Priority queue   by priority       O(log n)          O(log n)        min/max O(1)
+ # HOW (table above): array/list/stack/queue rows = steps to reach the spot + shifting or pointer work. Priority queue is a heap of height log n.
+ (* with tail pointer)
+
+ Which to pick?
+   Need last-in-first-out (undo, brackets, DFS)            -> Stack
+   Need first-in-first-out (BFS, scheduling)               -> Queue (deque)
+   Need both ends / sliding window / bounded history       -> Deque
+   Need fast insert/delete at known nodes, no random access-> Linked list
+   Need random access                                      -> Array/list
+   Need smallest/largest first                             -> Heap (priority queue)
+
+ STACK vs QUEUE: stack = one end (top) LIFO; queue = two ends FIFO.
+ Stack frames: used by recursion. Queue: used by BFS.
+
+
+==============================================================================
+ 6.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ LINKED LISTS
+   - Losing the rest of the list by overwriting next before saving it
+     (always save nxt = cur.next first when reversing).
+   - Not handling empty list, one node, deleting/inserting at head.
+     Use a dummy node.
+   - Null pointer errors: checking cur.next.next when cur.next is None.
+     Loop conditions: `while fast and fast.next`.
+   - Forgetting to update tail (or prev pointers in DLL).
+   - Infinite loops from accidental cycles; check cycle if unsure.
+   - Comparing nodes with == on data instead of `is` on identity
+     (intersection/cycle detection need identity).
+   - Off-by-one when walking n steps (n vs n-1 vs n+1).
+
+ STACK
+   - pop/peek on empty -> IndexError. Check first.
+   - Using list.pop(0) as stack/queue operation.
+   - Postfix evaluation: operand order (first popped is RIGHT operand).
+   - Unbalanced brackets: forgetting final "stack must be empty".
+   - Monotonic stack: use strict vs non-strict comparison correctly for
+     duplicates; store INDICES when you need distances.
+
+ QUEUE / DEQUE
+   - Using list.pop(0): O(n) per dequeue -> O(n^2) BFS.
+   - Circular queue: full/empty ambiguity; modulo arithmetic.
+   - BFS: marking visited at ENQUEUE time (not dequeue) to avoid duplicates.
+   - Level-order: capture len(queue) BEFORE the inner loop.
+   - deque indexing in the middle is O(n).
+   - deque.extendleft reverses the order of the iterable.
+
+ EDGE-CASE CHECKLIST
+   empty structure   single element   two elements   even/odd length
+   all same values   head/tail operations   cycles   duplicates
+   k larger than length   negative numbers
+
+
+==============================================================================
+ 7.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+ LINKED LIST TIPS
+   - Draw boxes and arrows; track prev/cur/next on paper.
+   - Reach for: dummy node, fast/slow pointers, reversal, two pointers with a
+     gap, merge.
+   - In Python, nodes are objects; `a.next = b` copies a reference.
+
+ FAQs
+ Q1. Array vs linked list?
+     Arrays: O(1) random access, contiguous, cache-friendly; linked list: O(1)
+     insert/delete at known node/head, no shifting, dynamic size, O(n) access.
+ Q2. Why can't you binary search a linked list?
+     No O(1) random access; finding the middle costs O(n).
+ Q3. Singly vs doubly linked list?
+     Doubly: prev pointer -> backward traversal, O(1) delete given node, more
+     memory.
+ Q4. How to find the middle in one pass?  Slow/fast pointers.
+ Q5. How to detect a loop?  Floyd's tortoise and hare; O(1) space.
+ Q6. How to reverse a linked list?  Three pointers prev/cur/next, O(n), O(1).
+ Q7. Stack vs queue?  LIFO vs FIFO.
+ Q8. How to implement a queue using two stacks (and vice versa)?  See 3.2E/F.
+ Q9. Why is deque better than list for a queue?
+     popleft is O(1) vs list.pop(0) O(n).
+ Q10. What is the time complexity of push/pop on a Python list used as stack?
+      O(1) amortized.
+ Q11. Where is a stack used inside a computer?
+      Function call stack, expression evaluation, undo, DFS, compilers.
+ Q12. How does a circular queue avoid wasting space?
+      Wraps indices using modulo so freed front slots are reused.
+ Q13. Difference between queue and priority queue?
+      Queue serves oldest first; priority queue serves highest priority first.
+ Q14. How do you implement an LRU cache?
+      Hash map + doubly linked list: O(1) get/put (move to head on use, evict
+      tail).
+ Q15. What does "amortized O(1)" mean for the two-stack queue?
+      An element is transferred at most once, so n operations cost O(n) total.
+ Q16. What is stack overflow?  Call stack exceeds its limit (deep/infinite
+      recursion); also pushing beyond a fixed-size stack.
+ Q17. Space complexity of reversing a list recursively?  O(n) due to stack.
+ Q18. Why use a dummy node?  Uniform handling of head changes.
+ Q19. How to remove the nth node from end in one pass?  Gap of n between two
+      pointers.
+ Q20. What is a monotonic stack/deque?  A stack/deque kept sorted by popping
+      elements that break the order; gives O(n) next-greater / window-max.
+
+
+==============================================================================
+ 8.  PRACTICE PROBLEMS  (answers below)
+==============================================================================
+
+ P1.  Reverse 1->2->3->4->5 and show the pointer states.
+ P2.  Find the middle of 1->2->3->4->5->6.
+ P3.  Is "{[(])}" balanced?
+ P4.  Evaluate postfix "5 1 2 + 4 * + 3 -".
+ P5.  Convert A*(B+C)/D to postfix.
+ P6.  Next greater element for [2,1,2,4,3].
+ P7.  Using two stacks to build a queue, show the state after enqueue 1,2,3,
+      dequeue, enqueue 4, dequeue.
+ P8.  Sliding window maximum for [4,2,12,3,8], k=2.
+ P9.  Merge 1->4->6 and 2->3->7.
+ P10. Remove the 2nd node from the end of 1->2->3->4->5.
+ P11. Min stack: push 5,2,7,1 then pop; what does getMin return at each step?
+ P12. What is the time complexity of enqueue/dequeue on collections.deque,
+      and of list.pop(0)?
+
+---- ANSWERS ----
+ P1.  prev=None,cur=1 -> flip 1 (1->None) prev=1,cur=2 -> flip 2 (2->1)
+      prev=2,cur=3 -> flip 3 -> prev=3,cur=4 -> flip 4 -> prev=4,cur=5 ->
+      flip 5 -> prev=5, cur=None. Result 5->4->3->2->1.
+ P2.  slow/fast: (1,1) -> (2,3) -> (3,5) -> (4,None) -> fast is None, stop.
+      Middle = 4 (second middle). For the first middle (3), use
+      `while fast.next and fast.next.next`.
+ P3.  No. push { [ ( ; ']' pops '(' mismatch -> False.
+ P4.  5 1 2 + 4 * + 3 -  =>  1+2=3 ; 3*4=12 ; 5+12=17 ; 17-3=14. Answer 14.
+ P5.  A B C + * D /
+ P6.  2->4, 1->2, 2->4, 4->-1, 3->-1  =>  [4, 2, 4, -1, -1].
+ P7.  enqueue 1,2,3: in=[1,2,3], out=[]. dequeue: transfer -> out=[3,2,1], pop
+      1; in=[], out=[3,2]. enqueue 4: in=[4]. dequeue: out nonempty -> pop 2.
+      State: in=[4], out=[3].
+ P8.  windows [4,2]=4, [2,12]=12, [12,3]=12, [3,8]=8 -> [4,12,12,8].
+ P9.  Merge 1,4,6 with 2,3,7 -> 1->2->3->4->6->7.
+ P10. n=2: result 1->2->3->5.
+ P11. push5 min5; push2 min2; push7 min2; push1 min1; pop -> min2.
+ P12. deque: O(1) both; list.pop(0): O(n).
+
+
+==============================================================================
+ 9.  QUICK REVISION SUMMARY
+==============================================================================
+
+ LINKED LIST
+   - Nodes with data + next (+prev); head pointer; non-contiguous.
+   - Access O(n); insert/delete at head O(1); at known node O(1).
+   - Key patterns: dummy node, fast/slow (middle, cycle), reverse (prev/cur/
+     nxt), merge, gap pointers (nth from end).
+   - Insert order: new.next = node.next THEN node.next = new.
+
+ STACK (LIFO)
+   - push/pop/peek all O(1); Python: list append/pop.
+   - Uses: brackets, undo, DFS, recursion, expression evaluation, monotonic
+     stack (next greater, histogram), min stack.
+   - Postfix eval: operand push; operator pops b then a, pushes a op b.
+
+ QUEUE (FIFO)
+   - enqueue at rear, dequeue at front; Python: deque (never list.pop(0)).
+   - Uses: BFS, level order, scheduling, buffers, streams.
+   - Circular queue reuses space with modulo; two-stack queue amortized O(1).
+   - Priority queue = heap, O(log n) ops.
+
+ DEQUE
+   - O(1) at both ends; deque(maxlen=k) keeps last k; rotate(k).
+   - Monotonic deque -> sliding window max/min in O(n); 0-1 BFS.
+
+ COMPLEXITY LINE
+   LL access O(n) | LL head insert O(1) | stack/queue/deque ops O(1) |
+   deque middle index O(n) | heap push/pop O(log n).
+
+==============================================================================
+ END OF NOTES
+==============================================================================

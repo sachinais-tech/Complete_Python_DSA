@@ -1,0 +1,1238 @@
+==============================================================================
+ GRAPH ALGORITHMS  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: BFS | DFS | Shortest Path | Union Find | Topological Sort
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  PART 0: GRAPH FUNDAMENTALS
+      0.1  What is a graph? Terminology
+      0.2  Types of graphs
+      0.3  Representations (adjacency list / matrix / edge list)
+      0.4  Building graphs in Python; grids as graphs
+  PART 1: BFS (Breadth-First Search)
+  PART 2: DFS (Depth-First Search)
+      2.x  Cycle detection, bipartite check, edge types, components
+  PART 3: SHORTEST PATH
+      3.1  Which algorithm when?
+      3.2  BFS (unweighted)    3.3 0-1 BFS
+      3.4  Dijkstra            3.5 Bellman-Ford
+      3.6  Floyd-Warshall      3.7 Shortest path in a DAG
+      3.8  A* (overview)       3.9 Minimum spanning tree (Prim / Kruskal)
+  PART 4: UNION FIND (DISJOINT SET UNION)
+  PART 5: TOPOLOGICAL SORT (Kahn's BFS and DFS)
+  PART 6: STRONGLY CONNECTED COMPONENTS, BRIDGES (overview)
+  PART 7: CLASSIC GRAPH PROBLEMS WITH STEPS
+  8.  Master complexity table + algorithm chooser
+  9.  Common mistakes and edge cases
+ 10.  Interview tips and FAQs
+ 11.  Practice problems (with answers)
+ 12.  Quick revision summary
+
+
+##############################################################################
+ PART 0 : GRAPH FUNDAMENTALS
+##############################################################################
+
+==============================================================================
+0.1  WHAT IS A GRAPH?
+==============================================================================
+
+A GRAPH G = (V, E) is a set of VERTICES (nodes) V connected by EDGES E.
+Models networks: roads, social networks, web links, dependencies, circuits.
+
+    SAMPLE UNDIRECTED GRAPH (used in later examples):
+
+            A ------- B
+            |         |
+            |         |
+            C ------- D ------- E
+
+    V = {A,B,C,D,E}     E = {A-B, A-C, B-D, C-D, D-E}     |V|=5, |E|=5
+
+TERMS
+   Directed (digraph)  edges have direction u -> v.     Undirected: u - v both ways.
+   Weighted            each edge has a cost/weight.
+   Adjacent/neighbours vertices joined by an edge.
+   Degree              number of edges at a vertex (undirected);
+                       in-degree / out-degree (directed).
+                       Sum of degrees = 2|E| (undirected).
+   Path                sequence of vertices joined by edges.  Simple path: no repeats.
+   Cycle               path that starts and ends at the same vertex.
+   Connected           (undirected) a path exists between every pair.
+   Strongly connected  (directed) a directed path exists between every pair.
+   Component           maximal connected subgraph.
+   DAG                 Directed Acyclic Graph (no directed cycles).
+   Tree                connected acyclic undirected graph; V-1 edges.
+   Self-loop           edge from a vertex to itself.  Multi-edge: parallel edges.
+   Sparse vs Dense     E ~ V (sparse) vs E ~ V^2 (dense).
+   Max edges: undirected simple V(V-1)/2; directed V(V-1).
+
+==============================================================================
+0.2  TYPES OF GRAPHS
+==============================================================================
+
+   Undirected / Directed / Weighted / Unweighted
+   Cyclic / Acyclic (DAG)
+   Connected / Disconnected
+   Complete (every pair adjacent)
+   Bipartite (vertices split into two sets, edges only BETWEEN sets;
+              equals "2-colourable" equals "no odd cycle")
+   Tree / Forest
+   Grid graph (cells with 4 or 8 neighbours)
+
+==============================================================================
+0.3  REPRESENTATIONS
+==============================================================================
+
+(A) ADJACENCY LIST  (default choice; dict of lists)
+       A: [B, C]
+       B: [A, D]
+       C: [A, D]
+       D: [B, C, E]
+       E: [D]
+    Space O(V + E). Iterate neighbours of u in O(deg(u)). Edge check O(deg).
+    # HOW: an adjacency list stores one entry per edge end (2E entries when undirected) plus V list heads -> O(V+E); listing u's neighbours
+    #      reads deg(u) entries; checking one edge scans that list (up to deg(u)).
+
+(B) ADJACENCY MATRIX   (V x V array; matrix[u][v] = 1 or weight)
+          A B C D E
+       A  0 1 1 0 0
+       B  1 0 0 1 0
+       C  1 0 0 1 0
+       D  0 1 1 0 1
+       E  0 0 0 1 0
+    Space O(V^2). Edge check O(1). Iterate neighbours O(V). Good for dense
+    # HOW: V rows x V columns = V^2 cells no matter how few edges exist; edge (u,v) is one cell read -> O(1); neighbours of u = scan a row of V cells.
+    graphs and Floyd-Warshall. Undirected -> symmetric matrix.
+
+(C) EDGE LIST   [(u, v, w), ...]
+    Space O(E). Needed by Kruskal, Bellman-Ford.
+
+ Operation              Adj. list      Adj. matrix     Edge list
+ Space                  O(V+E)         O(V^2)          O(E)
+ Add edge               O(1)           O(1)            O(1)
+ Check edge (u,v)       O(deg u)       O(1)            O(E)
+ List neighbours of u   O(deg u)       O(V)            O(E)
+ Traverse all (BFS/DFS) O(V+E)         O(V^2)          O(V*E)
+ # HOW (table): a traversal visits each vertex once (V) and examines each adjacency entry once (about E) -> V+E with lists.
+ #      With a matrix, finding the neighbours of each of the V vertices scans a row of V cells -> V*V.
+
+==============================================================================
+0.4  BUILDING GRAPHS IN PYTHON
+==============================================================================
+
+    from collections import defaultdict, deque
+    graph = defaultdict(list)
+    for u, v in edges:
+        graph[u].append(v)
+        graph[v].append(u)          # omit this line for a DIRECTED graph
+    Weighted: graph[u].append((v, w))
+    Nodes labelled 0..n-1: graph = [[] for _ in range(n)]
+
+GRID AS A GRAPH (very common)
+    rows, cols = len(grid), len(grid[0])
+    dirs = [(1,0),(-1,0),(0,1),(0,-1)]          # 4-directional
+    for dr, dc in dirs:
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] ...: ...
+    Each cell is a node; V = R*C, E ~ 4*R*C. BFS/DFS cost O(R*C).
+    # HOW: V = R*C cells, each with <= 4 neighbours so E <= 4*R*C; V+E <= 5*R*C -> O(R*C).
+
+ Graph vs tree: a tree has no cycles, so DFS/BFS need no visited set; a graph
+ does, otherwise you loop forever.
+
+
+##############################################################################
+ PART 1 : BFS (BREADTH-FIRST SEARCH)
+##############################################################################
+
+==============================================================================
+1.1  IDEA
+==============================================================================
+
+Explore the graph LAYER BY LAYER: first the start, then all its neighbours
+(distance 1), then neighbours of those (distance 2), ... Uses a QUEUE (FIFO).
+
+    Start A.       Layer 0: A
+                   Layer 1: B, C
+                   Layer 2: D
+                   Layer 3: E
+
+    Queue evolution (sample graph, start A):
+      [A]
+      pop A -> visit; push B,C       [B, C]
+      pop B -> push D                [C, D]
+      pop C -> D already seen        [D]
+      pop D -> push E                [E]
+      pop E                          []
+      Order: A B C D E        dist: A0 B1 C1 D2 E3
+
+KEY PROPERTY: BFS finds the SHORTEST PATH (fewest edges) in an UNWEIGHTED graph,
+because it reaches vertices in nondecreasing distance order.
+
+==============================================================================
+1.2  STEPS AND CODE
+==============================================================================
+
+    Steps: 1) create a queue with the start node; mark start visited
+           2) while queue not empty:
+                 a) u = queue.popleft()
+                 b) process u
+                 c) for each neighbour v of u not visited:
+                       mark v visited (NOW, when enqueuing)
+                       record parent/dist; enqueue v
+           3) for disconnected graphs, repeat from every unvisited vertex
+
+    def bfs(graph, start):
+        visited = {start}
+        q = deque([start])
+        order = []
+        while q:
+            u = q.popleft()
+            order.append(u)
+            for v in graph[u]:
+                if v not in visited:
+                    visited.add(v)          # mark when ENQUEUED, not when popped
+                    q.append(v)
+        return order
+
+    With distances and parents (path reconstruction):
+        dist = {start: 0}; parent = {start: None}
+        ... when discovering v: dist[v] = dist[u] + 1; parent[v] = u
+        Path to target: follow parent[] back from target, then reverse.
+
+    Time O(V + E) (adjacency list) | Space O(V) (queue + visited).
+    # HOW: each vertex is dequeued once (V). For each one we loop over its adjacency list; all lists together hold E entries (2E if undirected),
+    #      and each 'in visited' test is an O(1) set lookup -> V + E. visited + queue hold at most V vertices -> O(V).
+    Mark visited at ENQUEUE time; marking at dequeue lets the same node enter
+    the queue many times.
+
+LEVEL-BY-LEVEL BFS (when you need the number of levels/steps)
+        while q:
+            for _ in range(len(q)):         # exactly one level
+                u = q.popleft(); ...
+            steps += 1
+
+MULTI-SOURCE BFS: put ALL sources in the queue at distance 0 initially
+(rotting oranges, walls-and-gates, 01 matrix, "distance to nearest 0").
+
+BFS ON GRIDS: state = (row, col); neighbours = 4 directions; shortest path =
+number of BFS levels.
+
+BFS ON IMPLICIT GRAPHS: nodes are states (word ladder words, lock combinations,
+puzzle boards, jug states); neighbours = legal moves.
+
+APPLICATIONS: shortest path in unweighted graphs, level order of trees,
+connected components, bipartite check, minimum moves puzzles, web crawling,
+social network "degrees of separation", finding nodes within k hops.
+
+
+##############################################################################
+ PART 2 : DFS (DEPTH-FIRST SEARCH)
+##############################################################################
+
+==============================================================================
+2.1  IDEA
+==============================================================================
+
+Go as DEEP as possible along one path, then BACKTRACK. Uses a STACK (explicit
+or the recursion call stack).
+
+    Sample graph from A (neighbour order as listed):
+      A -> B -> D -> C (C's neighbours A and D already seen; dead end)
+      back to D -> E (dead end) -> back to A (done)
+      Visit order: A B D C E
+
+    Picture of the trail:
+       A
+       |\
+       B  C?  (C is reached through D here, not from A directly)
+       |
+       D --- C
+       |
+       E
+
+    Recursive DFS call stack:
+       dfs(A)
+         dfs(B)
+           dfs(D)
+             dfs(C)  returns
+             dfs(E)  returns
+           returns
+         (C already visited)
+       returns
+
+==============================================================================
+2.2  STEPS AND CODE
+==============================================================================
+
+RECURSIVE
+    Steps: 1) mark u visited; process u
+           2) for each neighbour v of u: if v not visited: dfs(v)
+    def dfs(graph, u, visited, order):
+        visited.add(u); order.append(u)
+        for v in graph[u]:
+            if v not in visited:
+                dfs(graph, v, visited, order)
+
+ITERATIVE (explicit stack; avoids Python's recursion limit ~1000)
+    Steps: 1) stack = [start]
+           2) while stack: u = pop()
+                 if u visited: continue
+                 mark visited; process u
+                 push all unvisited neighbours (reverse them to mimic
+                 recursive order)
+    def dfs_iter(graph, start):
+        visited, st, order = set(), [start], []
+        while st:
+            u = st.pop()
+            if u in visited: continue
+            visited.add(u); order.append(u)
+            for v in reversed(graph[u]):
+                if v not in visited: st.append(v)
+        return order
+
+    Time O(V + E) | Space O(V) (recursion depth up to V).
+    # HOW: same counting as BFS: each vertex enters dfs() once (V calls) and every adjacency entry is examined once (E).
+    #      The call stack is as deep as the longest DFS path, up to V.
+    Deep graphs (10^5 nodes) -> iterative DFS or sys.setrecursionlimit +
+    threading.
+
+BFS vs DFS
+   BFS: queue, level order, SHORTEST path (unweighted), memory = widest level.
+   DFS: stack/recursion, goes deep, memory = longest path; good for
+        connectivity, cycles, topological order, backtracking, components,
+        path existence, SCC.
+   Both O(V+E). Neither is "better"; choose by problem.
+
+==============================================================================
+2.3  DFS TIMESTAMPS AND EDGE CLASSIFICATION (directed graphs)
+==============================================================================
+
+Record discovery time d[u] and finish time f[u]. For an edge u -> v:
+   TREE edge    : v is discovered through u (white vertex)
+   BACK edge    : v is an ancestor still on the stack (grey)  => CYCLE
+   FORWARD edge : v is a descendant already finished
+   CROSS edge   : v is in another finished branch
+Undirected graph DFS: only tree and back edges. A back edge (not to the
+parent) means a cycle.
+
+THREE COLOURS: WHITE = unvisited, GREY = in progress (on the stack), BLACK =
+finished.
+
+==============================================================================
+2.4  DFS APPLICATIONS (with steps)
+==============================================================================
+
+--- D1. CONNECTED COMPONENTS (undirected) ------------------------------------------
+    Steps: 1) visited = set(); count = 0
+           2) for each vertex: if not visited: dfs/bfs from it; count += 1
+    O(V + E).  (Or Union-Find: components = number of roots.)
+    # HOW: each vertex is entered by a search exactly once across all start points (visited prevents repeats); the start-point loop adds only V checks.
+
+--- D2. CYCLE DETECTION IN AN UNDIRECTED GRAPH ---------------------------------------
+    Steps: 1) DFS carrying the parent of each vertex
+           2) if a neighbour is visited and is NOT the parent -> cycle
+    def has_cycle(u, parent):
+        visited.add(u)
+        for v in graph[u]:
+            if v not in visited:
+                if has_cycle(v, u): return True
+            elif v != parent:
+                return True
+        return False
+    (With multi-edges, track the edge id instead of the parent.)
+    Alternative: Union-Find - if an edge joins two vertices already in the same
+    set -> cycle.   Tree test: connected AND edges == V - 1.
+
+--- D3. CYCLE DETECTION IN A DIRECTED GRAPH -------------------------------------------
+    Steps (3 colours / recursion-stack set):
+      1) state[u]: 0 = unvisited, 1 = visiting, 2 = done
+      2) dfs(u): state[u] = 1
+            for v in graph[u]:
+               if state[v] == 1: CYCLE (back edge)
+               if state[v] == 0 and dfs(v): cycle
+            state[u] = 2
+    Also detectable by Kahn's algorithm: if the topological order has fewer
+    than V vertices -> cycle. Used in "Course Schedule".
+
+--- D4. BIPARTITE CHECK (BFS or DFS 2-colouring) ---------------------------------------
+    Steps: 1) colour the start 0
+           2) for each edge u-v: if v uncoloured: colour[v] = 1 - colour[u], visit
+              elif colour[v] == colour[u]: NOT bipartite
+           3) run from every unvisited vertex (disconnected graphs)
+    Equivalent: graph has no odd-length cycle.
+
+--- D5. NUMBER OF ISLANDS (grid DFS/BFS flood fill) ----------------------------------------
+    Steps: 1) for every cell: if land ('1') and not visited:
+                  islands += 1; flood-fill all connected land (mark as visited or
+                  sink it by setting '0')
+           2) return islands
+    def num_islands(grid):
+        R, C, cnt = len(grid), len(grid[0]), 0
+        def dfs(r, c):
+            if r < 0 or c < 0 or r >= R or c >= C or grid[r][c] != '1': return
+            grid[r][c] = '0'
+            dfs(r+1,c); dfs(r-1,c); dfs(r,c+1); dfs(r,c-1)
+        for r in range(R):
+            for c in range(C):
+                if grid[r][c] == '1': cnt += 1; dfs(r, c)
+        return cnt
+    O(R*C). Variants: max area of island, surrounded regions, flood fill,
+    # HOW: each cell is marked the first time DFS reaches it, so it is processed once; each does 4 neighbour checks -> ~5*R*C steps.
+    pacific-atlantic water flow (DFS from the borders), perimeter.
+
+--- D6. FIND ANY PATH / ALL PATHS BETWEEN TWO NODES (backtracking) ----------------------------
+    Steps: path.append(u); if u == target: record path; else recurse into
+    unvisited neighbours; then path.pop() and visited.remove(u) (backtrack).
+
+--- D7. CLONE GRAPH -------------------------------------------------------------------------
+    Steps: dict old_node -> new_node; DFS/BFS; when visiting a neighbour not yet
+    cloned, create its clone; always append the clone of the neighbour.
+
+--- D8. TREE-LIKE USES: tree DFS = pre/in/post-order; subtree sizes; LCA; diameter. ----------
+
+--- D9. ALL NODES REACHABLE / IS THERE A PATH (Union-Find or DFS). ----------------------------
+
+
+##############################################################################
+ PART 3 : SHORTEST PATH
+##############################################################################
+
+==============================================================================
+3.1  WHICH ALGORITHM WHEN?
+==============================================================================
+
+ Situation                                   Algorithm                Time
+ Unweighted graph                            BFS                      O(V+E)
+ Weights are only 0 or 1                     0-1 BFS (deque)          O(V+E)
+ Non-negative weights, single source         Dijkstra (heap)          O((V+E) log V)
+ Negative weights allowed, single source     Bellman-Ford             O(V*E)
+ Detect negative cycle                       Bellman-Ford             O(V*E)
+ All pairs shortest paths                    Floyd-Warshall           O(V^3)
+ DAG (any weights, even negative)            Topological order + relax O(V+E)
+ Single target with a good heuristic         A*                       depends
+ Many queries on a static dense graph        Floyd-Warshall precompute
+
+ RELAXATION (core operation): for edge u->v with weight w,
+        if dist[u] + w < dist[v]:  dist[v] = dist[u] + w;  parent[v] = u
+ "Can going through u make v's path shorter?"
+
+ SHORTEST-PATH TREE: parent[] pointers form a tree rooted at the source;
+ reconstruct a path by following parents from the target.
+
+==============================================================================
+3.2  UNWEIGHTED: BFS  (see Part 1)  -  shortest path = fewest edges
+==============================================================================
+
+==============================================================================
+3.3  0-1 BFS (edge weights 0 or 1)
+==============================================================================
+
+Like BFS but with a DEQUE: a 0-weight edge pushes the neighbour to the FRONT
+(appendleft), a 1-weight edge to the BACK.
+    Steps: 1) dist = inf; dist[src] = 0; dq = deque([src])
+           2) u = dq.popleft()
+              for (v, w): if dist[u] + w < dist[v]:
+                    dist[v] = dist[u] + w
+                    dq.appendleft(v) if w == 0 else dq.append(v)
+    O(V + E). Uses: grids where moving through some cells is free, minimum
+    obstacle removal, minimum flips.
+    # HOW: each edge relaxation is O(1) and deque push/pop are O(1) (no heap, so no log factor); each edge is relaxed a constant number of times -> V+E.
+
+==============================================================================
+3.4  DIJKSTRA'S ALGORITHM (non-negative weights)
+==============================================================================
+
+IDEA (greedy): repeatedly take the unvisited vertex with the SMALLEST known
+distance (use a MIN-HEAP). Its distance is final, because every other path to
+it would have to pass through vertices at least as far away and cannot be
+shorter (needs non-negative weights!). Then RELAX its outgoing edges.
+
+STEPS
+    1) dist[source] = 0, dist[others] = infinity; min-heap = [(0, source)]
+    2) while the heap is not empty:
+          a) (d, u) = heappop(heap)
+          b) if d > dist[u]: continue            (stale entry - skip)
+          c) for each edge (u, v, w):
+                if d + w < dist[v]:              (relaxation)
+                    dist[v] = d + w
+                    heappush(heap, (dist[v], v))
+    3) dist[] now holds the shortest distances. (Optionally stop early when the
+       target is popped.)
+
+CODE
+    import heapq
+    def dijkstra(graph, src, n):
+        dist = [float('inf')] * n
+        dist[src] = 0
+        heap = [(0, src)]
+        while heap:
+            d, u = heapq.heappop(heap)
+            if d > dist[u]: continue
+            for v, w in graph[u]:
+                nd = d + w
+                if nd < dist[v]:
+                    dist[v] = nd
+                    heapq.heappush(heap, (nd, v))
+        return dist
+
+TRACE  directed weighted graph:
+       A->B 4,  A->C 1,  C->B 2,  C->D 5,  B->D 1        source A
+
+            A --4--> B --1--> D
+            |        ^        ^
+            1        2        5
+            v        |        |
+            +------> C -------+
+
+    heap [(0,A)]
+    pop (0,A):  B=4 push(4,B); C=1 push(1,C)
+    pop (1,C):  B via C = 1+2 = 3 < 4 -> B=3 push(3,B);  D = 1+5 = 6 push(6,D)
+    pop (3,B):  D via B = 3+1 = 4 < 6 -> D=4 push(4,D)
+    pop (4,B):  stale (4 > dist[B]=3) skip
+    pop (4,D):  no outgoing edges
+    pop (6,D):  stale skip
+    Result: A=0, C=1, B=3, D=4.   Path to D: A -> C -> B -> D.
+
+COMPLEXITY (binary heap): O((V + E) log V). With an array (no heap) O(V^2)
+-- better for dense graphs. Fibonacci heap O(E + V log V).
+Space O(V + E).
+# HOW: each edge can push at most one heap entry -> at most E pushes (and E pops); a heap op costs log(size) <= log E <= 2 log V
+# -> (E + V) log V. With a plain array scan for the minimum instead: V rounds x V scan = V^2.
+
+WHY NEGATIVE EDGES BREAK IT: a vertex popped with its "final" distance may later
+be improved through a negative edge, but Dijkstra never revisits it.
+
+PATH RECONSTRUCTION: keep parent[v] = u when relaxing; walk back from target.
+
+APPLICATIONS: Network delay time, cheapest path in a road map, path with
+minimum effort (use max edge difference instead of sum), path with maximum
+probability (max-heap / negative log), swim in rising water, GPS routing,
+reliability.
+
+==============================================================================
+3.5  BELLMAN-FORD (handles negative weights)
+==============================================================================
+
+IDEA: relax ALL edges V-1 times. After i rounds, dist[] is correct for every
+vertex whose shortest path uses at most i edges. A shortest simple path has at
+most V-1 edges, so V-1 rounds suffice.
+
+STEPS
+    1) dist[src] = 0, others infinity
+    2) repeat V-1 times:
+           for each edge (u, v, w): if dist[u] + w < dist[v]: dist[v] = dist[u] + w
+           (stop early if a full round makes no change)
+    3) NEGATIVE-CYCLE CHECK: do one more round; if any edge still relaxes ->
+       a negative cycle reachable from the source exists.
+
+CODE
+    def bellman_ford(n, edges, src):
+        dist = [float('inf')] * n; dist[src] = 0
+        for _ in range(n - 1):
+            changed = False
+            for u, v, w in edges:
+                if dist[u] != float('inf') and dist[u] + w < dist[v]:
+                    dist[v] = dist[u] + w; changed = True
+            if not changed: break
+        for u, v, w in edges:                    # extra pass
+            if dist[u] != float('inf') and dist[u] + w < dist[v]:
+                return None                      # negative cycle
+        return dist
+
+TRACE  edges (A,B,4) (A,C,5) (B,C,-2) (C,D,3), source A
+    round 1: A->B: B=4;  A->C: C=5;  B->C: 4-2=2 -> C=2;  C->D: 2+3 = 5 -> D=5
+    round 2: no improvement -> stop.   dist: A0 B4 C2 D5.
+
+COMPLEXITY: O(V * E) time, O(V) space. Slower than Dijkstra but handles
+negative edges. For undirected graphs a negative edge IS a negative cycle.
+# HOW: V-1 rounds, each relaxing all E edges in O(1) each -> (V-1)*E = V*E; only the dist[] array is stored -> O(V).
+
+BOUNDED EDGES VARIANT (Cheapest Flights Within K Stops):
+    run only K+1 rounds, and relax from a COPY of the previous round's
+    distances (otherwise you may use more edges than allowed in a round).
+
+SPFA: queue-based optimisation of Bellman-Ford (average faster, worst O(VE)).
+
+==============================================================================
+3.6  FLOYD-WARSHALL (all pairs)
+==============================================================================
+
+IDEA (DP): dist[i][j] = shortest i -> j using only intermediate vertices from
+{0..k}. Add one more allowed intermediate k at a time:
+        dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
+
+STEPS
+    1) dist = adjacency matrix; dist[i][i] = 0; no edge = infinity
+    2) for k in range(n):               # intermediate vertex is the OUTER loop!
+          for i in range(n):
+              for j in range(n):
+                  if dist[i][k] + dist[k][j] < dist[i][j]: update
+    3) negative cycle exists iff some dist[i][i] < 0
+
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
+
+Time O(V^3) | Space O(V^2). Handles negative edges (not negative cycles).
+# HOW: three nested loops (k, i, j) each run V times -> V*V*V = V^3 relaxations of O(1) each; the V x V matrix is the only storage -> V^2.
+Also used for transitive closure (reachability, with boolean OR/AND) and finding
+the graph's diameter. Best when V is small (<= ~400) or many all-pairs queries.
+
+==============================================================================
+3.7  SHORTEST PATH IN A DAG
+==============================================================================
+
+    Steps: 1) topological order of the vertices
+           2) dist[src] = 0
+           3) for u in topological order: relax every outgoing edge of u
+    O(V + E); works with NEGATIVE weights (no cycles). Longest path in a DAG:
+    same, with max instead of min (or negate weights). Basis for critical-path
+    scheduling.
+    # HOW: topological sort costs V+E; then each vertex's outgoing edges are relaxed once -> E more -> V+E total.
+
+==============================================================================
+3.8  A* SEARCH (overview)
+==============================================================================
+
+Dijkstra guided by a HEURISTIC h(v) = estimate of the remaining cost to the
+goal. Priority = g(v) + h(v), where g = cost so far.
+   Admissible heuristic (never overestimates) => optimal path.
+   Consistent heuristic => each node expanded once.
+   Grid examples: Manhattan distance (4-direction moves), Euclidean/Chebyshev.
+   h = 0 reduces A* to Dijkstra. Used in games, maps, robot navigation.
+
+==============================================================================
+3.9  MINIMUM SPANNING TREE (MST)
+==============================================================================
+
+MST of a connected, weighted, UNDIRECTED graph: a subset of V-1 edges that
+connects all vertices with MINIMUM total weight and no cycles. (Not a
+shortest-path tree!)  Unique if all weights are distinct.
+
+CUT PROPERTY: the lightest edge crossing any cut belongs to some MST.
+CYCLE PROPERTY: the heaviest edge on any cycle is not needed.
+
+(A) KRUSKAL (sort edges + Union-Find)
+    Steps: 1) sort edges by weight ascending
+           2) for each edge (u, v, w): if find(u) != find(v): take it; union(u, v)
+              (skip it if both ends are already connected - it would form a cycle)
+           3) stop after V-1 edges
+    Example: edges (A-B,1) (B-C,2) (A-C,3) (C-D,4)
+        take A-B (1); take B-C (2); A-C: same set -> skip; take C-D (4)
+        MST weight = 1 + 2 + 4 = 7.
+    Time O(E log E) (sorting). Good for sparse graphs.
+    # HOW: sorting E edges = E log E; the union-find checks cost ~E * alpha(V) (almost constant) so sorting dominates. Since log E <= 2 log V this is also O(E log V).
+
+(B) PRIM (grow one tree with a min-heap, like Dijkstra)
+    Steps: 1) start at any vertex; push its edges (w, v) into a min-heap
+           2) pop the smallest edge (w, v): if v is already in the tree, skip
+           3) else add v (cost += w) and push v's edges to unvisited vertices
+           4) stop when V vertices are in the tree
+    Time O(E log V). Good for dense graphs (or O(V^2) with arrays).
+    # HOW: each edge is pushed on the heap at most once (E pushes); each heap operation costs log E ~ log V -> E log V.
+
+
+##############################################################################
+ PART 4 : UNION FIND (DISJOINT SET UNION, DSU)
+##############################################################################
+
+==============================================================================
+4.1  CONCEPT
+==============================================================================
+
+Maintains a collection of DISJOINT SETS and supports two operations:
+    find(x)      : which set (representative / root) is x in?
+    union(x, y)  : merge the sets containing x and y.
+Typical question answered: "Are x and y connected?"  -> find(x) == find(y).
+
+Each set is a tree stored via a PARENT array; the root is the representative
+(parent[root] = root).
+
+    Initially 5 singletons:   0   1   2   3   4       parent = [0,1,2,3,4]
+
+    union(0,1): attach root of 1 under 0   parent = [0,0,2,3,4]
+          0
+          |
+          1       2     3     4
+    union(2,3):  parent = [0,0,2,2,4]
+    union(1,3): find(1)=0, find(3)=2 -> attach 2 under 0:
+                parent = [0,0,0,2,4]
+          0
+         / \
+        1   2       4
+            |
+            3
+    find(3): 3 -> 2 -> 0 (root 0).   connected(1,3) = True; connected(1,4) = False.
+
+PROBLEM: without optimisation the tree can become a long chain -> find is O(n).
+
+==============================================================================
+4.2  OPTIMISATIONS
+==============================================================================
+
+ 1) PATH COMPRESSION (in find): after finding the root, point every node on the
+    path directly to the root (flatten the tree).
+        find(3): 3->2->0  becomes  parent[3] = 0, parent[2] = 0.
+ 2) UNION BY RANK / SIZE: attach the SMALLER (shorter) tree under the larger one
+    so trees stay shallow.
+
+With BOTH, each operation costs amortized O(alpha(n)) where alpha is the
+inverse Ackermann function (< 5 for any practical n) -> effectively O(1).
+Path compression alone gives amortized O(log n); union by rank alone O(log n).
+# HOW: path compression flattens the path it walks, so later finds on those nodes take ~1 step; union by rank keeps tree height <= log n.
+# Together, m operations cost m * alpha(n), where alpha (inverse Ackermann) grows slower than any log and is < 5 for any real n.
+
+==============================================================================
+4.3  IMPLEMENTATION
+==============================================================================
+
+    class DSU:
+        def __init__(self, n):
+            self.parent = list(range(n))
+            self.size = [1] * n
+            self.components = n
+
+        def find(self, x):                       # with path compression
+            while self.parent[x] != x:
+                self.parent[x] = self.parent[self.parent[x]]   # path halving
+                x = self.parent[x]
+            return x
+            # recursive form:
+            #   if self.parent[x] != x: self.parent[x] = self.find(self.parent[x])
+            #   return self.parent[x]
+
+        def union(self, a, b):                   # union by size
+            ra, rb = self.find(a), self.find(b)
+            if ra == rb: return False            # already connected (cycle if edge)
+            if self.size[ra] < self.size[rb]: ra, rb = rb, ra
+            self.parent[rb] = ra
+            self.size[ra] += self.size[rb]
+            self.components -= 1
+            return True
+
+        def connected(self, a, b):
+            return self.find(a) == self.find(b)
+
+STEPS to use DSU
+    1) create DSU with one set per element (map non-integer labels to indices
+       with a dict)
+    2) for each relationship/edge: union(u, v)
+    3) answer queries with find()/connected(), or count components
+
+Space O(n). union() returning False signals the edge closes a cycle.
+
+==============================================================================
+4.4  APPLICATIONS (with steps)
+==============================================================================
+
+--- U1. NUMBER OF CONNECTED COMPONENTS / PROVINCES ---------------------------------
+    Steps: union every edge; answer = dsu.components.
+
+--- U2. DETECT CYCLE IN AN UNDIRECTED GRAPH / REDUNDANT CONNECTION ------------------
+    Steps: for each edge (u, v): if find(u) == find(v): this edge creates a cycle
+           (it is the redundant one); else union.
+
+--- U3. KRUSKAL'S MST (see 3.9) -----------------------------------------------------
+
+--- U4. VALID TREE (n nodes, edges list) -----------------------------------------------
+    A tree iff edges == n - 1 AND no union fails (no cycle) -> connected.
+
+--- U5. ACCOUNTS MERGE ---------------------------------------------------------------------
+    Steps: 1) union all accounts sharing an email (map email -> first account id)
+           2) group emails by find(account) 3) output sorted emails per group.
+
+--- U6. SATISFIABILITY OF EQUALITY EQUATIONS ("a==b", "b!=a") --------------------------------
+    Steps: union all '==' pairs first; then for each '!=' pair, if
+    find(a) == find(b) -> False.
+
+--- U7. NUMBER OF ISLANDS II (cells added over time) ---------------------------------------------
+    Steps: when a land cell appears: components += 1; union with each land
+    neighbour (each successful union: components -= 1).
+
+--- U8. LONGEST CONSECUTIVE SEQUENCE, SIMILAR STRING GROUPS, SMALLEST EQUIVALENT STRING -----------
+    Group equivalent items by union; read the answer from sets.
+
+--- U9. OFFLINE DYNAMIC CONNECTIVITY: process deletions in reverse as additions. -------------------
+
+WHEN DSU vs DFS/BFS: DSU is ideal when edges ARRIVE INCREMENTALLY and you must
+answer connectivity queries as you go. DFS/BFS is simpler for a one-shot static
+graph and when you need paths or distances (DSU cannot give paths).
+DSU only handles MERGING; it cannot easily split sets.
+
+
+##############################################################################
+ PART 5 : TOPOLOGICAL SORT
+##############################################################################
+
+==============================================================================
+5.1  CONCEPT
+==============================================================================
+
+A TOPOLOGICAL ORDER of a DAG is a linear ordering of its vertices such that for
+every directed edge u -> v, u appears BEFORE v.
+EXISTS iff the graph is a DAG (no directed cycle). Usually not unique.
+
+    Dependencies (u -> v means "u before v"):
+        5 -> 2,  5 -> 0,  4 -> 0,  4 -> 1,  2 -> 3,  3 -> 1
+
+            5       4
+           / \     / \
+          v   v   v   v
+          2    0     1 <--- 3 <--- 2    (2 -> 3 -> 1)
+
+    A valid order: 4, 5, 2, 0, 3, 1      (also 5, 4, 2, 3, 1, 0 etc.)
+
+USES: course prerequisites, build systems / dependency resolution (make, npm),
+task scheduling, spreadsheet cell evaluation, compiler instruction ordering,
+alien dictionary, shortest/longest path in a DAG, cycle detection in directed
+graphs.
+
+==============================================================================
+5.2  KAHN'S ALGORITHM (BFS, using in-degrees)
+==============================================================================
+
+IDEA: a vertex with in-degree 0 has no unmet prerequisites, so it can go next.
+Remove it and decrease its neighbours' in-degrees.
+
+STEPS
+    1) compute indegree[v] for every vertex
+    2) queue = all vertices with indegree 0
+    3) while queue: u = popleft(); append u to order
+           for each neighbour v of u: indegree[v] -= 1
+                 if indegree[v] == 0: enqueue v
+    4) if len(order) == V: valid order; else the graph has a CYCLE
+
+CODE
+    def topo_sort(n, edges):
+        graph = [[] for _ in range(n)]
+        indeg = [0] * n
+        for u, v in edges:
+            graph[u].append(v); indeg[v] += 1
+        q = deque(i for i in range(n) if indeg[i] == 0)
+        order = []
+        while q:
+            u = q.popleft(); order.append(u)
+            for v in graph[u]:
+                indeg[v] -= 1
+                if indeg[v] == 0: q.append(v)
+        return order if len(order) == n else []      # [] means cycle
+
+TRACE  edges 5->2, 5->0, 4->0, 4->1, 2->3, 3->1   (vertices 0..5)
+    indegree: 0:2  1:2  2:1  3:1  4:0  5:0        queue [4,5]
+    pop 4 : order [4]       0 -> indeg 1 ; 1 -> indeg 1
+    pop 5 : order [4,5]     2 -> 0 enqueue ; 0 -> 0 enqueue      queue [2,0]
+    pop 2 : order [4,5,2]   3 -> 0 enqueue                       queue [0,3]
+    pop 0 : order [4,5,2,0]
+    pop 3 : order [4,5,2,0,3]   1 -> 0 enqueue                   queue [1]
+    pop 1 : order [4,5,2,0,3,1]       length 6 = V -> no cycle.
+    Time O(V + E) | Space O(V + E).
+    # HOW: counting in-degrees reads every edge once (E); each vertex is enqueued once (V) and its outgoing edges are decremented once -> V + E.
+    Using a MIN-HEAP instead of a queue yields the lexicographically smallest
+    order. Level-by-level processing gives the minimum number of "semesters".
+
+==============================================================================
+5.3  DFS-BASED TOPOLOGICAL SORT
+==============================================================================
+
+IDEA: in DFS, a vertex finishes AFTER all vertices reachable from it. So the
+REVERSE of the finishing order is a topological order.
+
+STEPS
+    1) state[] with 0 unvisited / 1 visiting / 2 done
+    2) for each unvisited vertex: dfs(u)
+    3) dfs(u): state[u] = 1
+            for v in graph[u]:
+                if state[v] == 1: cycle -> no topological order
+                if state[v] == 0: dfs(v)
+            state[u] = 2; push u onto a stack / list (post-order)
+    4) answer = reversed(post-order list)
+
+CODE
+    def topo_dfs(n, graph):
+        state, post = [0] * n, []
+        def dfs(u):
+            state[u] = 1
+            for v in graph[u]:
+                if state[v] == 1: return False
+                if state[v] == 0 and not dfs(v): return False
+            state[u] = 2; post.append(u)
+            return True
+        for u in range(n):
+            if state[u] == 0 and not dfs(u): return []
+        return post[::-1]
+    Time O(V + E).
+    # HOW: a plain DFS: each vertex is entered once (V), each edge examined once (E).
+
+KAHN vs DFS: Kahn is iterative and detects cycles naturally by count; DFS is
+compact and reuses cycle-detection logic.
+
+==============================================================================
+5.4  TOPOLOGICAL SORT PROBLEMS (with steps)
+==============================================================================
+
+--- TS1. COURSE SCHEDULE I (can all courses be finished?) ------------------------------
+    Steps: edge prereq -> course; run Kahn; return len(order) == numCourses.
+    (Equivalent to "does the directed graph have a cycle?")
+
+--- TS2. COURSE SCHEDULE II (return an order) -------------------------------------------
+    Steps: same, return the order list or [] if a cycle.
+
+--- TS3. ALIEN DICTIONARY ---------------------------------------------------------------
+    Steps: 1) compare adjacent words; the FIRST differing characters give an edge
+              c1 -> c2 (c1 before c2)
+           2) edge case: a longer word before its own prefix -> invalid ""
+           3) topological sort the characters; cycle -> ""
+    ["wrt","wrf","er","ett","rftt"] -> "wertf".
+
+--- TS4. PARALLEL COURSES / MINIMUM SEMESTERS ----------------------------------------------
+    Steps: Kahn level by level; semesters = number of levels (longest path in a
+    DAG); cycle -> -1.
+
+--- TS5. FIND ALL RECIPES / BUILD ORDER / SEQUENCE RECONSTRUCTION -------------------------
+    Kahn; sequence is unique iff the queue always holds exactly 1 vertex.
+
+--- TS6. LONGEST PATH IN A DAG / CRITICAL PATH -----------------------------------------------
+    Steps: topological order; dp[v] = max(dp[u] + w) over predecessors u.
+
+--- TS7. FIND EVENTUAL SAFE STATES -------------------------------------------------------------
+    Reverse the graph and run Kahn from the terminal nodes (out-degree 0), or
+    DFS with 3 colours (safe = not on/leading to a cycle).
+
+
+##############################################################################
+ PART 6 : SCC AND BRIDGES (overview)
+##############################################################################
+
+STRONGLY CONNECTED COMPONENTS (directed): maximal sets where every vertex can
+reach every other.
+   KOSARAJU: 1) DFS on G, record finish order  2) build the reverse graph
+             3) DFS on reverse graph in DECREASING finish order; each DFS tree
+             is one SCC.  O(V + E).
+   # HOW (Kosaraju): two DFS passes plus building the reverse graph, each V+E -> 3(V+E) = O(V+E). Tarjan needs only one DFS pass.
+   TARJAN: one DFS using discovery index and low-link values and a stack; when
+           low[u] == disc[u], pop an SCC.  O(V + E).
+   Condensing SCCs yields a DAG (can then topologically sort it).
+
+BRIDGES & ARTICULATION POINTS (undirected): edge/vertex whose removal
+disconnects the graph. Tarjan with low-link: edge (u, v) is a bridge if
+low[v] > disc[u].  O(V + E).  (Critical connections in a network.)
+
+EULERIAN PATH (use every edge once): exists iff 0 or 2 odd-degree vertices
+(undirected). Hierholzer's algorithm. HAMILTONIAN PATH (every vertex once) is
+NP-complete.
+
+
+##############################################################################
+ PART 7 : CLASSIC GRAPH PROBLEMS WITH STEPS
+##############################################################################
+
+--- G1. SHORTEST PATH IN A BINARY MATRIX (8 directions) ------------------------------
+    Steps: BFS from (0,0); each level +1; stop at (n-1,n-1); blocked start -> -1.
+
+--- G2. ROTTING ORANGES (multi-source BFS) ------------------------------------------------
+    Steps: 1) enqueue all rotten cells; count fresh
+           2) BFS level by level: each level = 1 minute; rot adjacent fresh
+              oranges, decrement fresh
+           3) answer = levels elapsed, or -1 if fresh > 0
+
+--- G3. WORD LADDER ----------------------------------------------------------------------------
+    Steps: 1) BFS over words; neighbours = words differing by one letter in the
+              word list (try all 26 replacements at each position, or use
+              wildcard buckets "h*t")
+           2) answer = number of words on the shortest path (levels + 1)
+    Optimisation: bidirectional BFS.
+
+--- G4. NETWORK DELAY TIME ----------------------------------------------------------------------
+    Steps: Dijkstra from k; answer = max(dist); inf anywhere -> -1.
+
+--- G5. CHEAPEST FLIGHTS WITHIN K STOPS ------------------------------------------------------------
+    Steps: Bellman-Ford with K+1 rounds on a copy of dist; or BFS/Dijkstra with
+    state (node, stops).
+
+--- G6. PATH WITH MINIMUM EFFORT -----------------------------------------------------------------
+    Steps: Dijkstra where the cost of a path is the MAX adjacent height
+    difference: new_cost = max(cost, |h[u] - h[v]|). Alternative: binary search
+    on effort + BFS.
+
+--- G7. COURSE SCHEDULE (see TS1/TS2). ----------------------------------------------------------------
+
+--- G8. PACIFIC ATLANTIC WATER FLOW -----------------------------------------------------------------
+    Steps: reverse thinking - DFS/BFS FROM the ocean borders uphill (to cells with
+    height >= current); answer = cells reached from both oceans.
+
+--- G9. SURROUNDED REGIONS ------------------------------------------------------------------------------
+    Steps: mark 'O' cells connected to the border (DFS) as safe; flip the remaining
+    'O' to 'X'; restore safe ones.
+
+--- G10. CLONE GRAPH (D7), NUMBER OF PROVINCES (U1), REDUNDANT CONNECTION (U2). ----------------------
+
+--- G11. GRAPH VALID TREE ------------------------------------------------------------------------------
+    n-1 edges and connected (DSU or DFS).
+
+--- G12. IS GRAPH BIPARTITE / POSSIBLE BIPARTITION --------------------------------------------------------
+    2-colouring with BFS/DFS (D4).
+
+--- G13. SHORTEST BRIDGE / BUS ROUTES / OPEN THE LOCK / MINIMUM GENETIC MUTATION --------------------------
+    BFS over implicit states (multi-source BFS for the bridge).
+
+--- G14. SWIM IN RISING WATER ------------------------------------------------------------------------------
+    Dijkstra-like (min over max cell value on a path) with a heap, or DSU adding
+    cells in increasing height until the corners connect.
+
+--- G15. MINIMUM COST TO CONNECT ALL POINTS -------------------------------------------------------------------
+    MST (Prim or Kruskal) with Manhattan distance weights.
+
+--- G16. FIND THE CITY WITH THE SMALLEST NUMBER OF NEIGHBOURS AT A THRESHOLD ------------------------------------
+    Floyd-Warshall (small n) or Dijkstra from each city.
+
+--- G17. CRITICAL CONNECTIONS (bridges): Tarjan low-link. ----------------------------------------------------------
+
+GRAPH PROBLEM RECIPE
+   1) Identify nodes and edges (explicit, grid, or implicit states).
+   2) Directed? Weighted? Negative weights? Cycles? Connected?
+   3) What is asked: reachability / components -> DFS/BFS/DSU;
+      fewest steps -> BFS; cheapest path -> Dijkstra/Bellman-Ford;
+      ordering with dependencies -> topological sort; connect everything
+      cheaply -> MST; incremental connectivity -> DSU.
+   4) Use a visited set to prevent revisiting. 5) State complexity in V and E.
+
+
+==============================================================================
+ 8.  MASTER COMPLEXITY TABLE + CHOOSER
+==============================================================================
+
+ Algorithm                   Time                   Space      Notes
+ BFS                         O(V + E)               O(V)       shortest path (unweighted)
+ DFS                         O(V + E)               O(V)       cycles, components, topo
+ Dijkstra (heap)             O((V + E) log V)       O(V)       no negative weights
+ Dijkstra (array)            O(V^2)                 O(V)       dense graphs
+ Bellman-Ford                O(V * E)               O(V)       negative weights, neg. cycle
+ Floyd-Warshall              O(V^3)                 O(V^2)     all pairs
+ 0-1 BFS                     O(V + E)               O(V)
+ DAG shortest path           O(V + E)               O(V)       needs topo order
+ Kruskal                     O(E log E)             O(V)       with DSU
+ Prim (heap)                 O(E log V)             O(V + E)
+ Topological sort            O(V + E)               O(V)       DAG only
+ Union-Find op               ~O(alpha(n)) amortized O(n)
+ Tarjan SCC / bridges        O(V + E)               O(V)
+ # HOW (table): BFS/DFS/Topo/SCC touch each vertex once and each edge once = V+E. Heap algorithms pay log V per edge push. Bellman-Ford = V rounds x E edges.
+ #      Floyd-Warshall = V x V x V loops. Space = the arrays/matrix/queues/stacks the algorithm keeps.
+
+ "Which should I use?"
+   Fewest edges/steps ........................ BFS
+   Connectivity / components / cycles ......... DFS or DSU
+   Cheapest path, weights >= 0 ................ Dijkstra
+   Negative edges ............................. Bellman-Ford
+   Between all pairs .......................... Floyd-Warshall
+   Prerequisites / ordering ................... Topological sort
+   Cheapest way to connect everything .......... MST (Kruskal/Prim)
+   Edges arriving over time ................... Union-Find
+
+
+==============================================================================
+ 9.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ - Forgetting the VISITED set (infinite loops on cycles).
+ - Marking visited when dequeuing rather than enqueuing in BFS (duplicates,
+   exponential blow-up).
+ - Using DFS to find the shortest path in an unweighted graph (wrong).
+ - Using Dijkstra with negative edges.
+ - Adding an edge only once for an UNDIRECTED graph.
+ - Not handling DISCONNECTED graphs (start traversals from every vertex).
+ - Treating "parent" incorrectly in undirected cycle detection (the edge back
+   to the parent is not a cycle).
+ - Directed cycle detection needs the recursion-stack/colour, not just
+   "visited" (visited via another branch is fine).
+ - Dijkstra: forgetting the stale-entry check (works but slower), or
+   comparing tuples with non-comparable payloads.
+ - Floyd-Warshall: wrong loop order (k must be outermost); infinity addition
+   overflow (use a large sentinel or float('inf')).
+ - Bellman-Ford: skipping the "dist[u] != inf" guard; updating in-place in
+   bounded-edge variants (use a copy).
+ - Grid problems: bounds checks, mutating the input vs a visited set, 4 vs 8
+   directions, row/col order mix-ups.
+ - Recursive DFS on large inputs -> RecursionError; go iterative.
+ - Topological sort on a graph with a cycle: always check len(order) == V.
+ - Union-Find: forgetting to find roots before comparing/uniting; not
+   compressing paths; mixing the node id with the root id.
+ - Confusing MST with the shortest path tree.
+ - Self-loops, duplicate edges, zero nodes, single node, no edges.
+ - Off-by-one with 1-indexed nodes (allocate n+1).
+
+ EDGE-CASE CHECKLIST
+   empty graph | single vertex | no edges | disconnected | cycle | self-loop
+   | negative weights | multiple shortest paths | unreachable target | start ==
+   target | large grids | duplicate edges
+
+
+==============================================================================
+ 10.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+ TIPS
+   - Say the representation you choose (adjacency list) and the complexity in
+     terms of V and E.
+   - Clarify: directed or undirected? weighted? negative weights? can there be
+     cycles / disconnected parts? 0- or 1-indexed?
+   - Draw a small graph and trace BFS/DFS before coding.
+   - For grids, define directions once and a helper for bounds.
+
+ FAQs
+ Q1. BFS vs DFS?
+     BFS: level order, queue, shortest path in unweighted graphs, more memory
+     for wide graphs. DFS: depth first, stack/recursion, connectivity, cycles,
+     topological sort, backtracking. Both O(V+E).
+ Q2. Why does BFS find the shortest path?
+     It visits vertices in order of increasing edge count from the source.
+ Q3. Why can't Dijkstra handle negative edges?
+     A finalized vertex might later get a shorter path via a negative edge; the
+     greedy choice is no longer valid.
+ Q4. Dijkstra vs Bellman-Ford?
+     Dijkstra: greedy, heap, O((V+E) log V), non-negative weights.
+     Bellman-Ford: relax all edges V-1 times, O(VE), negative weights and
+     negative-cycle detection.
+ Q5. Why does Bellman-Ford run V-1 rounds?
+     A shortest simple path has at most V-1 edges.
+ Q6. How does Floyd-Warshall work?
+     DP over allowed intermediate vertices k; dist[i][j] = min(dist[i][j],
+     dist[i][k] + dist[k][j]). O(V^3).
+ Q7. What is union by rank and path compression?
+     Union by rank attaches the shorter tree under the taller; path compression
+     flattens the tree during find. Together amortized O(alpha(n)).
+ Q8. Time complexity of Union-Find?  Practically O(1) amortized.
+ Q9. When does a topological order exist?  Iff the directed graph is acyclic.
+ Q10. Kahn vs DFS topological sort?
+      Kahn: in-degree queue (BFS), detects cycles via count. DFS: reverse
+      post-order, detects cycles via back edges.
+ Q11. How to detect a cycle in a directed graph?
+      DFS with colours (back edge to a grey node) or Kahn's count < V.
+ Q12. In an undirected graph?  DFS with parent check, or Union-Find.
+ Q13. How to check if a graph is bipartite?  2-colour with BFS/DFS; conflict =>
+      odd cycle => not bipartite.
+ Q14. MST algorithms?  Kruskal (sort edges + DSU, O(E log E)), Prim (heap,
+      O(E log V)).
+ Q15. Adjacency list vs matrix?
+      List: O(V+E) space, good for sparse. Matrix: O(V^2), O(1) edge check, good
+      for dense.
+ Q16. How to find the shortest path in a DAG?  Topological order + relaxation,
+      O(V+E), works with negative weights.
+ Q17. How to find connected components?  DFS/BFS from each unvisited vertex or
+      Union-Find.
+ Q18. Space complexity of recursive DFS?  O(V) for the call stack in the worst
+      case (O(h) for trees).
+ Q19. What is a DAG and why important?  Directed acyclic graph - allows
+      topological ordering, DP over dependencies.
+ Q20. How do you count the number of shortest paths?  BFS/Dijkstra, with
+      ways[v] += ways[u] when dist[u] + w == dist[v].
+ Q21. How to reconstruct a path?  Store parent[] on relax/discover, walk back
+      from the target.
+ Q22. Difference between MST and shortest path tree?
+      MST minimises the TOTAL weight connecting all vertices; the shortest path
+      tree minimises distances from ONE source. They can differ.
+ Q23. Tree vs graph traversal?  Trees need no visited set (no cycles).
+
+
+==============================================================================
+ 11.  PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+ P1.  Graph: 1-2, 1-3, 2-4, 3-4, 4-5 (neighbours listed in increasing order).
+      Give BFS and DFS order from 1.
+ P2.  Shortest distance (edges) from 1 to 5 in P1.
+ P3.  Run Dijkstra from S: S->A 7, S->B 2, B->A 3, A->T 1, B->T 8.
+ P4.  Why does Dijkstra fail on edges S->A 5, S->B 2, B->A -4?  Run Bellman-Ford.
+ P5.  Topological sort (Kahn) for edges 1->2, 1->3, 3->2, 2->4, 3->4.
+ P6.  Does 0->1, 1->2, 2->0 have a topological order?  How do you detect it?
+ P7.  Union-Find on 6 elements: union(0,1), union(2,3), union(4,5), union(1,3),
+      union(0,2). How many components and are 0 and 3 connected?
+ P8.  Kruskal's MST: edges (A,B,4) (A,C,1) (B,C,2) (B,D,5) (C,D,8) (D,E,3)
+      (C,E,9).
+ P9.  Number of islands in
+         1 1 0 0
+         0 1 0 1
+         1 0 0 1
+ P10. Is the graph 1-2, 2-3, 3-1 bipartite?  Is 1-2, 2-3, 3-4, 4-1?
+ P11. Complexity of BFS on a grid with R rows and C columns.
+ P12. How many edges does a tree with 10 vertices have?  A complete undirected
+      graph with 10 vertices?
+ P13. Floyd-Warshall: how many operations for V = 100?
+ P14. You have n courses and prerequisites. Describe how to find the minimum
+      number of semesters.
+
+---- ANSWERS ----
+ P1.  BFS: 1 2 3 4 5.   DFS: 1 2 4 3 5  (1 -> 2 -> 4 -> 3 (via 4's neighbours
+      2,3,5: first unvisited is 3) -> back to 4 -> 5).
+ P2.  1 -> 2 -> 4 -> 5 = 3 edges.
+ P3.  dist S0; B2; A = min(7, 2+3) = 5; T = min(5+1, 2+8) = 6. Path S-B-A-T = 6.
+ P4.  The true shortest path to A is S->B->A = 2 + (-4) = -2, not the direct 5.
+      Dijkstra treats a popped vertex as final. Here B (2) is popped before A (5),
+      so this tiny case happens to work, but if A had been popped first with its
+      "final" distance, the later negative edge could not fix it. (A heap version
+      without a visited set may re-relax, but then it can take exponential time.)
+      Bellman-Ford: round 1: S->A: A=5; S->B: B=2; B->A: 2-4 = -2 -> A=-2.
+      Round 2: no change. Answer A=-2, B=2.
+      Rule: never rely on Dijkstra with negative edges.
+ P5.  indegree: 1:0, 2:2, 3:1, 4:2. Queue [1]. pop 1 -> 2 (1), 3 (0) enqueue.
+      pop 3 -> 2 (0) enqueue, 4 (1). pop 2 -> 4 (0) enqueue. pop 4.
+      Order 1, 3, 2, 4.
+ P6.  No. It is a directed cycle. Kahn: no vertex with indegree 0, order length 0
+      < 3. DFS: a back edge to a grey vertex.
+ P7.  After union(0,1), (2,3), (4,5): 3 components; union(1,3) -> 2; union(0,2)
+      -> same set already (0,1,2,3), returns False. Components = 2: {0,1,2,3}, {4,5}.
+      0 and 3 connected: yes.
+ P8.  Sorted: (A,C,1) (B,C,2) (D,E,3) (A,B,4) (B,D,5) (C,D,8) (C,E,9).
+      Take A-C (1), B-C (2), D-E (3), skip A-B (cycle A-C-B), take B-D (5).
+      4 edges for 5 vertices. MST weight = 1+2+3+5 = 11.
+ P9.  Islands: {(0,0),(0,1),(1,1)}, {(1,3),(2,3)}, {(2,0)}. Count = 3
+      (4-directional connectivity).
+ P10. Triangle: odd cycle -> NOT bipartite. 4-cycle: even -> bipartite
+      ({1,3} vs {2,4}).
+ P11. O(R*C) time, O(R*C) space (queue + visited).
+ P12. Tree: 9 edges. Complete graph K10: 10*9/2 = 45 edges.
+ P13. About V^3 = 1,000,000 inner updates.
+ P14. Build the DAG (prereq -> course); Kahn level by level: each level is one
+      semester; count levels; if a cycle exists (processed < n) return -1.
+
+
+==============================================================================
+ 12.  QUICK REVISION SUMMARY
+==============================================================================
+
+ REPRESENTATION: adjacency list (O(V+E)) default; matrix for dense / O(1) edge
+   check; edge list for Kruskal / Bellman-Ford. Grids are implicit graphs.
+
+ BFS: queue, layer by layer, mark visited when ENQUEUING; shortest path in an
+   unweighted graph; multi-source BFS; O(V+E).
+ DFS: recursion/stack, go deep then backtrack; components, cycles (parent check
+   undirected, 3-colour directed), bipartite, flood fill; O(V+E).
+
+ SHORTEST PATH
+   BFS (unweighted) | 0-1 BFS (deque) | Dijkstra (min-heap, no negatives,
+   O((V+E) log V)) | Bellman-Ford (V-1 rounds, negatives, detects negative
+   cycles, O(VE)) | Floyd-Warshall (all pairs, k outermost, O(V^3)) | DAG:
+   topological order + relax.
+   Relaxation: if dist[u] + w < dist[v]: dist[v] = dist[u] + w.
+   MST: Kruskal (sort + DSU) or Prim (heap).
+
+ UNION FIND: parent array; find with path compression; union by rank/size;
+   amortized ~O(1) (inverse Ackermann); detects cycles in undirected graphs;
+   counts components; powers Kruskal.
+
+ TOPOLOGICAL SORT: DAG only. Kahn: in-degree 0 queue (if processed < V -> cycle).
+   DFS: reverse post-order (back edge -> cycle). O(V+E). Course schedule, alien
+   dictionary, build order.
+
+ COMPLEXITY LINE
+   BFS/DFS/Topo O(V+E) | Dijkstra O((V+E)logV) | Bellman-Ford O(VE) |
+   Floyd O(V^3) | Kruskal O(E log E) | DSU ~O(1).
+
+==============================================================================
+ END OF NOTES
+==============================================================================

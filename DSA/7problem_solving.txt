@@ -1,0 +1,1121 @@
+==============================================================================
+ PROBLEM SOLVING TECHNIQUES  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Recursion | Backtracking | Greedy Algorithms | Dynamic Programming
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  PART 1: RECURSION
+      1.1  Concept, base case, recursive case
+      1.2  Call stack (diagram) and recursion tree
+      1.3  How to think recursively (steps)
+      1.4  Classic recursive problems with steps
+      1.5  Analysing recursion (recurrences, complexity, space)
+      1.6  Types: tail, tree, mutual, indirect; Python limits
+      1.7  Recursion vs iteration
+  PART 2: BACKTRACKING
+      2.1  Concept: try, check, undo
+      2.2  State-space tree and the universal template
+      2.3  Classic problems with steps (subsets, permutations, combinations,
+           combination sum, N-Queens, parentheses, word search, sudoku ...)
+      2.4  Pruning and complexity
+  PART 3: GREEDY ALGORITHMS
+      3.1  Concept, greedy-choice property, when it works
+      3.2  Proving correctness (exchange argument, stays-ahead)
+      3.3  Classic problems with steps
+      3.4  When greedy FAILS
+  PART 4: DYNAMIC PROGRAMMING
+      4.1  Concept: overlapping subproblems + optimal substructure
+      4.2  Top-down (memoization) vs bottom-up (tabulation)
+      4.3  The 6-step DP framework
+      4.4  DP patterns and classic problems with steps and tables
+      4.5  Space optimisation
+      4.6  Python tools (lru_cache) and pitfalls
+  PART 5: COMPARISON AND CHOOSING THE TECHNIQUE
+  6.  Common mistakes and edge cases
+  7.  Interview tips and FAQs
+  8.  Practice problems (with answers)
+  9.  Quick revision summary
+
+
+##############################################################################
+ PART 1 : RECURSION
+##############################################################################
+
+==============================================================================
+1.1  CONCEPT
+==============================================================================
+
+RECURSION = a function that solves a problem by calling ITSELF on a SMALLER
+instance of the same problem, until it reaches a case simple enough to answer
+directly.
+
+Every recursive function needs:
+   1) BASE CASE      : the smallest input(s) answered directly (stops recursion)
+   2) RECURSIVE CASE : reduce the problem and call yourself on the smaller part
+   3) PROGRESS       : each call must move TOWARD the base case
+Missing/unreachable base case -> infinite recursion -> RecursionError (stack
+overflow).
+
+EXAMPLE: factorial   n! = n * (n-1)!,   0! = 1
+    def fact(n):
+        if n == 0:               # base case
+            return 1
+        return n * fact(n - 1)   # recursive case (smaller problem)
+
+==============================================================================
+1.2  CALL STACK AND RECURSION TREE
+==============================================================================
+
+Each call gets a STACK FRAME (parameters, locals, return address). Calls are
+pushed going down and popped on return.
+
+ fact(3) call stack (grows upward, then unwinds):
+
+   going DOWN (push)            coming UP (return values)
+   +-----------+                +-----------+
+   | fact(0)   | <- top        | fact(0)=1 |
+   +-----------+                +-----------+
+   | fact(1)   |                | fact(1)=1*1=1   |
+   +-----------+                +-----------+
+   | fact(2)   |                | fact(2)=2*1=2   |
+   +-----------+                +-----------+
+   | fact(3)   |                | fact(3)=3*2=6   |
+   +-----------+                +-----------+
+
+   Trace: fact(3) = 3*fact(2) = 3*(2*fact(1)) = 3*(2*(1*fact(0))) = 3*2*1*1 = 6
+
+RECURSION TREE (for branching recursion), fib(4):
+
+                       fib(4)
+                     /        \
+                fib(3)         fib(2)
+               /     \         /    \
+           fib(2)   fib(1)  fib(1)  fib(0)
+           /    \
+       fib(1)  fib(0)
+
+   fib(2) is computed twice, fib(1) three times -> OVERLAPPING SUBPROBLEMS
+   (this is exactly what dynamic programming fixes).
+
+   Total work = sum of work at every node. Depth = maximum stack size.
+
+==============================================================================
+1.3  HOW TO THINK RECURSIVELY (steps)
+==============================================================================
+
+    1) Define precisely what the function returns for an input of size n
+       ("trust the recursion": assume it works for smaller inputs).
+    2) Find the BASE CASE(S).
+    3) Express the answer for n using answers for smaller inputs.
+    4) Make sure every call gets strictly smaller and reaches a base case.
+    5) Check for duplicated work (-> memoize) and depth (-> stack limit).
+
+PATTERNS
+   Linear   : f(n) calls f(n-1)               (factorial, sum, reverse)
+   Halving  : f(n) calls f(n/2)               (binary search, fast power)
+   Branching: f(n) calls f(n-1) twice or more (fib, subsets, hanoi)
+   Divide & conquer: split into parts, solve each, combine (merge sort)
+   Accumulator/helper function: pass extra parameters (index, path, sum).
+
+==============================================================================
+1.4  CLASSIC RECURSIVE PROBLEMS (with steps)
+==============================================================================
+
+--- R1. SUM OF 1..n, SUM OF DIGITS, POWER -----------------------------------------
+    sum(n) = n + sum(n-1), sum(0) = 0
+    digit_sum(n) = n % 10 + digit_sum(n // 10), base: n == 0 -> 0
+    power(x, n) = x * power(x, n-1)   O(n)     (naive)
+    # HOW: power(x,n) calls power(x,n-1): n+1 calls in total, each doing one multiplication -> n steps.
+
+--- R2. FAST EXPONENTIATION (halving) ------------------------------------------------
+    Steps: 1) n == 0 -> 1
+           2) half = power(x, n // 2)      (compute ONCE, store it)
+           3) even n: half * half ; odd n: half * half * x
+    def power(x, n):
+        if n == 0: return 1
+        half = power(x, n // 2)
+        return half * half if n % 2 == 0 else half * half * x
+    T(n) = T(n/2) + O(1) = O(log n). (Calling power twice -> O(n).)
+    # HOW: n halves each call (n, n/2, n/4, ..., 1) -> log2(n) calls with one multiply each. Calling it twice per level instead gives
+    #      T(n) = 2T(n/2) + 1 = n calls.
+
+--- R3. FIBONACCI -----------------------------------------------------------------------
+    fib(n) = fib(n-1) + fib(n-2), fib(0)=0, fib(1)=1.
+    Naive: O(2^n) time, O(n) space. Memoized: O(n) time.
+    # HOW: naive fib(n) makes about 1.6^n calls (the call tree nearly doubles per level; the stack is only n deep, so space O(n)).
+    #      Memoized: each of the n distinct values is computed once -> n.
+
+--- R4. REVERSE A STRING / CHECK PALINDROME ---------------------------------------------
+    reverse(s) = reverse(s[1:]) + s[0]; base: len(s) <= 1 -> s
+    palindrome(s): base len<=1 True; if s[0] != s[-1] False; recurse on s[1:-1].
+    (Slicing copies -> O(n^2). Use indices for O(n).)
+    # HOW: each call copies s[1:] -- (n-1) chars, then (n-2), ... -> (n-1)+(n-2)+...+1 = n(n-1)/2 copied characters -> O(n^2).
+
+--- R5. GCD (Euclid) ----------------------------------------------------------------------
+    gcd(a, b) = a if b == 0 else gcd(b, a % b)
+    gcd(48, 18) -> gcd(18, 12) -> gcd(12, 6) -> gcd(6, 0) = 6.   O(log min(a,b)).
+    # HOW: a % b is always < a/2, so the numbers at least halve every two calls -> about 2*log2(min(a,b)) calls.
+
+--- R6. TOWER OF HANOI --------------------------------------------------------------------
+    Move n disks from A to C using B. Rules: one disk at a time; never a larger
+    disk on a smaller one.
+    Steps: 1) move n-1 disks A -> B (using C)
+           2) move the largest disk A -> C
+           3) move n-1 disks B -> C (using A)
+    def hanoi(n, src, aux, dst):
+        if n == 0: return
+        hanoi(n - 1, src, dst, aux)
+        print(f"move disk {n}: {src} -> {dst}")
+        hanoi(n - 1, aux, src, dst)
+    Moves: T(n) = 2T(n-1) + 1  =>  2^n - 1.  (n=3 -> 7 moves.) Time O(2^n),
+    space O(n).
+    # HOW: T(n) = 2T(n-1) + 1 with T(1) = 1 gives 1, 3, 7, 15, ... = 2^n - 1 moves; the call stack is n deep.
+    Diagram n=2:  A:[1,2]  B:[]  C:[]
+        move 1: A->B   A:[2]   B:[1]
+        move 2: A->C   A:[]    C:[2]
+        move 1: B->C   C:[2,1] (disk 1 on top of 2)
+
+--- R7. BINARY SEARCH (recursive) ------------------------------------------------------------
+    T(n) = T(n/2) + O(1) = O(log n); space O(log n).
+
+--- R8. FLATTEN A NESTED LIST -----------------------------------------------------------------
+    def flatten(a):
+        out = []
+        for x in a:
+            out.extend(flatten(x) if isinstance(x, list) else [x])
+        return out
+    flatten([1,[2,[3,4]],5]) -> [1,2,3,4,5]
+
+--- R9. MERGE SORT, QUICK SORT, TREE TRAVERSALS, DFS (see other notes) ---------------------------
+
+--- R10. GENERATE ALL SUBSETS / PERMUTATIONS (-> backtracking, Part 2) ---------------------------
+
+--- R11. COUNT PATHS IN A GRID, CLIMBING STAIRS (branching recursion -> DP) -----------------------
+    paths(r, c) = paths(r-1, c) + paths(r, c-1), base: r==0 or c==0 -> 1
+
+--- R12. POWER SET / PRINT ALL BINARY STRINGS OF LENGTH n ------------------------------------------
+    gen(prefix): if len(prefix) == n: output; else gen(prefix+"0"); gen(prefix+"1")
+    2^n strings.
+
+==============================================================================
+1.5  ANALYSING RECURSION
+==============================================================================
+
+Write a RECURRENCE for the running time and solve it (see algorithm-analysis
+notes): unrolling, recursion tree, Master theorem.
+
+   T(n) = T(n-1) + O(1)           -> O(n)         factorial, sum
+   T(n) = T(n-1) + O(n)           -> O(n^2)
+   T(n) = 2T(n-1) + O(1)          -> O(2^n)       hanoi, subsets, naive fib
+   T(n) = T(n-1) + T(n-2) + O(1)  -> O(phi^n) ~ O(1.618^n)
+   T(n) = T(n/2) + O(1)           -> O(log n)     binary search, fast power
+   T(n) = 2T(n/2) + O(1)          -> O(n)
+   T(n) = 2T(n/2) + O(n)          -> O(n log n)   merge sort
+   T(n) = k * T(n-1) (k branches) -> O(k^n)       backtracking style
+
+SPACE = maximum DEPTH of the call stack (times frame size) + any extra data.
+   factorial O(n) | binary search O(log n) | naive fib O(n) (not 2^n!) |
+   merge sort O(n) (buffer) + O(log n) stack.
+
+==============================================================================
+1.6  TYPES AND PYTHON LIMITS
+==============================================================================
+
+ DIRECT recursion      f calls f.
+ INDIRECT/MUTUAL       f calls g and g calls f (is_even / is_odd).
+ TAIL recursion        the recursive call is the LAST action; nothing left to do
+                       after it returns:
+                          def fact_tail(n, acc=1):
+                              return acc if n == 0 else fact_tail(n - 1, acc * n)
+                       Some languages optimise this to a loop (TCO). PYTHON DOES
+                       NOT -> still O(n) stack.
+ TREE recursion        multiple recursive calls per invocation (fib, subsets).
+ NESTED recursion      argument itself is a recursive call (Ackermann).
+
+ PYTHON LIMIT: default recursion depth ~1000 -> RecursionError.
+     import sys; sys.setrecursionlimit(10**6)   (risky; may crash the interpreter)
+ Prefer converting to a loop / explicit stack for deep recursion (10^5+).
+ Memoize with functools.lru_cache / functools.cache.
+
+==============================================================================
+1.7  RECURSION vs ITERATION
+==============================================================================
+
+   Recursion: natural for trees, graphs, divide & conquer, backtracking;
+              concise; uses stack space; call overhead; risk of stack overflow.
+   Iteration: usually faster, O(1) extra space, no depth limit; can be harder to
+              write for branching problems (needs an explicit stack).
+   Any recursion can be converted to iteration with an explicit stack.
+
+
+##############################################################################
+ PART 2 : BACKTRACKING
+##############################################################################
+
+==============================================================================
+2.1  CONCEPT
+==============================================================================
+
+BACKTRACKING = systematic trial and error: build a solution step by step, and
+as soon as a partial solution cannot lead to a valid full solution, UNDO the last
+choice (backtrack) and try another. It is DFS over the tree of all possible
+choices (STATE-SPACE TREE) with PRUNING.
+
+ Think: solving a maze - at each fork pick a path; at a dead end go back to the
+ last fork and try the next path.
+
+ Use it when: you must find ALL solutions / any solution / count solutions, with
+ constraints, and choices at each step: permutations, combinations, subsets,
+ board puzzles (N-Queens, Sudoku), partitions, path search.
+ Brute force generates everything then checks; backtracking checks DURING
+ construction and abandons bad branches early.
+
+==============================================================================
+2.2  STATE-SPACE TREE AND UNIVERSAL TEMPLATE
+==============================================================================
+
+ SUBSETS of [1,2,3]: at each element decide include / exclude.
+
+                          []
+                 /                 \
+            include 1            exclude 1
+             [1]                    []
+           /      \              /      \
+        [1,2]     [1]         [2]        []
+        /   \     /  \       /   \      /   \
+   [1,2,3] [1,2] [1,3] [1]  [2,3] [2]  [3]   []
+
+ 8 leaves = 2^3 subsets.
+
+ THE THREE-STEP PATTERN  CHOOSE -> EXPLORE -> UN-CHOOSE
+
+    def backtrack(state, choices):
+        if is_solution(state):               # 1) goal reached
+            record(copy of state)            #    store a COPY (path[:])
+            return
+        for choice in choices:
+            if not valid(choice, state):     # 2) prune invalid choices
+                continue
+            apply(choice, state)             # CHOOSE
+            backtrack(state, next_choices)   # EXPLORE
+            undo(choice, state)              # UN-CHOOSE (restore state)
+
+ STEPS TO SOLVE A BACKTRACKING PROBLEM
+    1) Decide what a PARTIAL SOLUTION looks like (path, board, index).
+    2) Define the CHOICES at each step.
+    3) Define CONSTRAINTS (when is a choice invalid -> prune).
+    4) Define the GOAL / base case (when to record the answer).
+    5) CHOOSE, recurse, UN-CHOOSE (restore exactly what you changed).
+    6) Avoid duplicates: sort + skip equal neighbours, or use a start index.
+
+ COMPLEXITY is typically exponential: O(k^depth) or O(n!) in the worst case;
+ pruning reduces it in practice. Space O(depth) for recursion (+ output).
+# HOW: a tree with b choices per level and depth d has b^d leaves (subsets: 2 choices x n levels = 2^n; permutations: n!, n x (n-1) x ...).
+
+==============================================================================
+2.3  CLASSIC BACKTRACKING PROBLEMS (with steps)
+==============================================================================
+
+--- BT1. SUBSETS (power set) ---------------------------------------------------------
+    Steps: 1) start index = 0, path = []
+           2) at every call, record a copy of path (every node is a subset)
+           3) for i from start to n-1: choose nums[i]; recurse with start = i+1;
+              un-choose
+    def subsets(nums):
+        res, path = [], []
+        def go(start):
+            res.append(path[:])
+            for i in range(start, len(nums)):
+                path.append(nums[i])
+                go(i + 1)
+                path.pop()
+        go(0)
+        return res
+    [1,2,3] -> [], [1], [1,2], [1,2,3], [1,3], [2], [2,3], [3]   (8 subsets)
+    Time O(n * 2^n), Space O(n) recursion.
+    # HOW: 2^n subsets (each element in or out) x up to n items copied per subset = n * 2^n; the recursion is n deep.
+    WITH DUPLICATES: sort first; in the loop skip when
+        i > start and nums[i] == nums[i-1].
+
+--- BT2. PERMUTATIONS -----------------------------------------------------------------
+    Steps: 1) used[] flags, path = []
+           2) if len(path) == n: record copy
+           3) for each i not used: mark used, append, recurse, pop, unmark
+    def permute(nums):
+        res, path, used = [], [], [False] * len(nums)
+        def go():
+            if len(path) == len(nums):
+                res.append(path[:]); return
+            for i in range(len(nums)):
+                if used[i]: continue
+                used[i] = True; path.append(nums[i])
+                go()
+                path.pop(); used[i] = False
+        go(); return res
+    [1,2,3] -> 123 132 213 231 312 321 (6 = 3!).
+    Tree: root picks 1/2/3; each picks from the remaining two; then the last.
+    Time O(n * n!), Space O(n).
+    # HOW: n! permutations, each copied in n steps = n * n!; recursion depth n, plus used[] of size n.
+    DUPLICATES: sort; skip nums[i] if i>0 and nums[i]==nums[i-1] and not used[i-1].
+    Swap-based alternative: swap index with i, recurse, swap back.
+
+--- BT3. COMBINATIONS (n choose k) -----------------------------------------------------
+    Steps: choose numbers in increasing order using a start index; record when
+    len(path) == k. Prune: need k - len(path) more numbers, so
+    i can only go up to n - (k - len(path)) + 1.
+    C(4,2): 12 13 14 23 24 34.
+
+--- BT4. COMBINATION SUM (reuse allowed) -------------------------------------------------
+    Steps: 1) sort candidates (enables pruning)
+           2) go(start, remaining): if remaining == 0 record; for i in start..:
+                 if candidates[i] > remaining: break
+                 choose, go(i, remaining - c)   (i, not i+1: reuse allowed), undo
+    candidates [2,3,6,7], target 7 -> [2,2,3], [7].
+    Variant II (each used once, duplicates in input): go(i+1) and skip duplicates.
+
+--- BT5. N-QUEENS ----------------------------------------------------------------------------
+    Place n queens on an n x n board so no two attack (same row, column, diagonal).
+    Steps: 1) place one queen per ROW, row by row
+           2) for each column c in this row: check c not in cols,
+              (row - c) not in diag1, (row + c) not in diag2
+           3) place (add to the 3 sets), recurse to row+1, remove (backtrack)
+           4) row == n -> record the board
+    Cells on the same "\" diagonal share row - col; on "/" share row + col.
+    4-Queens has 2 solutions:
+         . Q . .          . . Q .
+         . . . Q          Q . . .
+         Q . . .          . . . Q
+         . . Q .          . Q . .
+       cols = [1,3,0,2]   cols = [2,0,3,1]
+    Time ~O(n!), Space O(n). Counts: n=4:2, n=6:4, n=8:92.
+    # HOW: row r has at most n - r safe columns left, so the placements multiply like n x (n-1) x (n-2) ... = n! before pruning (pruning cuts it a lot).
+
+--- BT6. GENERATE PARENTHESES --------------------------------------------------------------------
+    Steps: 1) track opens and closes used; path string
+           2) add '(' if opens < n ; add ')' if closes < opens
+           3) when length == 2n, record
+    n=3 -> ((())) (()()) (())() ()(()) ()()()   (Catalan(3) = 5)
+
+--- BT7. LETTER COMBINATIONS OF A PHONE NUMBER ------------------------------------------------------
+    Steps: map digit -> letters; go(index, path): for each letter of
+    digits[index]: append, recurse(index+1), pop. "23" -> 9 strings (3*3).
+
+--- BT8. WORD SEARCH (grid) ---------------------------------------------------------------------------
+    Steps: 1) for each cell matching word[0]: DFS(r, c, k)
+           2) if k == len(word): True
+           3) bounds / mismatch -> False
+           4) mark cell visited (e.g. set to '#'), try 4 neighbours with k+1,
+              then RESTORE the cell (backtrack)
+    Time O(R*C*4^L).
+    # HOW: R*C start cells; each DFS goes at most L deep with up to 4 choices per step -> 4^L.
+
+--- BT9. PALINDROME PARTITIONING -------------------------------------------------------------------------
+    Steps: go(start): if start == n record; for end in start..n-1: if
+    s[start:end+1] is a palindrome: append, go(end+1), pop.
+
+--- BT10. SUDOKU SOLVER -----------------------------------------------------------------------------------
+    Steps: 1) find the next empty cell (none -> solved)
+           2) try digits 1-9 valid in row/col/3x3 box
+           3) place, recurse; if recursion fails, reset the cell to empty and try
+              the next digit
+           4) no digit works -> return False (backtrack)
+    Speed up with row/col/box bitmasks and choosing the most constrained cell.
+
+--- BT11. PARTITION TO K EQUAL SUM SUBSETS, MATCHSTICKS TO SQUARE, TARGET SUM ----------------------------------
+    Bucket assignment with pruning (sort descending, skip equal bucket states).
+
+--- BT12. RAT IN A MAZE / KNIGHT'S TOUR / HAMILTONIAN PATH / GRAPH COLOURING -------------------------------------
+    Same template: choose a move, mark, recurse, unmark.
+
+--- BT13. RESTORE IP ADDRESSES, EXPRESSION ADD OPERATORS, SPLIT STRING ----------------------------------------------
+    Choose the next segment length; prune by validity/range.
+
+==============================================================================
+2.4  PRUNING AND OPTIMISATIONS
+==============================================================================
+
+   - Early constraint checks (stop as soon as a rule is violated).
+   - Sort input so you can `break` instead of `continue`.
+   - Skip duplicates to avoid repeated work.
+   - Bounds (branch & bound): abandon branches whose best possible result
+     cannot beat the current best.
+   - Constraint propagation / choose the most constrained variable first.
+   - Memoize if the same state (index, remaining) repeats -> becomes DP.
+   - Use sets/bitmasks for O(1) conflict checks.
+
+ BACKTRACKING vs BRUTE FORCE: both exponential in the worst case; backtracking
+ prunes partial solutions. BACKTRACKING vs DP: backtracking enumerates
+ solutions; DP counts/optimises when subproblems overlap.
+
+ COMMON BUG: appending `path` instead of `path[:]` -> all results end up empty
+ (same list object mutated). Always copy when recording.
+
+
+##############################################################################
+ PART 3 : GREEDY ALGORITHMS
+##############################################################################
+
+==============================================================================
+3.1  CONCEPT
+==============================================================================
+
+GREEDY = build a solution step by step, always taking the choice that looks
+BEST RIGHT NOW (locally optimal), never reconsidering. Fast and simple, but
+correct ONLY for problems with these properties:
+   1) GREEDY-CHOICE PROPERTY: a locally optimal choice can be part of some
+      globally optimal solution.
+   2) OPTIMAL SUBSTRUCTURE: after the choice, the rest is a smaller problem of
+      the same kind whose optimal solution combines with the choice.
+
+Typical shape: SORT by some criterion (or use a heap), then scan once.
+Complexity usually dominated by sorting: O(n log n).
+
+TEMPLATE
+    1) Find the right ordering / selection criterion (this is the hard part).
+    2) Sort or heapify.
+    3) Iterate; take an item if it keeps the solution valid.
+    4) Justify correctness (exchange argument) and test with counter-examples.
+
+==============================================================================
+3.2  PROVING CORRECTNESS
+==============================================================================
+
+ EXCHANGE ARGUMENT: take any optimal solution O. Show you can swap one of its
+   choices for the greedy choice without making it worse. Repeat -> the greedy
+   solution is also optimal.
+ GREEDY STAYS AHEAD: show that after each step the greedy partial solution is at
+   least as good as any other's partial solution.
+ CONTRADICTION / COUNTER-EXAMPLE: to show greedy is WRONG, find a small input
+   where it fails (do this before trusting a greedy idea).
+
+==============================================================================
+3.3  CLASSIC GREEDY PROBLEMS (with steps)
+==============================================================================
+
+--- GR1. ACTIVITY SELECTION / INTERVAL SCHEDULING (max non-overlapping) ---------------
+    Greedy rule: pick the activity that FINISHES EARLIEST.
+    Steps: 1) sort activities by end time
+           2) take the first; last_end = its end
+           3) for each next activity: if start >= last_end: take it; update last_end
+    Example (start,end): (1,4)(3,5)(0,6)(5,7)(3,9)(5,9)(6,10)(8,11)(8,12)(2,14)(12,16)
+        sorted by end already; take (1,4); next start>=4 -> (5,7); next start>=7
+        -> (8,11); next start>=11 -> (12,16).  4 activities.
+    Time O(n log n).  (Sorting by start or by duration is WRONG.)
+    # HOW: sort by end time = n log n; one pass over the sorted list = n; sorting dominates.
+    Variant: MINIMUM NUMBER OF INTERVALS TO REMOVE = n - max non-overlapping.
+
+--- GR2. FRACTIONAL KNAPSACK -------------------------------------------------------------
+    Greedy rule: take items by highest VALUE/WEIGHT ratio; take a fraction of the
+    last one.
+    Steps: 1) ratio = value / weight; sort descending
+           2) while capacity remains: take the whole item or the fraction that fits
+    Items (value,weight): (60,10) (100,20) (120,30), W = 50
+        ratios 6, 5, 4 -> take 10 (60) + 20 (100) = 30 used; remaining 20 of item 3:
+        120 * 20/30 = 80.   Total = 240.
+    NOTE: for 0/1 knapsack (no fractions) greedy FAILS -> use DP: best = 220
+    (items 2 and 3).
+
+--- GR3. JUMP GAME (can you reach the end?) -----------------------------------------------
+    Steps: 1) farthest = 0
+           2) for i, jump in enumerate(nums):
+                 if i > farthest: return False       (stuck before reaching i)
+                 farthest = max(farthest, i + jump)
+           3) return True
+    [2,3,1,1,4] -> True.   [3,2,1,0,4] -> farthest stops at 3 -> False.  O(n).
+    # HOW: a single pass; each index does one comparison and one max -> n steps, one variable (farthest) -> O(1).
+    JUMP GAME II (minimum jumps): BFS-like greedy - track current window end and
+    the farthest reachable; when i hits the window end: jumps++, window = farthest.
+
+--- GR4. GAS STATION (circular tour) ---------------------------------------------------------
+    Steps: 1) if sum(gas) < sum(cost): return -1
+           2) tank = 0, start = 0
+           3) for i: tank += gas[i] - cost[i]; if tank < 0: start = i+1; tank = 0
+           4) return start
+    gas [1,2,3,4,5], cost [3,4,5,1,2] -> start 3.  O(n).
+    # HOW: sum(gas)/sum(cost) = n, then one scan = n -> 2n steps.
+
+--- GR5. COIN CHANGE with canonical coins (1,5,10,25) ------------------------------------------
+    Take the largest coin that fits, repeat. Correct for canonical systems (US
+    coins); WRONG in general (see 3.4).
+
+--- GR6. HUFFMAN CODING ------------------------------------------------------------------------
+    Steps: min-heap of frequencies; repeatedly merge the two smallest into a parent;
+    code = path (0 left, 1 right). O(n log n). Optimal prefix code.
+    # HOW: n-1 merges; each does 2 pops + 1 push on a heap of <= n items (log n each) -> n log n.
+
+--- GR7. MERGE INTERVALS, MEETING ROOMS II, MINIMUM PLATFORMS --------------------------------------
+    Sort by start; heap of end times (rooms) or two-pointer on sorted starts/ends.
+
+--- GR8. ASSIGN COOKIES -----------------------------------------------------------------------------
+    Steps: sort children's greed and cookie sizes; give each child the smallest
+    cookie that satisfies them (two pointers). Maximises satisfied children.
+
+--- GR9. CANDY (ratings, each child >= 1, higher rating than neighbour -> more) ------------------------
+    Steps: 1) candies = [1]*n
+           2) left pass: if r[i] > r[i-1]: candies[i] = candies[i-1] + 1
+           3) right pass: if r[i] > r[i+1]: candies[i] = max(candies[i], candies[i+1]+1)
+           4) sum
+    [1,0,2] -> [2,1,2] = 5.
+
+--- GR10. BEST TIME TO BUY AND SELL STOCK (unlimited transactions) ---------------------------------------
+    Take every positive day-to-day difference: profit += max(0, p[i] - p[i-1]).
+    Single transaction: track the minimum price so far and max(price - min).
+    [7,1,5,3,6,4] -> single: 5 (buy 1, sell 6).
+
+--- GR11. PARTITION LABELS -------------------------------------------------------------------------------
+    Steps: last[c] = last index of c; extend the current partition end to the max
+    last index of seen chars; when i == end, cut.
+
+--- GR12. TASK SCHEDULER / REORGANISE STRING / LAST STONE WEIGHT -------------------------------------------
+    Max-heap on frequency; always schedule the most frequent available task.
+
+--- GR13. MINIMUM ARROWS TO BURST BALLOONS / NON-OVERLAPPING INTERVALS ----------------------------------------
+    Sort by end; shoot at the end of the first balloon; skip all balloons it pops.
+
+--- GR14. LARGEST NUMBER, REMOVE K DIGITS (monotonic stack) -------------------------------------------------
+    Remove k digits for the smallest number: while stack top > current digit and
+    k > 0: pop. "1432219", k=3 -> "1219".
+
+--- GR15. GRAPH GREEDY ALGORITHMS ------------------------------------------------------------------------------
+    Dijkstra, Prim, Kruskal are greedy (cut property, non-negative weights).
+
+--- GR16. JOB SEQUENCING WITH DEADLINES -------------------------------------------------------------------------
+    Sort jobs by profit desc; place each in the latest free slot <= its deadline
+    (Union-Find or array scan).
+
+==============================================================================
+3.4  WHEN GREEDY FAILS
+==============================================================================
+
+ COIN CHANGE with coins {1, 3, 4}, amount 6:
+     greedy: 4 + 1 + 1 = 3 coins        optimal: 3 + 3 = 2 coins  -> DP needed.
+ 0/1 KNAPSACK: items (60,10) (100,20) (120,30), W = 50. Greedy by ratio takes
+     items 1 and 2 = 160; optimal = items 2 + 3 = 220.
+ LONGEST PATH, SHORTEST PATH WITH NEGATIVE EDGES, TSP: local choices mislead.
+
+ Signs greedy is suspect: "count the ways", "choose a subset with an exact
+ total", choices interact with future options. Look for a counter-example; if
+ none after trying small cases AND you can argue by exchange, go greedy.
+
+
+##############################################################################
+ PART 4 : DYNAMIC PROGRAMMING (DP)
+##############################################################################
+
+==============================================================================
+4.1  CONCEPT
+==============================================================================
+
+DP = solve a problem by breaking it into OVERLAPPING SUBPROBLEMS, solving each
+subproblem ONCE, STORING the result, and combining stored results.
+
+Two required properties:
+   1) OPTIMAL SUBSTRUCTURE: the optimal answer is built from optimal answers of
+      subproblems.
+   2) OVERLAPPING SUBPROBLEMS: the same subproblem is needed many times
+      (otherwise it is plain divide & conquer, e.g. merge sort).
+
+ Naive fib: exponential, because fib(k) is recomputed again and again.
+ DP (memoization): compute each fib(k) once => O(n).
+ # HOW: n distinct states fib(0..n); each is one addition of two cached values -> n steps.
+
+ Fibonacci recursion tree (fib(5)) with repeated nodes marked *:
+                     fib5
+                  /        \
+               fib4         fib3*
+              /    \        /   \
+           fib3*  fib2*  fib2* fib1
+            ...
+ DP stores fib(k) in a table so every * is answered by lookup.
+
+ Clues a problem is DP: "minimum/maximum/longest/shortest ...", "count the
+ number of ways ...", "is it possible to ...", choices at each step with
+ overlapping states, small-input recursion that is exponential.
+
+==============================================================================
+4.2  TOP-DOWN vs BOTTOM-UP
+==============================================================================
+
+TOP-DOWN (MEMOIZATION): write the natural recursion, add a CACHE.
+    from functools import lru_cache
+    @lru_cache(maxsize=None)
+    def fib(n):
+        if n < 2: return n
+        return fib(n - 1) + fib(n - 2)
+    + easy to write from the recurrence; computes only needed states.
+    - recursion overhead; depth limit (~1000); cache memory.
+
+BOTTOM-UP (TABULATION): fill a table from the smallest subproblems upward.
+    def fib(n):
+        if n < 2: return n
+        dp = [0] * (n + 1); dp[1] = 1
+        for i in range(2, n + 1):
+            dp[i] = dp[i-1] + dp[i-2]
+        return dp[n]
+    + no recursion, usually faster, easy space optimisation.
+    - must determine the correct fill ORDER; may compute unneeded states.
+
+ Space-optimised fib: keep only two variables -> O(1) space.
+    a, b = 0, 1
+    for _ in range(n): a, b = b, a + b
+    return a
+
+==============================================================================
+4.3  THE DP FRAMEWORK (steps to solve ANY DP problem)
+==============================================================================
+
+    1) STATE      : what parameters uniquely describe a subproblem?
+                    dp[i], dp[i][j], dp[i][w] ... Define in words:
+                    "dp[i] = best answer using the first i items / ending at i".
+    2) CHOICES    : what options exist at this state?
+    3) RECURRENCE : express dp[state] in terms of smaller states.
+    4) BASE CASES : the smallest states with known answers.
+    5) ORDER      : compute so that dependencies are ready (increasing i, etc.).
+    6) ANSWER     : which cell holds the final result (dp[n], max over dp, ...).
+    7) OPTIMISE   : reduce space (rolling array) if only the last row/few values
+                    are needed.
+
+ Complexity = (number of states) x (work per state).
+ Always: write the brute-force recursion first, find the repeated states, then
+ add memoization, then convert to a table if needed.
+
+==============================================================================
+4.4  DP PATTERNS AND CLASSIC PROBLEMS
+==============================================================================
+
+ PATTERN 1 - 1D / LINEAR DP       (fib, stairs, house robber, max subarray, jump)
+ PATTERN 2 - UNBOUNDED KNAPSACK   (coin change, rod cutting)
+ PATTERN 3 - 0/1 KNAPSACK         (subset sum, partition, target sum)
+ PATTERN 4 - GRID / 2D PATH DP    (unique paths, min path sum)
+ PATTERN 5 - TWO-STRING DP        (LCS, edit distance, distinct subsequences)
+ PATTERN 6 - LONGEST INCREASING SUBSEQUENCE
+ PATTERN 7 - INTERVAL DP          (matrix chain, burst balloons, palindrome cuts)
+ PATTERN 8 - STATE MACHINE DP     (stock buy/sell with cooldown / k transactions)
+ PATTERN 9 - BITMASK DP           (TSP, assignment)  - O(2^n * n)
+ PATTERN 10 - TREE DP / DIGIT DP / PROBABILITY DP
+
+--- DP1. CLIMBING STAIRS (1 or 2 steps) -----------------------------------------------
+    State dp[i] = ways to reach step i.   dp[i] = dp[i-1] + dp[i-2]; dp[0]=dp[1]=1
+    n = 5 -> 1,1,2,3,5,8 -> 8 ways.   O(n) time, O(1) space.
+    # HOW: n states, one addition each; only the last two values are kept -> O(1) space.
+
+--- DP2. HOUSE ROBBER (no two adjacent) ----------------------------------------------------
+    State dp[i] = max money from the first i houses.
+    Recurrence: dp[i] = max(dp[i-1], dp[i-2] + nums[i])  (skip house i, or rob it)
+    nums [2,7,9,3,1]:
+        dp: 2, 7, max(7, 2+9)=11, max(11, 7+3)=11, max(11, 11+1)=12   -> 12
+    Space O(1): keep prev2, prev1. House Robber II (circular): max of solving
+    [0..n-2] and [1..n-1].
+
+--- DP3. COIN CHANGE - MINIMUM COINS (unbounded) -------------------------------------------------
+    State dp[a] = min coins to make amount a.  dp[0] = 0, others inf.
+    Recurrence: dp[a] = min(dp[a - c] + 1) over coins c <= a.
+    coins [1,2,5], amount 11:
+        a : 0 1 2 3 4 5 6 7 8 9 10 11
+        dp: 0 1 1 2 2 1 2 2 3 3  2  3      -> 3 (5+5+1)
+    If dp[amount] is inf -> impossible (-1).  Time O(amount * len(coins)).
+    # HOW: states = amount+1 cells; each cell tries every coin -> amount x (number of coins).
+    def coin_change(coins, amount):
+        INF = float('inf'); dp = [0] + [INF] * amount
+        for a in range(1, amount + 1):
+            for c in coins:
+                if c <= a and dp[a - c] + 1 < dp[a]:
+                    dp[a] = dp[a - c] + 1
+        return dp[amount] if dp[amount] != INF else -1
+
+--- DP4. COIN CHANGE II - NUMBER OF WAYS ----------------------------------------------------------
+    dp[0] = 1; for each coin (OUTER loop): for a from coin..amount:
+    dp[a] += dp[a - coin].   (Coins outer -> counts COMBINATIONS; amount outer ->
+    counts ORDERED sequences / permutations.)
+    coins [1,2,5], amount 5 -> 4 ways (5; 2+2+1; 2+1+1+1; 1*5).
+
+--- DP5. 0/1 KNAPSACK ---------------------------------------------------------------------------------
+    State dp[i][w] = max value using the first i items with capacity w.
+    Recurrence:   skip item i : dp[i-1][w]
+                  take item i : dp[i-1][w - wt[i]] + val[i]   (if wt[i] <= w)
+                  dp[i][w] = max(skip, take)
+    Base: dp[0][w] = 0 and dp[i][0] = 0.  Answer dp[n][W].
+    weights [1,3,4,5], values [1,4,5,7], W = 7 -> 9 (items weight 3 + 4).
+    Time O(n*W) (pseudo-polynomial), space O(n*W) -> O(W) with a 1D array
+    iterating w from HIGH to LOW (so each item is used once):
+    # HOW: the table has (n+1) x (W+1) cells, O(1) work each -> n*W; a single row of W+1 values -> O(W) space.
+        for i in range(n):
+            for w in range(W, wt[i] - 1, -1):
+                dp[w] = max(dp[w], dp[w - wt[i]] + val[i])
+    (Iterating LOW to HIGH would allow reuse -> unbounded knapsack.)
+
+--- DP6. SUBSET SUM / PARTITION EQUAL SUBSET SUM -------------------------------------------------------
+    Boolean knapsack: dp[s] = can some subset sum to s?  dp[0] = True;
+    for x in nums: for s from target down to x: dp[s] |= dp[s - x].
+    Partition equal subset: total must be even; target = total/2.
+    [1,5,11,5] -> total 22, target 11 -> True (11, or 5+5+1).
+
+--- DP7. LONGEST INCREASING SUBSEQUENCE (LIS) ---------------------------------------------------------------
+    O(n^2) DP: dp[i] = 1 + max(dp[j]) for j<i with nums[j] < nums[i].
+    O(n log n) "patience" method: maintain `tails`, where tails[k] = smallest
+    possible tail of an increasing subsequence of length k+1.
+    # HOW: O(n^2): for every i scan all earlier j (n(n-1)/2 pairs). O(n log n): each x costs one binary search in tails (log n), n elements.
+    Steps: for x in nums: find position p = bisect_left(tails, x);
+           if p == len(tails): append x else tails[p] = x
+           answer = len(tails)
+    [10,9,2,5,3,7,101,18]:
+        10 -> [10]; 9 -> [9]; 2 -> [2]; 5 -> [2,5]; 3 -> [2,3]; 7 -> [2,3,7];
+        101 -> [2,3,7,101]; 18 -> [2,3,7,18].  Length 4.
+    (tails is NOT the actual subsequence, only its length is valid.)
+
+--- DP8. LONGEST COMMON SUBSEQUENCE (LCS) ----------------------------------------------------------------
+    State dp[i][j] = LCS length of a[:i] and b[:j].
+    Recurrence: if a[i-1] == b[j-1]: dp[i][j] = dp[i-1][j-1] + 1
+                else: dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+    Base: first row and column = 0.   Answer dp[m][n].
+    a = "abcde", b = "ace":
+            ""  a  c  e
+        ""   0  0  0  0
+        a    0  1  1  1
+        b    0  1  1  1
+        c    0  1  2  2
+        d    0  1  2  2
+        e    0  1  2  3      -> LCS = 3 ("ace")
+    Time O(m*n), space O(m*n) -> O(min(m,n)) with two rows.
+    # HOW: (m+1) x (n+1) table with O(1) work per cell -> m*n; each row needs only the previous row -> two rows of min(m,n).
+    Reconstruct the string by walking back from dp[m][n].
+    Related: longest common SUBSTRING (reset to 0 on mismatch), shortest common
+    supersequence, min deletions to make strings equal, longest palindromic
+    subsequence = LCS(s, reverse(s)).
+
+--- DP9. EDIT DISTANCE (Levenshtein) ---------------------------------------------------------------------------
+    Min operations (insert, delete, replace) to convert a -> b.
+    State dp[i][j] = edit distance between a[:i] and b[:j].
+    Recurrence: if a[i-1] == b[j-1]: dp[i][j] = dp[i-1][j-1]
+                else: 1 + min(dp[i-1][j]      (delete from a),
+                              dp[i][j-1]      (insert into a),
+                              dp[i-1][j-1])   (replace)
+    Base: dp[i][0] = i, dp[0][j] = j.
+    a = "horse", b = "ros":
+            ""  r  o  s
+        ""   0  1  2  3
+        h    1  1  2  3
+        o    2  2  1  2
+        r    3  2  2  2
+        s    4  3  3  2
+        e    5  4  4  3      -> 3
+    (horse -> rorse (replace h) -> rose (delete r) -> ros (delete e))
+
+--- DP10. UNIQUE PATHS (grid, move right/down) -------------------------------------------------------------------
+    dp[r][c] = dp[r-1][c] + dp[r][c-1]; first row/column = 1.
+    3 x 7 grid -> 28 (= C(8,2)). 3 x 2 -> 3.   Obstacles: dp = 0 on a blocked cell.
+    MIN PATH SUM: dp[r][c] = grid[r][c] + min(dp[r-1][c], dp[r][c-1]).
+
+--- DP11. MAXIMUM SUBARRAY (Kadane as DP) ----------------------------------------------------------------------------
+    dp[i] = max(nums[i], dp[i-1] + nums[i]) = best sum ending at i. Answer max(dp).
+
+--- DP12. DECODE WAYS ("A"=1 ... "Z"=26) ------------------------------------------------------------------------------
+    dp[i] = (dp[i-1] if s[i-1] != '0') + (dp[i-2] if 10 <= int(s[i-2:i]) <= 26).
+    "226" -> 3 (2|2|6, 22|6, 2|26).
+
+--- DP13. WORD BREAK -----------------------------------------------------------------------------------------------------
+    dp[i] = True if some j < i has dp[j] and s[j:i] in the word set. dp[0] = True.
+    "leetcode", ["leet","code"] -> True.   O(n^2) (times substring cost).
+    # HOW: dp[i] tries every split j < i (about n^2/2 pairs) and slices s[j:i] (up to n chars) -- hence O(n^2) times the substring cost.
+
+--- DP14. LONGEST PALINDROMIC SUBSTRING ------------------------------------------------------------------------------------
+    dp[i][j] = s[i]==s[j] and (j-i < 3 or dp[i+1][j-1]). Or expand-around-centre
+    O(n^2) with O(1) space. COUNT PALINDROMIC SUBSTRINGS similarly.
+    # HOW: expand-around-centre: 2n-1 centres x up to n/2 expansion steps = O(n^2); only indices are stored -> O(1) space.
+
+--- DP15. STOCK PROBLEMS (state machine) -----------------------------------------------------------------------------------
+    States: hold / not hold (and cooldown, or transaction count k).
+    With cooldown: hold[i] = max(hold[i-1], rest[i-1] - price); sold[i] = hold[i-1] +
+    price; rest[i] = max(rest[i-1], sold[i-1]).
+
+--- DP16. MATRIX CHAIN MULTIPLICATION / BURST BALLOONS (interval DP) ------------------------------------------------------------
+    dp[i][j] = best for the segment i..j; try every split k: dp[i][k] + dp[k+1][j]
+    + cost. Iterate by increasing LENGTH. O(n^3).
+    # HOW: O(n^2) intervals (i,j) x up to n split points k each = n^3.
+
+--- DP17. LONGEST CONSECUTIVE-STYLE, MAX PRODUCT SUBARRAY, PERFECT SQUARES, ROD CUTTING -----------------------------------------
+    Max product subarray: track both max and min ending here (negatives flip).
+    Perfect squares: coin change with squares as coins.
+
+--- DP18. TRIANGLE (min path top to bottom): bottom-up, dp[j] = tri[i][j] + min(dp[j], dp[j+1]). ------------------------------------
+
+==============================================================================
+4.5  SPACE OPTIMISATION
+==============================================================================
+
+ If dp[i] depends only on dp[i-1] (and dp[i-2]) -> keep variables (O(1)).
+ If dp[i][j] depends only on row i-1 -> keep two rows, or ONE row updated in the
+ right direction (knapsack: right-to-left for 0/1; left-to-right for unbounded).
+ The full table is needed only to RECONSTRUCT the actual solution (walk back).
+
+ RECONSTRUCTION: store parent/choice, or re-derive by checking which transition
+ produced dp[i][j].
+
+==============================================================================
+4.6  PYTHON TOOLS AND PITFALLS
+==============================================================================
+
+    from functools import lru_cache, cache
+    @cache                       # unlimited cache (3.9+); args must be hashable
+    def f(i, j): ...
+    f.cache_clear()              # between test cases
+
+ - Arguments must be hashable (use tuples, not lists, as states).
+ - Deep recursion (n ~ 10^4+) -> RecursionError: use bottom-up.
+ - 2D table: dp = [[0] * (n + 1) for _ in range(m + 1)]  (never [[0]*n]*m).
+ - Off-by-one: dp has size n+1 when dp[0] is the empty prefix.
+ - INF sentinels: use float('inf') or a large int; avoid inf + 1 issues by
+   guarding with `if dp[x] != INF`.
+ - Pseudo-polynomial: knapsack O(n*W) is exponential in the number of BITS of W.
+ - Dict memo with tuple keys for sparse states.
+
+
+##############################################################################
+ PART 5 : COMPARISON AND CHOOSING THE TECHNIQUE
+##############################################################################
+
+ Technique       Idea                          Revisits choices?  Typical output
+ Recursion       self-similar subproblem       -                  any
+ Backtracking    try, undo, try next           yes (explores all) all/any solutions
+ Greedy          best local choice, no undo    no                 one optimal solution
+ DP              store subproblem answers      considers all via  optimal value / count
+                                               table, no repeats
+
+ DECISION GUIDE
+   Need ALL solutions (permutations, subsets, boards)?  -> Backtracking
+   Need ONE optimal value, choices don't interact?       -> try Greedy (prove it)
+   Optimal value / count of ways, overlapping states?    -> DP
+   Self-similar structure (trees, divide & conquer)?     -> Recursion
+   Exponential recursion with repeated states?           -> add memoization (DP)
+
+ FLOW:
+   Is it asking to ENUMERATE everything?  yes -> backtracking
+        | no
+   Can a greedy rule be proven (exchange argument)?  yes -> greedy
+        | no / counter-example exists
+   Do subproblems repeat?  yes -> DP (state, recurrence, base, order)
+        | no
+   Divide and conquer / plain recursion.
+
+ TRANSFORMATIONS
+   Backtracking + memo of (state) = top-down DP.
+   Greedy = DP where only one transition ever needs to be considered.
+   Bottom-up DP = DFS order of the same recurrence.
+
+ EXAMPLES SIDE BY SIDE
+   Coin change (canonical coins): greedy; (arbitrary coins): DP.
+   Subsets listing: backtracking; subset-sum feasibility/count: DP.
+   Knapsack fractional: greedy; 0/1: DP.
+   Shortest path: Dijkstra (greedy) / Bellman-Ford (DP).
+   Permutations list: backtracking; LIS length: DP.
+
+ COMPLEXITY SNAPSHOT
+   Recursion (branching 2)  O(2^n) | Backtracking subsets O(n*2^n),
+   permutations O(n*n!) | Greedy O(n log n) | DP = states x transitions:
+   1D O(n), 2D O(n*m), knapsack O(n*W), interval O(n^3), bitmask O(2^n * n).
+   # HOW: complexity = (number of states) x (work per state). 1D: n states x O(1). 2D: n*m cells x O(1). Knapsack: n*W cells. Interval: n^2 intervals x n splits.
+   #      Bitmask: 2^n masks x n.
+
+
+==============================================================================
+ 6.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ RECURSION
+   - Missing/unreachable base case; not shrinking the input.
+   - Several base cases forgotten (fib needs n=0 and n=1).
+   - Recomputing the same subproblem (exponential) - memoize.
+   - Exceeding Python's recursion limit.
+   - Using mutable default arguments (def f(x, memo={})) accidentally shared.
+   - Assuming tail recursion is optimised in Python.
+
+ BACKTRACKING
+   - Forgetting to UN-CHOOSE (state leaks into later branches).
+   - Appending path instead of a copy (path[:]).
+   - Duplicates in results: forgot sort + skip, or wrong start index
+     (i+1 vs i).
+   - Not pruning (TLE).
+   - Marking visited but not restoring (word search, sudoku).
+   - Checking validity too late.
+
+ GREEDY
+   - Choosing the wrong sort key (activity selection: by END, not by start).
+   - Trusting greedy without a proof/counter-example.
+   - Using greedy for 0/1 knapsack or arbitrary coin change.
+   - Tie-breaking and equal keys; forgetting to sort first.
+
+ DP
+   - Wrong or vague state definition.
+   - Wrong iteration order (dependencies not ready).
+   - Knapsack loop direction (0/1: reverse; unbounded: forward).
+   - Coin change II: loop order decides combinations vs permutations.
+   - Not initialising base cases / INF sentinel arithmetic.
+   - Off-by-one in indices (dp[i] vs nums[i-1]).
+   - Memoizing with unhashable arguments.
+   - Space optimisation overwriting values still needed.
+   - Confusing "subsequence" (not contiguous) with "substring" (contiguous).
+
+ EDGE CASES: empty input, single element, all equal, n = 0 or 1, target 0,
+ negative numbers, impossible cases (return -1/0/[]), large n (stack depth and
+ complexity), duplicates.
+
+
+==============================================================================
+ 7.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+ TIPS
+   - Start with the brute-force recursion; state its complexity; then improve.
+   - Say the DP state in words before writing code: "dp[i][j] means ...".
+   - Draw the recursion tree for a small input to spot repeated subproblems or
+     where pruning helps.
+   - For greedy: state the rule, give the exchange-argument intuition, test a
+     counter-example.
+   - For backtracking: name the choices, constraints and goal; show the tree.
+   - Always give time AND space; mention optimisation (rolling array).
+
+ FAQs
+ Q1. Recursion vs iteration?  Recursion is natural for self-similar problems but
+     uses stack space; iteration is O(1) extra space. Any can convert to the
+     other.
+ Q2. What happens without a base case?  Infinite recursion -> RecursionError /
+     stack overflow.
+ Q3. What is memoization?  Caching results of function calls keyed by arguments
+     so repeated calls return instantly.
+ Q4. Memoization vs tabulation?  Top-down recursion + cache vs bottom-up loops
+     filling a table.
+ Q5. When to use DP?  Optimal substructure + overlapping subproblems.
+ Q6. DP vs divide & conquer?  D&C subproblems are independent (merge sort); DP
+     subproblems overlap, so results are stored.
+ Q7. DP vs greedy?  Greedy commits to one choice per step (needs the
+     greedy-choice property); DP considers all choices via stored subresults.
+ Q8. What is backtracking?  DFS over the choice tree with pruning; undo choices
+     after exploring them.
+ Q9. Backtracking vs brute force?  Backtracking abandons partial solutions that
+     violate constraints early.
+ Q10. Complexity of generating all subsets / permutations?  O(2^n) / O(n!)
+      solutions, times O(n) to copy each.
+ Q11. Why does naive Fibonacci take O(2^n) and how to fix it?  Overlapping
+      subproblems; memoize -> O(n); loop -> O(n) time, O(1) space.
+ Q12. Why does 0/1 knapsack iterate capacity backwards in the 1D version?  To use
+      each item at most once (so dp[w - wt] still refers to the previous item
+      row).
+ Q13. Why does greedy fail on coin change {1,3,4} for 6?  4+1+1 uses 3 coins but
+      3+3 uses 2.
+ Q14. Time complexity of LCS / edit distance?  O(m*n).
+ Q15. How to get the actual LCS string, not just the length?  Walk the table
+      backwards from dp[m][n].
+ Q16. Pseudo-polynomial time?  Polynomial in the numeric VALUE of the input (W),
+      exponential in its bit length; knapsack O(nW).
+ Q17. What is tail recursion?  The recursive call is the last operation; allows
+      optimisation to a loop in some languages (not Python).
+ Q18. Can all recursion be written iteratively?  Yes, with an explicit stack.
+ Q19. How do you prove a greedy algorithm?  Exchange argument or "greedy stays
+      ahead".
+ Q20. How do you recognise DP?  Optimise/count with repeating subproblems; try
+      recursion first, check for repeated arguments.
+ Q21. What is an optimal substructure?  Optimal solution contains optimal
+      solutions to its subproblems.
+ Q22. Why is N-Queens pruned efficiently with sets?  O(1) conflict checks using
+      columns and the two diagonals (row-col, row+col).
+ Q23. Count paths in a grid with obstacles?  DP with dp = 0 on blocked cells.
+ Q24. How to reduce DP space?  Keep only the rows/values the recurrence needs.
+
+
+==============================================================================
+ 8.  PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+ P1.  Write the recurrence and complexity for Tower of Hanoi with 4 disks: how
+      many moves?
+ P2.  List all subsets of [1,2] and all permutations of [1,2,3].
+ P3.  How many valid arrangements of 3 pairs of parentheses?  List them.
+ P4.  Activity selection on (1,3) (2,5) (4,7) (6,9) (8,10): which are chosen?
+ P5.  Fractional knapsack: values [10,5,15,7,6,18,3], weights [2,3,5,7,1,4,1],
+      W = 15.
+ P6.  Coin change min coins: coins [1,3,4], amount 6. Compare greedy and DP.
+ P7.  House robber on [1,2,3,1] and [2,1,1,2].
+ P8.  LCS of "AGGTAB" and "GXTXAYB".
+ P9.  Edit distance between "kitten" and "sitting".
+ P10. 0/1 knapsack: weights [1,2,3], values [6,10,12], W = 5.
+ P11. Number of unique paths in a 3 x 3 grid; in a 3 x 3 grid with the center
+      cell blocked.
+ P12. LIS length of [0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15].
+ P13. Is the greedy "take the largest coin" correct for coins {1,5,10,25}?
+ P14. Which technique: (a) list all valid Sudoku solutions, (b) maximum profit
+      from scheduling weighted jobs, (c) minimum jumps to the end of an array,
+      (d) count ways to climb n stairs.
+ P15. Climbing stairs with steps {1,2,3}: ways for n = 4.
+
+---- ANSWERS ----
+ P1.  T(n) = 2T(n-1) + 1, T(0) = 0 -> 2^n - 1 = 15 moves. O(2^n) time, O(n) space.
+ P2.  Subsets of [1,2]: [], [1], [1,2], [2].
+      Permutations of [1,2,3]: 123, 132, 213, 231, 312, 321.
+ P3.  5: ((())), (()()), (())(), ()(()), ()()().  (Catalan number C3.)
+ P4.  Sorted by end: (1,3),(2,5),(4,7),(6,9),(8,10). Take (1,3); (2,5) overlaps; take
+      (4,7); (6,9) overlaps; take (8,10). Result (1,3),(4,7),(8,10) = 3 activities.
+ P5.  Ratios: (10,2)=5, (5,3)=1.67, (15,5)=3, (7,7)=1, (6,1)=6, (18,4)=4.5,
+      (3,1)=3. Order: 6(w1), 5(w2), 4.5(w4), 3(w5), 3(w1), 1.67(w3), 1(w7).
+      Take w1 (v6) -> 1, w2 (v10) -> 3, w4 (v18) -> 7, w5 (v15) -> 12, w1 (v3) -> 13,
+      then 2 of the weight-3 item: 5 * 2/3 = 3.33.  Total = 6+10+18+15+3+3.33 =
+      55.33.
+ P6.  Greedy: 4+1+1 = 3 coins. DP: dp = 0,1,2,1,1,2,2 -> dp[6] = 2 (3+3). Greedy is
+      wrong here.
+      (dp[1]=1, dp[2]=2, dp[3]=1, dp[4]=1, dp[5]=min(dp[4],dp[2],dp[1])+1=2,
+       dp[6]=min(dp[5],dp[3],dp[2])+1=2.)
+ P7.  [1,2,3,1]: rob 1 + 3 = 4. [2,1,1,2]: rob 2 + 2 = 4 (dp 2,2,3,4).
+ P8.  LCS = "GTAB", length 4.
+ P9.  3 (kitten -> sitten -> sittin -> sitting).
+ P10. Options: items 2+3 (weight 5) = 22; items 1+3 (weight 4) = 18; items 1+2
+      (weight 3) = 16. Best 22.
+ P11. 3 x 3 grid: C(4,2) = 6. With the center blocked: paths through the center =
+      2 (to center) * 2 (from center) = 4, so 6 - 4 = 2.
+ P12. 6 (e.g. 0, 2, 6, 9, 11, 15).
+ P13. Yes: canonical coin systems like US coins are solved optimally by greedy.
+ P14. (a) backtracking; (b) DP (weighted interval scheduling, binary search for
+      the last compatible job); (c) greedy (BFS-style window) or DP; (d) DP.
+ P15. dp[0]=1, dp[1]=1, dp[2]=2, dp[3]=4 (1+1+2), dp[4] = dp[3]+dp[2]+dp[1] =
+      4+2+1 = 7.
+
+
+==============================================================================
+ 9.  QUICK REVISION SUMMARY
+==============================================================================
+
+ RECURSION
+   - Base case + smaller recursive call. Stack frames; depth = space.
+   - Recurrence gives time: T(n-1)+1 -> n, 2T(n-1)+1 -> 2^n, T(n/2)+1 -> log n.
+   - Python: no tail-call optimisation, limit ~1000 -> iterate or use an
+     explicit stack for deep cases.
+
+ BACKTRACKING
+   - Choose -> explore -> un-choose; DFS on the state-space tree with pruning.
+   - Subsets (start index), permutations (used[]), combinations, combination sum,
+     N-Queens (cols + 2 diagonals), parentheses, word search, sudoku.
+   - Copy the path when recording; skip duplicates by sorting.
+
+ GREEDY
+   - Locally best choice, no going back; needs greedy-choice property + optimal
+     substructure; prove by exchange argument.
+   - Sort + scan: activity selection (end time), fractional knapsack (ratio),
+     jump game, gas station, intervals, Huffman, Dijkstra/Prim/Kruskal.
+   - Fails: 0/1 knapsack, coin change with arbitrary coins.
+
+ DYNAMIC PROGRAMMING
+   - Overlapping subproblems + optimal substructure; memoization (top-down) or
+     tabulation (bottom-up).
+   - Steps: state -> choices -> recurrence -> base cases -> order -> answer ->
+     optimise space.
+   - Key problems: stairs, house robber, coin change (min / ways), 0/1 knapsack,
+     subset sum, LIS, LCS, edit distance, grid paths, word break, decode ways.
+   - Complexity = states x transitions.
+
+ CHOOSING: enumerate everything -> backtracking; provable local choice ->
+   greedy; repeated states with optimisation/counting -> DP.
+
+==============================================================================
+ END OF NOTES
+==============================================================================

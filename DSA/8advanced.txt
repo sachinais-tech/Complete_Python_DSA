@@ -1,0 +1,890 @@
+==============================================================================
+ ADVANCED TOPICS  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Trie | Bit Manipulation
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  PART 1: TRIE (PREFIX TREE)
+      1.1  What is a trie? Why do we need it?
+      1.2  Structure and diagram
+      1.3  Node implementations (dict vs fixed array)
+      1.4  Operations with steps: insert, search, startsWith, delete,
+           count words/prefix, collect words
+      1.5  Complexity, trie vs hash table vs BST
+      1.6  Variants: compressed (radix) trie, ternary search tree, binary trie
+      1.7  Classic trie problems with solving steps
+  PART 2: BIT MANIPULATION
+      2.1  Binary numbers, bits, two's complement
+      2.2  Bitwise operators (truth tables) and Python specifics
+      2.3  Essential bit operations (get/set/clear/toggle/update)
+      2.4  Famous bit tricks (power of two, lowest set bit, Kernighan ...)
+      2.5  XOR: properties and applications
+      2.6  Bit masks and subsets (enumeration, submasks)
+      2.7  Classic bit problems with solving steps
+      2.8  Python-specific pitfalls (negative numbers, 32-bit masks)
+  3.  Common mistakes and edge cases
+  4.  Interview tips and FAQs
+  5.  Practice problems (with answers)
+  6.  Quick revision summary
+
+
+##############################################################################
+ PART 1 : TRIE (PREFIX TREE)
+##############################################################################
+
+==============================================================================
+1.1  WHAT IS A TRIE?
+==============================================================================
+
+A TRIE (pronounced "try", from re-TRIE-val; also PREFIX TREE or DIGITAL TREE)
+is a rooted tree that stores a set of STRINGS (or other sequences) so that
+strings sharing a common PREFIX share the same path from the root.
+
+ - Each EDGE represents one character.
+ - Each NODE represents the prefix spelled out by the path from the root.
+ - A flag on a node marks "a complete word ends here".
+ - The ROOT represents the empty prefix and holds no character.
+
+WHY?  Hash sets answer "is this exact word present?" but cannot answer
+"which words start with 'pre'?" efficiently. A trie finds all strings with a
+given prefix by walking down the prefix once - cost depends on the LENGTH of the
+string, not on the number of stored strings.
+
+==============================================================================
+1.2  STRUCTURE AND DIAGRAM
+==============================================================================
+
+Words inserted: cat, car, cart, do, dog       (* = end of a word)
+
+                        (root)
+                       /      \
+                     c          d
+                     |          |
+                     a          o*          <- "do" is a word
+                    / \         |
+                   t*  r*       g*          <- "cat", "car", "dog"
+                       |
+                       t*                   <- "cart"
+
+ Path root -> c -> a -> r          spells "car"   (is a word, flag set)
+ Path root -> c -> a -> r -> t     spells "cart"  (is a word)
+ Path root -> c -> a               spells "ca"    (a PREFIX only; no flag)
+
+ Words "cat", "car", "cart" share the prefix "ca" - stored ONCE.
+
+ Node record (dict version):
+     node.children = { 't': <node>, 'r': <node> }
+     node.end      = False / True
+
+ Search "car"  : follow c, a, r -> node exists AND end == True  -> found
+ Search "ca"   : follow c, a    -> node exists but end == False -> NOT a word
+ startsWith "ca" -> True (path exists)
+ Search "cow"  : follow c, then 'o' missing -> not found
+
+==============================================================================
+1.3  NODE IMPLEMENTATIONS
+==============================================================================
+
+(A) DICTIONARY CHILDREN (flexible; any alphabet, Unicode; memory proportional to
+    actual children)
+        class TrieNode:
+            __slots__ = ("children", "end")        # saves memory
+            def __init__(self):
+                self.children = {}                 # char -> TrieNode
+                self.end = False
+
+(B) FIXED ARRAY CHILDREN (for 'a'..'z'; O(1) indexing, more memory)
+        class TrieNode:
+            def __init__(self):
+                self.children = [None] * 26
+                self.end = False
+        index of c = ord(c) - ord('a')
+    Memory per node: 26 pointers even if mostly empty -> space can be
+    O(N * L * 26) in the worst case.
+    # HOW: every node owns a 26-slot array whether used or not, and there can be up to (total characters) nodes -> N*L nodes x 26 slots.
+
+Extra fields as needed: count (words passing through the node, for prefix
+counts), word (store the full word at its end node), value (for a map from
+string to value).
+
+==============================================================================
+1.4  OPERATIONS WITH STEPS AND CODE
+==============================================================================
+
+    class Trie:
+        def __init__(self):
+            self.root = TrieNode()
+
+--- INSERT -----------------------------------------------------------------------
+    Steps: 1) node = root
+           2) for each character ch of the word:
+                  if ch not in node.children: create a new node there
+                  node = node.children[ch]
+           3) node.end = True
+    def insert(self, word):
+        node = self.root
+        for ch in word:
+            if ch not in node.children:
+                node.children[ch] = TrieNode()
+            node = node.children[ch]
+        node.end = True
+    Time O(L), Space O(L) new nodes at most (L = word length).
+    # HOW: the loop runs once per character (L); each step is one dict lookup/creation (O(1)); at most L new nodes are created.
+
+--- SEARCH (exact word) ------------------------------------------------------------
+    Steps: 1) node = root
+           2) for each ch: if ch missing -> return False; node = child
+           3) return node.end
+    def search(self, word):
+        node = self._walk(word)
+        return node is not None and node.end
+
+--- STARTS WITH (prefix) ---------------------------------------------------------------
+    Steps: same walk; return True if the whole prefix path exists (flag ignored).
+    def starts_with(self, prefix):
+        return self._walk(prefix) is not None
+
+    def _walk(self, s):                      # helper shared by both
+        node = self.root
+        for ch in s:
+            node = node.children.get(ch)
+            if node is None: return None
+        return node
+    Time O(L).
+    # HOW: one hop per character of the word, each an O(1) dict lookup; the number of stored words N never appears in the cost.
+
+--- DELETE (remove a word) ------------------------------------------------------------
+    Cases for deleting word w:
+      1) w is not present -> do nothing.
+      2) w is a PREFIX of another word (node has children) -> just clear end flag.
+      3) w is a LEAF path -> remove nodes upward until reaching a node that has
+         another child or is the end of another word.
+    Steps (recursive): 1) walk down to the end node of w; if absent return
+                       2) end = False
+                       3) on the way back up: delete a child node if it has no
+                          children and end == False
+    def delete(self, word):
+        def go(node, i):
+            if i == len(word):
+                if not node.end: return False       # word not present
+                node.end = False
+                return not node.children            # True => parent may drop node
+            ch = word[i]
+            child = node.children.get(ch)
+            if child is None: return False
+            if go(child, i + 1):
+                del node.children[ch]
+                return not node.children and not node.end
+            return False
+        go(self.root, 0)
+    Example: words {car, cart}. delete("cart"): remove 't' (leaf); "car" remains.
+             delete("car"): node 'r' still has child 't' -> only unset end flag.
+    Time O(L).
+    # HOW: one recursive step down and one back up per character -> 2L = O(L).
+
+--- COUNT WORDS WITH A GIVEN PREFIX -------------------------------------------------------
+    Keep node.count = number of words passing through that node (increment during
+    insert). Answer = count at the prefix node (0 if the path is missing). O(L).
+
+--- LIST ALL WORDS WITH A PREFIX (AUTOCOMPLETE) ---------------------------------------------
+    Steps: 1) walk to the prefix node (none -> [])
+           2) DFS from that node, building the string; when node.end: record it
+    def words_with_prefix(self, prefix):
+        node = self._walk(prefix)
+        res = []
+        def dfs(n, path):
+            if n.end: res.append(prefix + "".join(path))
+            for ch in sorted(n.children):            # sorted -> lexicographic order
+                path.append(ch); dfs(n.children[ch], path); path.pop()
+        if node: dfs(node, [])
+        return res
+    Time O(L + size of the subtree). DFS visiting children in sorted order gives
+    # HOW: L hops to reach the prefix node, then the DFS visits each node of that subtree once (O(1) each, plus sorting <= 26 children).
+    words in lexicographic order.
+
+--- LONGEST COMMON PREFIX OF ALL WORDS -------------------------------------------------------
+    Steps: from the root keep descending while the current node has EXACTLY ONE
+    child and is NOT the end of a word; the collected characters are the LCP.
+
+==============================================================================
+1.5  COMPLEXITY AND COMPARISONS
+==============================================================================
+
+ Let L = length of the word, N = number of words, A = alphabet size.
+
+ Operation                    Trie        Hash set/dict      Balanced BST
+ insert word                  O(L)        O(L) avg           O(L log N)
+ search exact word            O(L)        O(L) avg           O(L log N)
+ prefix query (starts with)   O(L)        O(N * L) scan      O(L log N + k)
+ list all with a prefix       O(L + out)  O(N * L)           O(L log N + out)
+ sorted traversal             O(total)    needs sorting      O(N) inorder
+ delete                       O(L)        O(L) avg           O(L log N)
+ Space                        O(total chars * A) arrays,
+                              O(total chars) with dicts       O(total chars)
+
+ (Hash cost counts hashing the string = O(L); "avg" assumes few collisions.)
+# HOW (table): trie = one hop per character -> L. Hash set = hash the word (L), but a prefix query must scan all N words comparing L chars each -> N*L.
+# Balanced BST = log N string comparisons, each up to L chars -> L log N.
+
+ ADVANTAGES: prefix search, ordered iteration, no hash collisions, cost
+ independent of N, shared prefixes save space for dictionaries with common
+ prefixes.
+ DISADVANTAGES: high memory when strings share few prefixes (many pointers per
+ node); poor cache locality; slower than a hash set for plain membership.
+ Worst-case space with dict nodes: O(sum of word lengths). Number of nodes <=
+ total characters + 1.
+
+==============================================================================
+1.6  VARIANTS
+==============================================================================
+
+(A) COMPRESSED TRIE / RADIX TREE / PATRICIA TRIE
+    Merge chains of single-child nodes into one edge labelled with a STRING.
+        plain:  r -> o -> m -> a -> n -> e      compressed: "roman" -> ...
+        words romane, romanus, romulus:
+                    (root)
+                      |
+                    "rom"
+                   /     \
+              "an"        "ulus"*
+              /    \
+           "e"*   "us"*
+    Nodes <= 2N - 1; saves memory. Used in IP routing tables, file systems,
+    databases, autocomplete engines.
+
+(B) TERNARY SEARCH TREE (TST)
+    Each node holds one char and three links: less, equal, greater. Space-efficient
+    middle ground between BST and trie; O(L + log N) typical.
+
+(C) BINARY TRIE (bitwise trie)
+    Alphabet = {0, 1}; stores integers by their bits (most significant first).
+    Used for MAXIMUM XOR queries and IP-prefix matching (see 1.7).
+
+(D) SUFFIX TRIE / SUFFIX TREE / SUFFIX ARRAY
+    Trie of all suffixes of a text; supports substring search in O(m). Suffix
+    tree built in O(n) (Ukkonen).
+
+(E) AHO-CORASICK AUTOMATON
+    Trie + failure links; finds ALL occurrences of many patterns in a text in
+    O(text + patterns + matches).
+
+==============================================================================
+1.7  CLASSIC TRIE PROBLEMS (with steps)
+==============================================================================
+
+--- TR1. IMPLEMENT TRIE (insert, search, startsWith) -----------------------------------------
+    See 1.4. Interview staple: say dict vs array children and complexities.
+
+--- TR2. DESIGN ADD AND SEARCH WORDS (with '.' wildcard) -----------------------------------------
+    addWord: normal insert.
+    search(word): DFS with index i:
+       Steps: 1) i == len(word) -> return node.end
+              2) ch is a letter: follow that child only (missing -> False)
+              3) ch == '.': try EVERY child; return True if any succeeds
+    Worst case O(26^L) for all-dot patterns; typical much faster.
+    # HOW: a literal letter follows exactly one child, but a '.' branches into up to 26 children at that level; with L dots the choices multiply -> 26^L.
+
+--- TR3. REPLACE WORDS (dictionary roots) ----------------------------------------------------------
+    Sentence "the cattle was rattled by the battery", roots [cat, bat, rat] ->
+    "the cat was rat by the bat".
+    Steps: 1) insert all roots
+           2) for each word, walk the trie; at the FIRST node with end=True,
+              return the prefix so far (shortest root); if the walk falls off
+              the trie, keep the original word
+    O(total characters).
+    # HOW: each word's walk stops at the first end-of-word flag or the first missing child, so it costs at most that word's length; summed -> total characters.
+
+--- TR4. WORD SEARCH II (find all dictionary words in a grid) -------------------------------------------
+    Steps: 1) insert all words into a trie (store the full word at its end node)
+           2) for every cell, run DFS/backtracking carrying the current trie node
+           3) at each step move to the child trie node for the cell's letter; if
+              none -> prune (stop)
+           4) if node has a stored word: add to results, then clear it (avoid
+              duplicates)
+           5) mark the cell visited ('#') while exploring, restore on return
+           6) (optimisation) delete leaf trie nodes after use to prune further
+    Much faster than running Word Search I once per word: the trie shares
+    prefixes and prunes dead paths. Time ~O(R*C*4^L) worst case.
+    # HOW: R*C start cells; each DFS has up to 4 choices per step for at most L (longest word) steps -> R*C*4^L worst case;
+    #      the trie cuts off branches that match no word prefix, so it is far smaller in practice.
+
+--- TR5. AUTOCOMPLETE / SEARCH SUGGESTIONS -----------------------------------------------------------------
+    Steps: 1) insert products; 2) for each typed prefix, walk down one char at a
+    time; 3) at each prefix node return up to 3 lexicographically smallest words
+    (DFS in sorted order, or keep a sorted list of top-3 in every node).
+
+--- TR6. LONGEST WORD IN DICTIONARY (built one character at a time) ----------------------------------------
+    Steps: insert all; DFS only through nodes with end=True; the deepest path
+    (ties: lexicographically smallest) is the answer.
+
+--- TR7. MAXIMUM XOR OF TWO NUMBERS (binary trie) --------------------------------------------------------------
+    Idea: to maximise x XOR y, for each bit from the highest, prefer a y whose
+    bit is the OPPOSITE of x's bit.
+    Steps: 1) insert every number into a trie of 32 (or max-bit-length) levels,
+              MSB first (children 0 / 1)
+           2) for each x: walk the trie; at each bit b = (x >> i) & 1, if child
+              (1 - b) exists: go there and set bit i in the result; else go to
+              child b
+           3) answer = max result over all x
+    Example [3,10,5,25,2,8]: 5 XOR 25 = 00101 ^ 11001 = 11100 = 28.
+    Time O(n * B), B = bits (32). Alternative: prefix-set + greedy with a hash set.
+    # HOW: inserting a number walks B = 32 bits (n*32 total) and querying walks 32 bits again (n*32) -> 64n = O(n*B).
+
+--- TR8. STREAM OF CHARACTERS --------------------------------------------------------------------------------
+    Check if any suffix of the characters seen so far is a dictionary word.
+    Steps: 1) insert each word REVERSED into a trie
+           2) keep the stream in a list; on each new char, walk the trie from the
+              newest char backward; if a node with end=True is met -> True; stop
+              when the path breaks or the longest word length is exceeded
+
+--- TR9. PALINDROME PAIRS, CONCATENATED WORDS, MAP SUM PAIRS, PREFIX AND SUFFIX SEARCH ----------------------
+    All use trie nodes holding extra data (indices, sums, counts).
+
+--- TR10. COUNT DISTINCT SUBSTRINGS ------------------------------------------------------------------------------
+    Insert every suffix into a trie; number of nodes (excluding root) = number of
+    distinct non-empty substrings. O(n^2) time and space; suffix automaton/array
+    for O(n log n).
+
+--- TR11. IP ROUTING / LONGEST PREFIX MATCH ---------------------------------------------------------------------------
+    Binary trie of address bits; the deepest end-marked node on the path is the
+    best-matching route.
+
+WHEN TO THINK "TRIE": many strings; prefix queries; autocomplete; dictionary
+lookups with wildcards; many words searched in a grid; bitwise XOR maximisation;
+longest prefix match.
+
+
+##############################################################################
+ PART 2 : BIT MANIPULATION
+##############################################################################
+
+==============================================================================
+2.1  BINARY NUMBERS AND TWO'S COMPLEMENT
+==============================================================================
+
+Computers store integers as BITS (0/1). Position i (counted from 0 at the right)
+has weight 2^i.
+
+    13 in binary:   1    1    0    1
+                   2^3  2^2  2^1  2^0     = 8 + 4 + 0 + 1 = 13
+
+    bit index:      7 6 5 4 3 2 1 0
+    value 37:       0 0 1 0 0 1 0 1      = 32 + 4 + 1 = 37
+
+ LSB = least significant bit (index 0, rightmost). MSB = most significant bit.
+ Hex: 0xFF = 255 = 1111 1111.  Octal 0o17 = 15.  Binary literal 0b1010 = 10.
+ Python: bin(10) -> '0b1010'; int('1010', 2) -> 10; format(10, '08b') -> '00001010'.
+ Number of bits to represent n: n.bit_length() (e.g. (13).bit_length() = 4).
+
+TWO'S COMPLEMENT (how signed integers are stored)
+    For b bits, the MSB is the SIGN bit (1 = negative).
+    To get -x:  invert all bits of x, then add 1.   (-x = ~x + 1)
+    Example 8-bit: 5 = 00000101
+                   invert ->  11111010
+                   add 1  ->  11111011   = -5
+    Range of b-bit signed ints: -2^(b-1) .. 2^(b-1) - 1  (8-bit: -128..127;
+    32-bit: -2,147,483,648 .. 2,147,483,647).
+    Overflow wraps around in fixed-width languages (C/Java); Python ints never
+    overflow (arbitrary precision).
+
+==============================================================================
+2.2  BITWISE OPERATORS
+==============================================================================
+
+ Operator   Name         Rule (per bit)                      Example (4-bit)
+ a & b      AND          1 if BOTH bits are 1                1100 & 1010 = 1000
+ a | b      OR           1 if AT LEAST ONE bit is 1          1100 | 1010 = 1110
+ a ^ b      XOR          1 if the bits DIFFER                1100 ^ 1010 = 0110
+ ~a         NOT          flips every bit (-a - 1 in Python)  ~5 = -6
+ a << k     left shift   multiply by 2^k (zeros shifted in)  3 << 2 = 12
+ a >> k     right shift  floor-divide by 2^k                 13 >> 2 = 3
+
+ TRUTH TABLE
+    a b | AND OR XOR
+    0 0 |  0   0   0
+    0 1 |  0   1   1
+    1 0 |  0   1   1
+    1 1 |  1   1   0
+
+ USES OF EACH
+    AND  : test a bit, clear bits, apply a MASK, check even/odd.
+    OR   : set bits, combine flags.
+    XOR  : toggle bits, find the odd one out, swap, compare, parity.
+    NOT  : invert, compute -x-1.
+    <<   : multiply by powers of two, build masks (1 << i).
+    >>   : divide by powers of two, extract bits.
+
+ PYTHON SPECIFICS
+    - Ints are arbitrary precision, behave like infinite two's complement:
+        ~5 == -6,   -5 & 0xFF == 251,   -8 >> 1 == -4  (arithmetic shift,
+        sign-extending).
+    - >> on negatives rounds toward negative infinity.
+    - PRECEDENCE (high -> low): ~ , then * / , then + - , then << >> , then & ,
+      then ^ , then | , then comparisons, then not/and/or.
+      Unlike C, & ^ | bind TIGHTER than == in Python, so  n & 1 == 0  means
+      (n & 1) == 0.  Still, always add parentheses for clarity. Note
+      1 << i + 1  is  1 << (i + 1)  because + binds tighter than <<.
+    - bit_count() (Python 3.10+): (13).bit_count() -> 3;  bin(n).count('1') is
+      the portable version.
+    - Time: O(1) for word-sized ints, O(number of bits) for huge ints.
+
+==============================================================================
+2.3  ESSENTIAL BIT OPERATIONS (i = bit index, 0-based from the right)
+==============================================================================
+
+ Mask for bit i:  1 << i
+
+ GET bit i      : (n >> i) & 1            or   (n & (1 << i)) != 0
+ SET bit i      : n | (1 << i)
+ CLEAR bit i    : n & ~(1 << i)
+ TOGGLE bit i   : n ^ (1 << i)
+ UPDATE bit i to v (0/1): (n & ~(1 << i)) | (v << i)
+ CLEAR lowest i+1 bits (0..i) : n & (~0 << (i + 1))     (i.e. n & -(1 << (i+1)))
+ KEEP lowest k bits           : n & ((1 << k) - 1)
+ ALL ones of length k         : (1 << k) - 1
+
+ EXAMPLES  (n = 0b1010 = 10)
+    get bit 1    : (10 >> 1) & 1 = 5 & 1 = 1
+    set bit 0    : 10 | 1 = 11 (1011)
+    clear bit 3  : 10 & ~8 = 10 & ...0111 = 2 (0010)
+    toggle bit 2 : 10 ^ 4 = 14 (1110)
+
+ EVEN / ODD          : n & 1 is the last bit (1 -> odd).
+ MULTIPLY/DIVIDE    : n << k  = n * 2^k ;  n >> k = n // 2^k
+ MODULO POWER OF 2  : n & (2^k - 1)  = n % 2^k
+ SWAP A, B (no temp): a ^= b; b ^= a; a ^= b      (Python: a, b = b, a is better)
+ CHECK OPPOSITE SIGNS: (a ^ b) < 0
+ ABSOLUTE VALUE (fixed width) via sign mask — not needed in Python (use abs()).
+
+==============================================================================
+2.4  FAMOUS BIT TRICKS
+==============================================================================
+
+(1) n & (n - 1)  -> CLEARS the LOWEST SET BIT of n.
+        n     = 1 0 1 1 0 0      (44)
+        n - 1 = 1 0 1 0 1 1      (43)   subtracting 1 flips the lowest 1 and the
+        AND   = 1 0 1 0 0 0      (40)   zeros to its right, so AND removes it.
+
+(2) n & -n  -> ISOLATES the LOWEST SET BIT  (two's complement: -n = ~n + 1).
+        n = 44 = 101100,  -n = ...010100  ->  n & -n = 000100 = 4.
+    Index of that bit: (n & -n).bit_length() - 1.   Used in Fenwick trees.
+
+(3) POWER OF TWO:  n > 0 and (n & (n - 1)) == 0
+        8 = 1000, 7 = 0111 -> 8 & 7 = 0 -> yes.   6 = 110, 5 = 101 -> 100 != 0 -> no.
+        (n = 0 must be excluded: 0 & -1 = 0.)
+    POWER OF FOUR: power of two AND (n & 0x55555555) != 0 (the single set bit is
+    at an even position).
+
+(4) COUNT SET BITS (population count, Hamming weight)
+    a) BRIAN KERNIGHAN: repeatedly clear the lowest set bit.
+       Steps: count = 0; while n: n &= n - 1; count += 1
+       Example n = 13 (1101): 13 & 12 = 12 (1100) -> 12 & 11 = 8 (1000) ->
+       8 & 7 = 0   => 3 iterations => 3 set bits.   O(number of SET bits).
+       # HOW: n &= n-1 deletes exactly ONE 1-bit per iteration, so the loop runs as many times as n has 1-bits (3 for 1101), not 32 times.
+    b) loop over all bits: (n >> i) & 1  -> O(bits).
+    c) bin(n).count('1') or n.bit_count().
+    d) Lookup table / SWAR for fixed width.
+
+(5) CHECK IF ONLY ONE BIT DIFFERS between a and b: x = a ^ b is a power of two.
+
+(6) HAMMING DISTANCE = popcount(a ^ b).   1 (0001) and 4 (0100): xor 0101 -> 2.
+
+(7) NUMBER OF BIT FLIPS TO CONVERT A TO B = popcount(A ^ B). 10 (1010) to 7
+    (0111): xor = 1101 -> 3 flips.
+
+(8) ROUND UP TO NEXT POWER OF TWO: 1 << (n - 1).bit_length()  (for n >= 1).
+
+(9) LOWEST ZERO BIT: ~n & (n + 1) isolates the lowest 0 of n.
+
+(10) COUNTING BITS FOR 0..n (DP): dp[i] = dp[i >> 1] + (i & 1)
+     n = 5 -> [0, 1, 1, 2, 1, 2].   Also dp[i] = dp[i & (i-1)] + 1. O(n).
+    # HOW: each dp[i] is built from one earlier value in O(1); there are n values.
+
+(11) GRAY CODE: g(i) = i ^ (i >> 1); consecutive codes differ in exactly one bit.
+     n = 3 bits: 000 001 011 010 110 111 101 100.
+
+(12) XOR OF 1..n (period 4):
+        n % 4 == 0 -> n ;  1 -> 1 ;  2 -> n + 1 ;  3 -> 0
+        check: 1^2^3 = 0 (n=3),  1^2^3^4 = 4 (n=4),  ...^5 = 1,  ...^6 = 7.
+
+(13) PARITY (even/odd number of 1 bits): fold with XOR or popcount % 2.
+
+(14) REVERSE BITS (32-bit): for each of 32 iterations: result = (result << 1) |
+     (n & 1); n >>= 1.
+
+(15) SWAP ODD AND EVEN BITS (32-bit): ((n & 0xAAAAAAAA) >> 1) | ((n & 0x55555555) << 1).
+
+==============================================================================
+2.5  XOR: PROPERTIES AND APPLICATIONS
+==============================================================================
+
+ PROPERTIES
+    a ^ 0 = a            (identity)
+    a ^ a = 0            (self-inverse: equal values cancel)
+    a ^ b = b ^ a        (commutative)
+    (a ^ b) ^ c = a ^ (b ^ c)   (associative)
+    a ^ b ^ b = a        (XOR twice undoes)
+    a ^ 1s = ~a          (XOR with all-ones flips every bit)
+  => XORing a list gives the same result in ANY order and all PAIRS cancel.
+
+ USES
+    - Find the element that appears once while others appear twice.
+    - Find the missing number.
+    - Toggle flags, simple encryption (data ^ key ^ key = data).
+    - Compare two numbers' differing bits.
+    - Swap two variables without a temporary.
+    - Maximum XOR queries (binary trie).
+    - Prefix XOR for subarray XOR queries: xor(l..r) = P[r+1] ^ P[l].
+    - Nim game: first player wins iff the XOR of the pile sizes is non-zero.
+
+==============================================================================
+2.6  BIT MASKS AND SUBSETS
+==============================================================================
+
+A BITMASK is an integer used as a compact SET of up to ~20-30 items: bit i = 1
+means item i is in the set.
+
+    Items: [a, b, c]   mask 0b101 = {a, c}
+
+ OPERATIONS
+    add item i      : mask | (1 << i)
+    remove item i   : mask & ~(1 << i)
+    contains item i : mask & (1 << i)
+    toggle          : mask ^ (1 << i)
+    union / intersection / difference : a | b ,  a & b ,  a & ~b
+    size            : mask.bit_count()
+    full set        : (1 << n) - 1
+    empty set       : 0
+
+ ENUMERATE ALL SUBSETS of n items (2^n masks):
+    Steps: for mask in range(1 << n): subset = [items[i] for i in range(n)
+                                                if mask >> i & 1]
+    n=3: mask 0..7 -> {}, {a}, {b}, {a,b}, {c}, {a,c}, {b,c}, {a,b,c}.
+    Time O(n * 2^n).
+    # HOW: 2^n masks x checking n bits each = n * 2^n.
+
+ ENUMERATE SUBMASKS of a given mask (non-empty ones):
+    sub = mask
+    while sub:
+        use(sub)
+        sub = (sub - 1) & mask
+    All masks together: sum over masks of 2^popcount = 3^n.
+
+ BITMASK DP (state = subset): e.g. Travelling Salesman:
+    dp[mask][last] = shortest path visiting the cities in mask and ending at last.
+    Time O(2^n * n^2), space O(2^n * n). Works for n up to ~20.
+    # HOW: 2^n masks x n 'last city' values = 2^n * n states; each state tries n next cities -> 2^n * n * n.
+    Also: assignment problem, minimum cost to visit all nodes, "can we partition
+    into k groups", tiling/profile DP.
+
+ VISITED FLAGS / SMALL SETS: replace a set of small ints by an integer mask for
+ speed and hashing (use the mask as a dictionary key in memoization).
+
+==============================================================================
+2.7  CLASSIC BIT PROBLEMS (with steps)
+==============================================================================
+
+--- B1. SINGLE NUMBER (every element twice except one) ---------------------------------
+    Steps: result = 0; for x in nums: result ^= x; return result.
+    [4,1,2,1,2] -> 4.   O(n) time, O(1) space.
+    # HOW: one pass XORing n numbers (each XOR is O(1)); one running variable.
+
+--- B2. SINGLE NUMBER II (every element three times except one) ---------------------------
+    Method (count bits mod 3):
+    Steps: 1) for each bit position i in 0..31: count how many numbers have bit i
+              set
+           2) if count % 3 != 0, that bit belongs to the single number
+           3) assemble the answer (handle sign for 32-bit negatives)
+    [2,2,3,2] -> 3.   O(32 n).
+    # HOW: for each of the 32 bit positions, one pass over n numbers -> 32 * n.
+    Constant-state trick: ones = (ones ^ x) & ~twos; twos = (twos ^ x) & ~ones.
+
+--- B3. SINGLE NUMBER III (two numbers appear once, the rest twice) -----------------------------
+    Steps: 1) xor_all = XOR of all numbers = a ^ b (a != b so xor_all != 0)
+           2) lowbit = xor_all & -xor_all    (a bit where a and b differ)
+           3) split numbers into two groups by (x & lowbit); XOR each group
+           4) the two XOR results are a and b
+    [1,2,1,3,2,5] -> xor_all = 3 ^ 5 = 6 (110); lowbit = 2;
+        group with bit 1 set: 2,3,2 -> 3 ; other group: 1,1,5 -> 5.   Answer 3, 5.
+
+--- B4. MISSING NUMBER (0..n, one missing) ------------------------------------------------------------
+    Steps: result = n; for i, x in enumerate(nums): result ^= i ^ x. Everything
+    pairs up except the missing value. [3,0,1] -> 2.  (Or n(n+1)/2 - sum.)
+
+--- B5. NUMBER OF 1 BITS (Hamming weight) / POWER OF TWO / POWER OF FOUR --------------------------------
+    See 2.4 (Kernighan, n & (n-1)).
+
+--- B6. COUNTING BITS (0..n) --------------------------------------------------------------------------------
+    dp[i] = dp[i >> 1] + (i & 1). O(n).
+    # HOW: n values, each computed from a smaller one in O(1).
+
+--- B7. REVERSE BITS / SWAP BITS / BIT REVERSAL --------------------------------------------------------------
+    result = 0; repeat 32 times: result = (result << 1) | (n & 1); n >>= 1.
+
+--- B8. HAMMING DISTANCE / TOTAL HAMMING DISTANCE -------------------------------------------------------------
+    Hamming distance: bin(x ^ y).count('1').
+    Total over all pairs: for each bit position, ones * zeros pairs differ ->
+    sum(ones_i * (n - ones_i)). O(32 n).
+    # HOW: per bit position, one pass counts ones (n); pairs that differ at that bit = ones * zeros. 32 positions -> 32n.
+
+--- B9. SUM OF TWO INTEGERS WITHOUT + or - ---------------------------------------------------------------------
+    Idea: XOR gives the sum WITHOUT carries; AND shifted left gives the carries.
+    Steps: 1) while b != 0:
+                  carry = (a & b) << 1
+                  a = a ^ b
+                  b = carry
+           2) return a
+    Trace 5 + 3 (101 + 011):
+        a=101 b=011  ->  a^b = 110 (6),  carry = (001) << 1 = 010 (2)
+        a=110 b=010  ->  a^b = 100 (4),  carry = (010) << 1 = 100 (4)
+        a=100 b=100  ->  a^b = 000 (0),  carry = (100) << 1 = 1000 (8)
+        a=000 b=1000 ->  a^b = 1000 (8), carry = 0           => 8
+    PYTHON needs a 32-bit mask because of infinite two's complement:
+        def get_sum(a, b):
+            MASK = 0xFFFFFFFF
+            while b & MASK:
+                a, b = (a ^ b) & MASK, ((a & b) << 1) & MASK
+            # b == 0 here, or b is nonzero only in bits above 32 (ignored)
+            return a if a <= 0x7FFFFFFF else ~(a ^ MASK)
+
+--- B10. SUBSETS USING BITMASK (see 2.6) --------------------------------------------------------------------------
+    [1,2,3] -> masks 000..111 -> 8 subsets.
+
+--- B11. INSERT M INTO N AT BIT POSITIONS i..j (Cracking the Coding Interview) --------------------------------------
+    Steps: 1) mask = ((1 << (j - i + 1)) - 1) << i      (ones at positions i..j)
+           2) n_cleared = n & ~mask
+           3) result = n_cleared | (m << i)
+
+--- B12. FLIP A BIT TO GET THE LONGEST SEQUENCE OF 1s -----------------------------------------------------------------
+    Steps: scan bits keeping current_len and prev_len (length of the run before
+    the last 0); candidate = prev_len + 1 + current_len; track the max.
+
+--- B13. FIND THE DIFFERENT / DUPLICATE (XOR cancel), TWO NUMBERS ODD OCCURRENCES ------------------------------------
+    XOR all; if two odd-occurring numbers, use the lowbit split (B3).
+
+--- B14. MAXIMUM XOR OF TWO NUMBERS: binary trie (TR7) or prefix hash set. ------------------------------------------------
+
+--- B15. MAXIMUM PRODUCT OF WORD LENGTHS (words sharing no letters) -------------------------------------------------------
+    Steps: store each word as a 26-bit letter mask; two words share no letters
+    iff (mask_a & mask_b) == 0; maximise len_a * len_b over pairs.
+
+--- B16. UTF-8 VALIDATION, IP / FLAGS / PERMISSIONS ---------------------------------------------------------------------------
+    Check leading bits with masks: byte >> 7 == 0 (1-byte), byte >> 5 == 0b110 (2-byte),
+    byte >> 4 == 0b1110, byte >> 3 == 0b11110, continuation byte >> 6 == 0b10.
+
+--- B17. GRAY CODE (generate n-bit sequence) -------------------------------------------------------------------------------------
+    [i ^ (i >> 1) for i in range(1 << n)].
+
+--- B18. DIVIDE TWO INTEGERS WITHOUT / (shift and subtract) -----------------------------------------------------------------------
+    Steps: 1) work with absolute values; 2) for shift from 31 down to 0: if
+    (divisor << shift) <= dividend: subtract it, add (1 << shift) to the quotient;
+    3) restore the sign. O(32).
+    # HOW: at most 32 shift positions, one compare/subtract each -> constant.
+
+--- B19. SUBARRAY XOR / XOR QUERIES -------------------------------------------------------------------------------------------------
+    prefix[i+1] = prefix[i] ^ a[i]; xor(l..r) = prefix[r+1] ^ prefix[l]. Count
+    subarrays with XOR = k: hash map of prefix XORs, look up prefix ^ k.
+
+--- B20. SUM OF ALL SUBSET XORs, BITWISE AND OF A RANGE -----------------------------------------------------------------------------
+    Range AND [m, n]: shift both right until equal, remember the shift count, shift
+    back (answer is the common binary prefix). 5..7 -> 4.
+
+==============================================================================
+2.8  PYTHON-SPECIFIC PITFALLS
+==============================================================================
+
+ - NEGATIVE NUMBERS: Python has infinite sign extension. To emulate 32-bit:
+        x & 0xFFFFFFFF                      # unsigned view
+        x - (1 << 32) if x >> 31 else x     # back to signed
+   e.g. -1 & 0xFFFFFFFF = 4294967295.
+ - ~n = -n - 1 (not "flip within 32 bits"). Use n ^ 0xFFFFFFFF for a 32-bit NOT.
+ - n >> k on a negative number stays negative (arithmetic shift): -1 >> 5 == -1.
+ - Loops like "while n: n >>= 1" never end for negative n (it converges to -1).
+   Mask first, or limit to 32 iterations.
+ - bin(-5) -> '-0b101' (sign + magnitude display, not two's complement).
+ - Precedence: use parentheses around bit expressions inside comparisons and
+   arithmetic.
+ - Shifts by a negative count raise ValueError.
+ - Big ints: shifting by a huge amount allocates huge memory.
+
+
+==============================================================================
+ 3.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ TRIE
+   - Confusing "prefix exists" with "word exists" (forgetting the end flag).
+   - Not creating nodes during insert, or creating them during search
+     (defaultdict children pollute the trie on lookups).
+   - Delete that removes nodes still needed by other words.
+   - Using arrays of 26 when input has uppercase/digits/Unicode.
+   - Memory blow-up: use dict children, __slots__, or a compressed trie.
+   - Word Search II: not removing found words (duplicates) and not pruning.
+   - Empty string handling (root.end for the empty word).
+   - Returning a copy vs. mutating shared path lists in DFS.
+
+ BIT MANIPULATION
+   - Operator precedence and missing parentheses.
+   - Forgetting n > 0 in the power-of-two test (0 would pass).
+   - Using ~x thinking it flips only 32 bits.
+   - Infinite loops on negative numbers with >>.
+   - Off-by-one in bit indexes (0-based from the right) and masks
+     ((1 << k) - 1 gives k ones).
+   - Mixing logical and bitwise operators (and/or vs & |): `a and b` is not a & b.
+   - Shifting 1 << 31 or 1 << 32 in fixed-width languages (overflow); Python is
+     safe but results differ from C/Java.
+   - Assuming right shift of a negative is logical (it is arithmetic).
+   - Overusing clever tricks; readability matters - comment the intent.
+
+ EDGE CASES: empty word, single character, duplicate words, words that are
+ prefixes of each other, n = 0, n = 1, negative numbers, INT_MIN/INT_MAX,
+ all bits set, large n (bit_length).
+
+
+==============================================================================
+ 4.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+ TIPS
+   - TRIE: draw the tree for 3-4 words, mark end nodes, walk a search on it.
+     State time O(L) per operation and the memory trade-off.
+   - Say the trie node layout (dict vs array) and why you chose it.
+   - BIT MANIPULATION: write numbers in binary, align bits, and trace.
+   - Know by heart: n & (n-1), n & -n, XOR properties, 1 << i masks.
+   - Mention the 32-bit mask when solving in Python and expecting negatives.
+
+ FAQs
+ Q1. What is a trie and where is it used?
+     A tree where each path from the root spells a prefix; used for autocomplete,
+     spell checking, IP routing, dictionaries, word games, XOR queries.
+ Q2. Time complexity of trie insert/search?  O(L), independent of the number of
+     words.
+ Q3. Space complexity of a trie?  O(total characters) with dict children (up to
+     O(total characters * alphabet) with arrays).
+ Q4. Trie vs hash table?
+     Trie: prefix queries, ordered output, predictable O(L) with no collisions,
+     more memory. Hash table: simpler/faster exact lookups, no prefix support.
+ Q5. How to implement delete?  Unset the end flag, then prune nodes with no
+     children that are not word ends, going bottom-up.
+ Q6. What is a compressed trie?  Single-child chains merged into one edge labelled
+     by a string (radix/Patricia tree).
+ Q7. How would you do autocomplete?  Walk to the prefix node, DFS to collect
+     words (in sorted order, limit k); optionally keep top-k per node.
+ Q8. How do you find the maximum XOR pair?  Binary trie; for each number choose
+     the opposite bit at each level when available.
+ Q9. What does n & (n - 1) do?  Clears the lowest set bit; zero result means n is
+     a power of two (for n > 0).
+ Q10. What does n & -n do?  Isolates the lowest set bit.
+ Q11. How do you count set bits?  Kernighan: loop n &= n - 1 (O(set bits)), or
+      bin(n).count('1') / n.bit_count().
+ Q12. Why does XOR find the unique element?  a ^ a = 0 and a ^ 0 = a, so pairs
+      cancel regardless of order.
+ Q13. How to swap two numbers without a temp?  a ^= b; b ^= a; a ^= b.
+ Q14. How is -x represented in two's complement?  Invert the bits and add 1.
+ Q15. What does left shift by k do?  Multiplies by 2^k (if no overflow); right
+      shift floors the division by 2^k.
+ Q16. How to check if the i-th bit is set?  (n >> i) & 1.
+ Q17. Difference between & and and?  & works bit by bit on integers; `and` is a
+      boolean operator returning one of its operands.
+ Q18. How to add without +?  XOR for the sum, (AND << 1) for the carry, repeat
+      until the carry is 0 (mask to 32 bits in Python).
+ Q19. How to generate all subsets with bits?  Loop mask from 0 to 2^n - 1; bit i
+      decides whether item i is included.
+ Q20. Why can Python's ~5 equal -6?  ~x = -x - 1 because ints are infinite two's
+      complement.
+ Q21. What is Gray code?  A sequence where adjacent values differ in one bit:
+      i ^ (i >> 1).
+ Q22. How to find XOR of a range 1..n in O(1)?  Use n % 4: 0 -> n, 1 -> 1, 2 ->
+      n+1, 3 -> 0.
+ Q23. Where are bits used in real systems?  Permissions/flags, compression,
+      cryptography, hashing, bitsets/bloom filters, graphics, embedded drivers,
+      networking (masks, subnets).
+
+
+==============================================================================
+ 5.  PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+ P1.  Write 37 in binary and count its set bits.
+ P2.  Compute 37 & 36 and explain what it did.
+ P3.  Are 64 and 96 powers of two?
+ P4.  Find the single element in [4,1,2,1,2].
+ P5.  Two's complement of -6 in 8 bits.
+ P6.  Evaluate for a=5, b=3: a&b, a|b, a^b, a<<2, a>>1, ~a.
+ P7.  Set bit 2 of 8; clear bit 3 of 15; toggle bit 0 of 6.
+ P8.  After inserting "app", "apple", "apt" into a trie, how many nodes exist
+      (excluding the root)? Which nodes are word ends?
+ P9.  Counting bits array for n = 5.
+ P10. Hamming distance between 93 and 73.
+ P11. Maximum XOR pair in [3,10,5,25,2,8].
+ P12. Missing number in [3,0,1] using XOR.
+ P13. Compute 5 + 3 using only bitwise operators; list the steps.
+ P14. What is the time to insert a word of length L into a trie, and the time to
+      check whether any of N stored words starts with a prefix of length P?
+ P15. Gray code sequence for 2 bits.
+ P16. What is XOR of 1..7?
+ P17. Find the two unique numbers in [1,2,1,3,2,5].
+
+---- ANSWERS ----
+ P1.  37 = 32 + 4 + 1 = 100101 -> 3 set bits.
+ P2.  100101 & 100100 = 100100 = 36. It cleared the lowest set bit (n & (n-1)).
+ P3.  64 = 1000000 -> 64 & 63 = 0 -> yes. 96 = 1100000 -> 96 & 95 = 1000000 = 64
+      != 0 -> no.
+ P4.  4 (1^1 cancels, 2^2 cancels).
+ P5.  6 = 00000110; invert 11111001; +1 -> 11111010 (0xFA = 250 unsigned).
+ P6.  5 = 101, 3 = 011: a&b = 001 = 1; a|b = 111 = 7; a^b = 110 = 6;
+      a<<2 = 10100 = 20; a>>1 = 10 = 2; ~a = -6.
+ P7.  8 | 4 = 12. 15 & ~8 = 15 & ...0111 = 7. 6 ^ 1 = 7.
+ P8.  Nodes: a, p, p, l, e (the path app/apple) + t (apt) = 6 nodes.
+      Word ends: the second 'p' (app), 'e' (apple), 't' (apt).
+ P9.  [0, 1, 1, 2, 1, 2].
+ P10. 93 = 1011101, 73 = 1001001; XOR = 0010100 -> 2 set bits -> distance 2.
+ P11. 28 (5 XOR 25).
+ P12. n = 3. XOR of indices/values: 3 ^ (0^3) ^ (1^0) ^ (2^1) = 2.
+      Equivalently XOR of 0,1,2,3 with 3,0,1: every value pairs up except 2.
+ P13. a=101 b=011 -> a^b=110, carry=010; a=110 b=010 -> a^b=100, carry=100;
+      a=100 b=100 -> a^b=000, carry=1000; a=000 b=1000 -> a^b=1000, carry=0 -> 8.
+ P14. Insert O(L). Prefix check O(P) - independent of N.
+ P15. 00, 01, 11, 10.
+ P16. 7 % 4 == 3 -> 0. (1^2=3, ^3=0, ^4=4, ^5=1, ^6=7, ^7=0.)
+ P17. xor_all = 3 ^ 5 = 6; lowbit = 2; group with that bit: {2,3,2} -> 3;
+      others {1,1,5} -> 5. Answer 3 and 5.
+
+
+==============================================================================
+ 6.  QUICK REVISION SUMMARY
+==============================================================================
+
+ TRIE
+   - Tree of characters; shared prefixes share nodes; end-of-word flag.
+   - insert / search / startsWith / delete all O(L); prefix listing O(L + output).
+   - Node: dict children (flexible) or [None]*26 (fast, memory heavy); optional
+     count / stored word.
+   - Variants: compressed (radix), ternary search tree, binary trie (XOR),
+     suffix trie, Aho-Corasick.
+   - Problems: implement trie, wildcard search ('.'), replace words, Word
+     Search II (trie + backtracking), autocomplete, longest word, max XOR,
+     stream of characters.
+
+ BIT MANIPULATION
+   - Operators: & | ^ ~ << >>; masks with 1 << i.
+   - get (n>>i)&1, set n|(1<<i), clear n&~(1<<i), toggle n^(1<<i).
+   - n&(n-1) clears the lowest set bit; n&-n isolates it; power of two:
+     n>0 and n&(n-1)==0; Kernighan counts set bits.
+   - XOR: a^a=0, a^0=a, commutative/associative -> single number, missing
+     number, swap, two unique numbers (lowbit split).
+   - Subsets via masks (2^n), submask enumeration (3^n), bitmask DP.
+   - Add without +: XOR for sum, (AND<<1) for carry.
+   - Python: infinite two's complement; mask with 0xFFFFFFFF for 32-bit
+     behaviour; ~x = -x-1; add parentheses (precedence).
+
+ COMPLEXITY LINE
+   Trie ops O(L) | Kernighan popcount O(set bits) | subsets enumeration
+   O(n * 2^n) | max XOR with a binary trie O(n * 32) | single number XOR O(n).
+
+==============================================================================
+ END OF NOTES
+==============================================================================

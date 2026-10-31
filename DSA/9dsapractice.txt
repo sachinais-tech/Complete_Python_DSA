@@ -1,0 +1,1320 @@
+==============================================================================
+ DSA PRACTICE: TIMED CODING ROUNDS + COMPLEXITY ANALYSIS
+ Complete Study Notes (Exam + Interview Ready)
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  PART 1: TIMED CODING ROUNDS
+      1.1  Types of coding rounds and what they test
+      1.2  The time budget (diagram) for a 45-minute interview
+      1.3  The step-by-step framework (UMPIRE / 7 steps)
+      1.4  Clarifying questions checklist
+      1.5  Constraints -> required complexity (the most useful table)
+      1.6  Pattern recognition: clue -> technique
+      1.7  Online assessments (OA): strategy, I/O handling, partial credit
+      1.8  Python speed tips for timed rounds
+      1.9  Testing and debugging under pressure
+      1.10 What to do when stuck
+      1.11 Communication script (think aloud)
+      1.12 Worked timed walkthrough (Subarray Sum Equals K)
+      1.13 Must-practise problem list by pattern
+      1.14 Preparation plan (4 and 8 weeks), practice rules, self-rubric
+  PART 2: COMPLEXITY ANALYSIS (APPLIED)
+      2.1  Recap: what we measure and the notations
+      2.2  Step-by-step method to analyse any code
+      2.3  Loop patterns -> complexity
+      2.4  Recursion -> complexity (recurrences, call tree, space)
+      2.5  Hidden costs in Python
+      2.6  Amortized analysis in practice
+      2.7  Space complexity: what counts
+      2.8  Complexity of standard techniques (window, pointers, BFS, DP, ...)
+      2.9  Worked examples (20 snippets, answers at the end)
+      2.10 Optimisation ladder: brute force -> optimal
+      2.11 Lower bounds and "can we do better?"
+      2.12 Estimating real running time
+      2.13 How to state complexity in an interview
+  PART 3: MASTER CHEAT SHEETS (data structures, algorithms, Python built-ins)
+  4.  Common mistakes in timed rounds and in complexity analysis
+  5.  Interview FAQs
+  6.  Practice problems (with answers)
+  7.  Quick revision summary
+
+
+##############################################################################
+ PART 1 : TIMED CODING ROUNDS
+##############################################################################
+
+==============================================================================
+1.1  TYPES OF CODING ROUNDS
+==============================================================================
+
+ FORMAT                  TYPICAL TIME     WHAT IS EVALUATED
+ Online assessment (OA)  60-120 min,      Correctness on hidden tests, time and
+ HackerRank / Codility   2-4 problems     memory limits, speed. No one to talk to.
+ / CodeSignal / LeetCode  (auto-graded)
+ Phone / video screen    30-45 min,       Problem solving, communication, working
+ shared editor           1-2 problems     code, complexity discussion.
+ Onsite / virtual loop   45-60 min each,  Same + follow-ups, design of helper
+ (whiteboard / IDE)      1-2 problems     functions, testing, code quality.
+ Pair programming        45-90 min        Collaboration, reading existing code,
+                                          incremental building, refactoring.
+ Take-home               2-48 hours       Clean code, tests, documentation.
+ College / exam papers   writing code     Correct algorithm, trace/dry-run,
+ on paper                or tracing       complexity derivation, definitions.
+
+ INTERVIEWERS WATCH FOR
+   1. Do you clarify before coding?         4. Is your code correct and clean?
+   2. Do you reason about trade-offs?       5. Do you test it yourself?
+   3. Can you improve a brute force?        6. Can you state complexity precisely?
+
+ DIFFICULTY vs TIME (target speeds when prepared)
+   Easy   : 10-15 minutes (including testing)
+   Medium : 20-30 minutes   <- the bulk of interviews
+   Hard   : 35-45 minutes (or discuss approach + partial code)
+   A 45-minute interview usually means ONE medium + a follow-up, or TWO easy-
+   mediums.
+
+==============================================================================
+1.2  THE TIME BUDGET (45-MINUTE ROUND)
+==============================================================================
+
+  minute  0         5         10        15                  35       42   45
+          |---------|---------|---------|-------------------|--------|----|
+          | 1.Under-| 2.Examples| 3.Brute | 4. CODE the       | 5.TEST | 6. |
+          | stand & | & approach| force + | optimal solution  | & debug| wrap|
+          | clarify | (pattern) | optimise|                   |        | up  |
+          |---------|---------|---------|-------------------|--------|----|
+            ~5 min     ~5 min     ~5 min        ~20 min         ~7 min  3 min
+
+  RULE OF THUMB: spend about 1/3 of the time THINKING and TALKING (before the
+  first line of code), 1/2 coding, and 1/6 testing / follow-ups.
+
+  OA (90 min, 3 problems):
+     0-5   skim ALL problems, rank by difficulty
+     5-30  easiest problem fully (submit)
+     30-65 second problem
+     65-85 third problem (aim for partial credit with brute force if needed)
+     85-90 re-run samples, re-check edge cases, final submissions
+
+  ALARM CLOCKS: if you have no approach after ~10 minutes, ask for a hint (live
+  interview) or move on (OA). If coding is not finished by minute ~35 of 45,
+  simplify: finish a correct brute force, then narrate the optimisation.
+
+==============================================================================
+1.3  THE FRAMEWORK
+==============================================================================
+
+ UMPIRE (a widely taught structure)
+    U  UNDERSTAND   restate the problem, clarify inputs/outputs/constraints
+    M  MATCH        which pattern / data structure does it resemble?
+    P  PLAN         outline the algorithm in plain steps (pseudocode)
+    I  IMPLEMENT    write clean Python
+    R  REVIEW       dry-run with an example; test edge cases; fix bugs
+    E  EVALUATE     time & space complexity; trade-offs; alternative solutions
+
+ THE 7-STEP VERSION (use it every time)
+    1) READ the problem twice. Underline input, output, constraints.
+    2) CLARIFY with questions (see 1.4). Write down assumptions.
+    3) WORK AN EXAMPLE by hand (a small one, then an edge case). Often the
+       pattern appears when you do it manually.
+    4) BRUTE FORCE: state it in one or two sentences with its complexity. This
+       shows you can solve it and gives a baseline. Do not code it unless asked
+       (or unless it is your safety net in an OA).
+    5) OPTIMISE: find the bottleneck (repeated work? a search? sorting?) and
+       apply a technique (hash map, two pointers, window, heap, DP, binary
+       search ...). State the new complexity. Get the interviewer's OK.
+    6) CODE: top-down, meaningful names, small helper functions, no premature
+       cleverness. Talk while you type.
+    7) TEST: walk through your own code with the example, then edge cases.
+       State final time and space complexity.
+
+ FLOW DIAGRAM
+    problem -> clarify -> example -> brute force (complexity)
+                                         |
+                       bottleneck? -> pick technique -> better complexity
+                                         |
+                              agree plan -> code -> dry run -> edge cases
+                                         |
+                                  complexity + follow-ups
+
+==============================================================================
+1.4  CLARIFYING QUESTIONS CHECKLIST
+==============================================================================
+
+ INPUT
+   - Type and range of values? Negative numbers? Zeros? Floats?
+   - Size of n? (decides the target complexity)
+   - Can the input be empty / null? A single element?
+   - Sorted? Duplicates allowed? Distinct values?
+   - Characters: lowercase only? ASCII/Unicode? Case sensitive? Spaces?
+   - Graph: directed? weighted? cycles? connected? nodes numbered 0..n-1?
+   - Is the input modifiable (in place) or must it be preserved?
+ OUTPUT
+   - Return values or indices? All solutions or any one? Sorted order needed?
+   - What if no answer exists (-1, None, empty list)?
+   - Multiple valid answers - is any accepted? Ties?
+ CONSTRAINTS
+   - Time/space limits? Is O(n) extra space allowed? In-place required?
+   - Called once or many times (precompute vs per-query cost)?
+   - Streaming data? Fits in memory?
+ CORRECTNESS
+   - Overflow concerns (irrelevant in Python but mention for other languages).
+   - Can I assume valid input?
+ Say your assumptions out loud: "I'll assume the array is non-empty, otherwise
+ return 0."
+
+==============================================================================
+1.5  CONSTRAINTS -> REQUIRED COMPLEXITY
+==============================================================================
+
+ Read n (and other limits) FIRST. The constraint tells you what is intended.
+ Rough budget: C++/Java ~10^8-10^9 simple operations per second;
+ CPYTHON ONLY ~10^7 simple operations per second (pure loops).
+ For Python, aim 5-10x lower than C++ limits, and push work into built-ins
+ (sorted, sum, set, dict, Counter, heapq, bisect, itertools) which run at C speed.
+
+   n (max)          Target complexity         Typical techniques
+   ---------------  ------------------------  ----------------------------------
+   n <= 10          O(n!)  O(n * n!)          permutations, brute force
+   n <= 20-25       O(2^n) O(n * 2^n)         subsets, bitmask, meet-in-the-middle
+   n <= 40          O(2^(n/2))                meet in the middle
+   n <= 100         O(n^4)                    nested loops, small DP
+   n <= 400-500     O(n^3)                    Floyd-Warshall, interval DP
+   n <= 2,000-5,000 O(n^2)                    2D DP, pair enumeration (Python: 2000)
+   n <= 10^5-2*10^5 O(n log n)                sort, heap, binary search, DSU, segment tree
+   n <= 10^6        O(n) / O(n log n) light   hash map, two pointers, sliding window, prefix sums
+   n <= 10^7-10^8   O(n) tight                counting, sieve, math, no heavy structures
+   n <= 10^9-10^18  O(log n) / O(sqrt n)/O(1) binary search, fast power, math, bit tricks
+   Strings length 10^5  O(n) / O(n log n)     KMP, hashing, window, trie
+   # HOW the table is derived: allowed operations = time limit x speed (about 1 s x 10^7 steps in Python). Choose the largest n with f(n) <= 10^7..10^8:
+   #   n^2 <= 10^7 -> n ~ 3000 | n log2 n <= 10^7 -> n ~ 5*10^5 (5*10^5 x 19 = 9.5*10^6) | n^3 <= 10^8 -> n ~ 460 | 2^n <= 10^7 -> n ~ 23 | n! <= 10^7 -> n ~ 10.
+
+ DIAGRAM: how complexity grows with n = 10^5
+      O(1)        1
+      O(log n)    17
+      O(sqrt n)   316
+      O(n)        100,000
+      O(n log n)  1,700,000          <- fine in Python
+      O(n^2)      10,000,000,000     <- TOO SLOW (needs ~1000 s in Python)
+      O(2^n)      impossible
+   # HOW (n = 10^5): log2(10^5) = 16.6 -> 17. sqrt(10^5) = 316. n log n = 10^5 x 17 = 1.7*10^6. n^2 = 10^5 x 10^5 = 10^10 steps;
+   #      at 10^7 steps per second that is 10^10 / 10^7 = 1000 seconds.
+
+ IF YOUR IDEA IS TOO SLOW: look at which loop/search is the bottleneck.
+   nested loop to find a partner       -> hash map or sort + two pointers
+   repeated range sums                 -> prefix sums
+   repeated min/max over a window      -> monotonic deque / heap
+   repeated "is it present?"           -> set
+   repeated sorting                    -> keep sorted structure / heap
+   exponential recursion with repeats  -> DP / memoization
+   "k-th", "top k"                     -> heap / quickselect
+   linear search over sorted/monotone  -> binary search
+
+==============================================================================
+1.6  PATTERN RECOGNITION: CLUE -> TECHNIQUE
+==============================================================================
+
+ CLUE IN THE PROBLEM                                  TRY
+ --------------------------------------------------   --------------------------
+ Pair/triplet with a target sum, array unsorted        Hash map
+ Pair/triplet with a target sum, sorted/sortable       Two pointers (3Sum: sort + 2 ptr)
+ Longest/shortest substring or subarray with a rule    Sliding window
+ Subarray sum with negatives / count subarrays         Prefix sum + hash map
+ Frequency, anagrams, duplicates, grouping             Hash map / Counter / set
+ Palindromes, reverse, in-place partition              Two pointers
+ Sorted array, search, "minimum such that ..."         Binary search (on index/answer)
+ Next greater/smaller, histogram, temperatures         Monotonic stack
+ Window max/min                                        Monotonic deque
+ Top k / k-th / merge k / running median               Heap
+ Tree: depth, paths, LCA, validate                     DFS recursion (return from children)
+ Tree: level, shortest depth, views                    BFS with a queue
+ Graph: connected components, cycles, islands          DFS/BFS/Union-Find
+ Graph: fewest steps (unweighted)                      BFS (multi-source for grids)
+ Graph: cheapest path non-negative weights             Dijkstra
+ Dependencies / ordering / prerequisites               Topological sort
+ Intervals: merge/overlap/rooms                        Sort by start (or end) + heap/sweep
+ All combinations/permutations/subsets/board puzzles   Backtracking
+ Max/min/count ways, overlapping choices               Dynamic programming
+ Local choice provably optimal (schedule, jump)        Greedy
+ Prefix/word dictionary queries, grid word search      Trie
+ Single/missing/duplicate number, subsets of <= 20     XOR / bit manipulation / bitmask
+ Linked list: middle, cycle, reverse, merge            Fast/slow pointers, dummy node
+ Design (LRU, min stack, iterator, queue via stacks)   Hash map + DLL; auxiliary stack
+
+ "The data is sorted" is almost always a hint. So is "k" (heap / window size /
+ number of operations), "contiguous" (window/prefix), and "all possible" (backtracking).
+
+==============================================================================
+1.7  ONLINE ASSESSMENTS (OA)
+==============================================================================
+
+ STRATEGY
+   1) Skim all problems first; start with the one you can finish fastest.
+   2) Read constraints; pick the complexity target (1.5).
+   3) Run the sample tests, then write 3-4 of your own edge cases.
+   4) PARTIAL CREDIT: if stuck, submit a correct brute force - hidden tests are
+      usually split; small cases still score.
+   5) Do not spend more than ~1/3 of the total time on one problem without a
+      working solution.
+   6) Keep the last 5-10 minutes for re-checks (off-by-one, printing format).
+   7) Don't copy/paste from outside sources; plagiarism detection and proctoring
+      exist. Follow the rules (camera, tab switching).
+
+ INPUT / OUTPUT BOILERPLATE (HackerRank-style stdin/stdout)
+     import sys
+     input = sys.stdin.readline          # much faster than input()
+     n = int(input())
+     arr = list(map(int, input().split()))
+     s = input().strip()
+     # many lines at once:
+     data = sys.stdin.read().split()     # tokens
+     # matrix:
+     grid = [list(map(int, input().split())) for _ in range(r)]
+     # output:
+     print(" ".join(map(str, result)))    # single print for big outputs
+     sys.stdout.write("\n".join(lines) + "\n")
+   LeetCode-style: just implement the function in class Solution; no I/O.
+
+ CODESIGNAL/CODILITY STYLE: function signature given; scoring shows correctness
+ AND performance (time-limit tests with large n) - O(n^2) may pass correctness but
+ fail performance.
+
+ COMMON OA FAILURES: TLE from O(n^2); wrong answer on edge cases (n=1,
+ duplicates, negatives); forgetting to handle multiple test cases; recursion
+ limit; printing extra spaces/newlines; reading input slowly.
+
+==============================================================================
+1.8  PYTHON SPEED TIPS FOR TIMED ROUNDS
+==============================================================================
+
+ WRITING SPEED (get the code down fast and correct)
+   - Know the standard library cold:
+        from collections import Counter, defaultdict, deque, OrderedDict
+        import heapq, bisect, itertools, functools, math, sys
+        from functools import lru_cache, cache
+        from itertools import permutations, combinations, product, accumulate
+   - Idioms to type from memory:
+        a, b = b, a                       swap
+        for i, x in enumerate(arr):       index + value
+        for a, b in zip(x, y):            parallel loop
+        sorted(arr, key=lambda t: (t[0], -t[1]))
+        Counter(s).most_common(k)
+        d = defaultdict(list); d[k].append(v)
+        dirs = [(1,0),(-1,0),(0,1),(0,-1)]
+        float('inf'), -float('inf')
+        arr[::-1]    "".join(parts)    divmod(a, b)    max(arr, default=0)
+        heapq.heappush(h, (cost, node))   negate for max-heap
+        bisect.bisect_left(a, x)
+        prefix = list(accumulate(arr, initial=0))
+        2D list: [[0]*m for _ in range(n)]
+        any(...)   all(...)   sum(1 for x in a if cond)
+
+ RUN-TIME SPEED (pure Python is slow)
+   - Prefer built-ins and comprehensions over manual loops (C speed).
+   - Avoid recursion for depth > ~1000 or in hot paths: iterate / explicit stack.
+   - Use sets/dicts for membership, not lists.
+   - Use deque (not list.pop(0)) for queues.
+   - Avoid repeated slicing (copies) and string += in loops; use join.
+   - Cache attribute lookups in hot loops (append = res.append).
+   - Use local variables rather than globals inside functions.
+   - Precompute (prefix sums, sorted copies, factorials) once.
+   - heapify(list) instead of n pushes; sort once instead of repeatedly.
+   - sys.stdin for large input; print once.
+   - @lru_cache for memoization (arguments hashable).
+   - If still too slow: restructure the algorithm (complexity win beats micro-
+     optimisation), or use numpy only if allowed.
+   - sys.setrecursionlimit(10**6) only as a last resort (stack crash risk).
+
+==============================================================================
+1.9  TESTING AND DEBUGGING UNDER PRESSURE
+==============================================================================
+
+ AFTER CODING (always, even if you "know" it works):
+   1) DRY-RUN the given example line by line, writing variable values.
+   2) Test EDGE CASES (use this checklist):
+        - empty input / n = 0          - single element
+        - two elements                 - all elements equal
+        - already sorted / reverse sorted
+        - duplicates                   - negative numbers / zeros
+        - maximum size (performance)   - target at the first/last position
+        - no valid answer              - overlapping / touching boundaries
+        - strings: empty, one char, all same, spaces, case differences
+        - trees: empty, single node, skewed; graphs: disconnected, cycle,
+          self-loop
+   3) Check loop bounds (off-by-one): range(n) vs range(n-1) vs n+1, <= vs <.
+   4) Check initial values (inf / -inf / 0 / None) and return for "not found".
+   5) Re-read the problem statement for requirements you skipped (return type,
+      0- or 1-indexed, stable order).
+
+ DEBUGGING TECHNIQUE
+   - Narrow down: print intermediate state on the smallest failing input.
+   - Compare with your brute force (differential testing) when time permits.
+   - Check for mutation of shared objects (list aliasing, default arguments,
+     [[0]*m]*n, recording path instead of path[:]).
+   - Integer vs float division (// vs /); string vs int types.
+   - Infinite loop? Verify that every iteration makes progress.
+   - RecursionError? Missing base case or too deep.
+
+ TYPICAL BUG LIST (check these first)
+   off-by-one | wrong initial value | not handling empty | modifying list while
+   iterating | forgetting to update pointer | using = instead of == | wrong
+   variable in nested loop | shadowed names | forgetting to return | KeyError on
+   missing key (use .get / defaultdict) | IndexError on i+1 / i-1.
+
+==============================================================================
+1.10  WHAT TO DO WHEN STUCK
+==============================================================================
+
+   1) Re-read the problem and constraints; restate it in your own words.
+   2) Solve a SMALLER or SIMPLER version (n=2, 3). Draw it.
+   3) Brute force first: even a slow solution reveals structure.
+   4) Ask "what am I recomputing?" (-> memoize/prefix/hash) and "what is
+      searched repeatedly?" (-> sort/binary search/hash).
+   5) Look at the output: can I build it from the previous answer (DP)? Is it
+      about ordering (sort)? About connections (graph)?
+   6) Try the toolbox in order: sort / hash map / two pointers / window / stack /
+      heap / binary search / DFS-BFS / DP / greedy / backtracking.
+   7) Change the representation: index <-> value, array <-> prefix array,
+      matrix <-> graph, forward <-> reverse direction.
+   8) Think about invariants: "what is true at every step?"
+   9) Say your thoughts aloud and ask for a hint - hints are normal; silence is
+      not.
+   10) Never go silent for more than ~1 minute.
+
+==============================================================================
+1.11  COMMUNICATION SCRIPT (THINK ALOUD)
+==============================================================================
+
+   Understanding : "So the input is ... and I need to return ... Let me confirm
+                    with an example ..."
+   Questions     : "Can the array contain duplicates / negatives?"
+   Brute force   : "A straightforward approach is ... which is O(n^2) time, O(1)
+                    space."
+   Insight       : "The bottleneck is the inner search. If I store seen values in
+                    a hash map I can do that lookup in O(1)."
+   Trade-off     : "That costs O(n) extra space. If memory is tight I could sort
+                    and use two pointers for O(n log n) time and O(1) space."
+   Plan          : "I'll iterate once, for each x check target - x, then insert x."
+   Coding        : narrate non-trivial lines; name variables well.
+   Testing       : "Let me trace [2,7,11,15] with target 9 ... Now edge cases:
+                    empty array, duplicates like [3,3] with target 6 ..."
+   Wrap-up       : "Time O(n), space O(n). I could extend this to return all pairs
+                    by ..."
+   Tone: collaborative, calm; welcome hints; admit mistakes and fix them.
+
+==============================================================================
+1.12  WORKED TIMED WALKTHROUGH: SUBARRAY SUM EQUALS K  (target: 25 min)
+==============================================================================
+
+ PROBLEM: Given an integer array nums (may contain negatives) and an integer k,
+ return the number of contiguous subarrays whose sum equals k.
+ Example: nums = [1,2,3], k = 3  ->  2   ([1,2] and [3]).
+
+ 0:00-0:03  UNDERSTAND/CLARIFY
+    - Contiguous, count them (not list them). Negatives allowed? Yes -> sliding
+      window will NOT work. n up to ~2*10^4 / 10^5? Assume 10^5 -> need O(n) or
+      O(n log n).
+ 0:03-0:06  EXAMPLE BY HAND
+    - [1,2,3]: subarrays: [1]=1, [1,2]=3 *, [1,2,3]=6, [2]=2, [2,3]=5, [3]=3 *.
+      Answer 2. Edge: empty array -> 0; k = 0 with zeros [0,0] -> 3 subarrays.
+ 0:06-0:09  BRUTE FORCE: for every start i, extend end j keeping a running sum;
+            count when sum == k. O(n^2) time, O(1) space.
+            # HOW: for each of the n starts the inner loop extends over up to n ends: n(n+1)/2 pairs -> O(n^2); only a running sum -> O(1) space.
+ 0:09-0:14  OPTIMISE (find the bottleneck: for each end we re-scan all starts)
+    - Let P[j] = sum of nums[0..j-1]. A subarray (i..j-1) sums to k  <=>
+      P[j] - P[i] = k  <=>  P[i] = P[j] - k.
+    - So at each j, count how many EARLIER prefix sums equal P[j] - k: a hash map
+      of prefix-sum frequencies. Seed it with {0: 1} for subarrays starting at
+      index 0.
+      Why not sliding window? Negatives break monotonicity.
+    - Complexity: O(n) time, O(n) space.
+    # HOW: one pass of n steps, each an O(1)-average dict get/set; the dict holds at most n+1 distinct prefix sums -> O(n) space.
+ 0:14-0:20  CODE
+      def subarray_sum(nums, k):
+          counts = {0: 1}          # prefix sum 0 occurs once (empty prefix)
+          prefix = answer = 0
+          for x in nums:
+              prefix += x
+              answer += counts.get(prefix - k, 0)
+              counts[prefix] = counts.get(prefix, 0) + 1
+          return answer
+ 0:20-0:25  TEST
+    - [1,2,3], k=3: prefix 1 (need -2: 0) counts{0:1,1:1}; prefix 3 (need 0: 1)
+      answer 1, counts{...,3:1}; prefix 6 (need 3: 1) answer 2.  -> 2  OK.
+    - [1,-1,0], k=0: prefix 1 (need 1: 0); prefix 0 (need 0: 1) ans 1, counts[0]=2;
+      prefix 0 (need 0: 2) ans 3 -> subarrays [1,-1], [0], [1,-1,0] = 3  OK.
+    - Empty list -> 0 OK. All zeros [0,0,0], k=0 -> 6.
+ 0:25  WRAP-UP: O(n) time/space; update the map AFTER the lookup so an empty
+       subarray isn't counted when k = 0; follow-up: "subarray sum divisible by
+       k" uses prefix % k; "2D version" uses 2D prefix sums.
+
+==============================================================================
+1.13  MUST-PRACTISE PROBLEM LIST BY PATTERN (about 75 core problems)
+==============================================================================
+
+ Aim to solve each within the target time, then re-solve after a week.
+
+ ARRAYS / HASHING
+   Two Sum | Contains Duplicate | Valid Anagram | Group Anagrams | Top K Frequent
+   | Product of Array Except Self | Longest Consecutive Sequence | Subarray Sum
+   Equals K | Maximum Subarray (Kadane) | Merge Intervals | Rotate Array |
+   Move Zeroes | Best Time to Buy/Sell Stock | Majority Element
+ TWO POINTERS / WINDOW
+   Valid Palindrome | 3Sum | Container With Most Water | Trapping Rain Water |
+   Remove Duplicates (sorted) | Longest Substring Without Repeating Characters |
+   Longest Repeating Character Replacement | Minimum Window Substring |
+   Permutation in String | Sliding Window Maximum
+ STACK / QUEUE / MONOTONIC
+   Valid Parentheses | Min Stack | Daily Temperatures | Next Greater Element |
+   Largest Rectangle in Histogram | Evaluate Reverse Polish Notation |
+   Implement Queue using Stacks | Decode String
+ LINKED LIST
+   Reverse Linked List | Merge Two Sorted Lists | Linked List Cycle | Remove Nth
+   Node From End | Reorder List | Add Two Numbers | LRU Cache | Copy List with
+   Random Pointer | Merge k Sorted Lists
+ BINARY SEARCH / SORTING
+   Binary Search | Search in Rotated Sorted Array | Find Minimum in Rotated
+   Array | Search a 2D Matrix | Koko Eating Bananas | Kth Largest Element |
+   Sort Colors | Median of Two Sorted Arrays (hard)
+ TREES / HEAPS
+   Max Depth | Invert Binary Tree | Same Tree | Validate BST | Level Order
+   Traversal | LCA of BST / Binary Tree | Kth Smallest in BST | Diameter | Binary
+   Tree Maximum Path Sum | Construct Tree from Pre+Inorder | Serialize/Deserialize
+   | Top K Frequent | Find Median from Data Stream | Task Scheduler
+ GRAPHS
+   Number of Islands | Clone Graph | Pacific Atlantic Water Flow | Course Schedule
+   I/II | Rotting Oranges | Word Ladder | Number of Connected Components |
+   Redundant Connection | Network Delay Time | Cheapest Flights Within K Stops |
+   Alien Dictionary
+ BACKTRACKING
+   Subsets | Permutations | Combination Sum | Word Search | N-Queens | Palindrome
+   Partitioning | Generate Parentheses | Letter Combinations
+ DP
+   Climbing Stairs | House Robber | Coin Change | Longest Increasing Subsequence
+   | Longest Common Subsequence | Word Break | Unique Paths | Edit Distance |
+   Partition Equal Subset Sum | Decode Ways | Maximum Product Subarray
+ GREEDY / INTERVALS
+   Jump Game I/II | Gas Station | Non-overlapping Intervals | Meeting Rooms II |
+   Partition Labels
+ TRIE / BITS
+   Implement Trie | Design Add & Search Words | Word Search II | Single Number |
+   Number of 1 Bits | Counting Bits | Missing Number | Sum of Two Integers | Reverse
+   Bits
+
+==============================================================================
+1.14  PREPARATION PLAN, PRACTICE RULES, SELF-RUBRIC
+==============================================================================
+
+ 8-WEEK PLAN (about 1-2 hours/day; adjust to your timeline)
+   Week 1 : Complexity analysis, arrays, strings, hash tables
+   Week 2 : Two pointers, sliding window, prefix sums, sorting & binary search
+   Week 3 : Linked lists, stacks, queues, monotonic stack/deque
+   Week 4 : Trees, BST, heaps / priority queues
+   Week 5 : Graphs (BFS, DFS, Dijkstra, Union-Find, topological sort)
+   Week 6 : Recursion, backtracking, greedy
+   Week 7 : Dynamic programming (1D -> 2D -> knapsack -> strings)
+   Week 8 : Tries, bits, mixed timed mocks, weak-area review
+
+ 4-WEEK CRASH PLAN: Week 1 arrays/hashing/pointers/window; Week 2 stacks, lists,
+   trees, heaps; Week 3 graphs, backtracking, DP basics; Week 4 mocks + review.
+
+ DAILY ROUTINE: 1 new problem (timed) + 1 review of an old problem + 10 minutes
+   on complexity of the solved problems.
+
+ PRACTICE RULES THAT WORK
+   1) TIME YOURSELF: easy 15, medium 30, hard 45 minutes. Set a timer.
+   2) Spend up to ~20-25 minutes thinking; if still stuck, read the hint/solution,
+      then CLOSE it and re-implement from scratch the next day.
+   3) Group problems by pattern, not randomly (while learning). Mix them later.
+   4) After each problem write: pattern used, key insight, complexity, mistake.
+      Keep a "mistake log"; review it weekly (spaced repetition: 1 day, 3 days, 1
+      week, 1 month).
+   5) Code in a plain editor (no autocomplete) occasionally; practise on paper for
+      whiteboard rounds.
+   6) Do mock interviews with a friend/platform: explain aloud.
+   7) Always finish by stating time and space complexity.
+   8) Redo failed problems until you can solve them in the target time.
+   9) Quality over quantity: 150-200 well-understood problems beat 500 skimmed.
+
+ SELF-RUBRIC (score each 1-5 after a mock)
+   Clarified requirements | Considered brute force | Chose right technique |
+   Correct complexity statement | Clean, readable code | Handled edge cases |
+   Tested without prompting | Communicated throughout | Finished in time.
+   Any score below 3 -> target that skill next week.
+
+ THE NIGHT BEFORE / MORNING OF
+   Sleep; review your pattern table and the mistake log, not new topics.
+   Check environment (editor, camera, internet). Have water, pen and paper.
+   During the round: breathe, slow down, verify before submitting.
+
+
+##############################################################################
+ PART 2 : COMPLEXITY ANALYSIS (APPLIED)
+##############################################################################
+
+==============================================================================
+2.1  RECAP
+==============================================================================
+
+ TIME complexity = how the NUMBER OF BASIC OPERATIONS grows with input size n.
+ SPACE complexity = how the EXTRA MEMORY grows with n (auxiliary space; mention if
+ you include the input or the output).
+
+ NOTATIONS
+   O(g)  upper bound (at most, grows no faster than g) - the default in interviews
+   Omega(g) lower bound (at least)
+   Theta(g) tight bound (both)
+ Rules: drop constants (O(2n)=O(n)), drop lower-order terms (O(n^2+n)=O(n^2)),
+ sequential steps ADD, nested steps MULTIPLY, different inputs get different
+ variables (O(a*b), O(a+b)), log base is irrelevant.
+
+ ORDER:  1 < log n < sqrt(n) < n < n log n < n^2 < n^3 < 2^n < n! < n^n
+
+ CASES: best / average / worst. Quote the WORST case unless asked; mention the
+ average when it differs (quicksort, hash tables). AMORTIZED: average cost per
+ operation over a worst-case sequence (list.append).
+
+==============================================================================
+2.2  STEP-BY-STEP METHOD TO ANALYSE ANY CODE
+==============================================================================
+
+    1) NAME THE INPUT SIZES: n (array length), m (second array), V and E (graph),
+       R and C (grid), L (string length), k (parameter).
+    2) FIND THE DOMINANT OPERATIONS: loops, recursive calls, library calls.
+    3) COUNT HOW MANY TIMES each runs, as a function of the sizes:
+         - sequential blocks -> add
+         - nested blocks -> multiply (careful: dependent bounds -> sum a series)
+         - recursion -> write a recurrence (2.4)
+    4) ADD HIDDEN COSTS of built-ins: slicing, `in` on a list, sort, string
+       concatenation, copying (2.5).
+    5) SIMPLIFY: keep the dominant term, drop constants.
+    6) SPACE: variables (O(1)), new containers (their size), recursion depth,
+       output size (state if it is counted).
+    7) SANITY CHECK with tiny n and with extreme cases (best vs worst case).
+
+ SHORT RECIPE: "How many times does the innermost statement run?"
+
+ DIAGRAM - nested loop with dependent bound:
+      i=0: j runs 0 times   *
+      i=1: j runs 1 time    * *
+      i=2: j runs 2 times   * * *
+      ...
+      i=n-1:                * * * ... *        total = 0+1+...+(n-1) = n(n-1)/2
+                                                -> O(n^2) (a triangle, not a square)
+
+==============================================================================
+2.3  LOOP PATTERNS -> COMPLEXITY
+==============================================================================
+
+ PATTERN                                                    TIME
+ for i in range(n): O(1)                                    O(n)
+ for i in range(0, n, k): O(1)  (k constant)                O(n)
+ i = 1; while i < n: i *= 2    (or n //= 2)                 O(log n)
+ for i in range(n): for j in range(n)                       O(n^2)
+ for i in range(n): for j in range(i)  (triangle)           O(n^2)
+ for i in range(n): for j in range(m)                       O(n*m)
+ for i in range(n): j = 1; while j < n: j *= 2              O(n log n)
+ for i in range(1, n+1): for j in range(0, n, i)  (harmonic) O(n log n)
+ i = 1; while i < n: for j in range(i): ...; i *= 2         O(n)   (1+2+4+...+n/2)
+ while n: for i in range(n): ...; n //= 2                   O(n)   (n + n/2 + ...)
+ i = 0; while i*i <= n: i += 1                               O(sqrt n)
+ two pointers, each moves forward at most n times            O(n)
+ while loop with inner while where inner index never resets  O(n) amortized
+ 3 nested loops                                              O(n^3)
+ loop over subsets: for mask in range(1<<n): for i in range(n)  O(n * 2^n)
+ loop with break: analyse the worst case                     (may be O(1) best)
+ # HOW (loop table): each row = (iterations of the outer loop) x (work per iteration). Halving/doubling loops take log2(n) iterations; nested loops multiply;
+ #      a loop whose inner work grows/shrinks geometrically sums to a constant multiple of n; two pointers that never move back total <= 2n steps.
+
+ GEOMETRIC vs ARITHMETIC SUMS (frequent trap)
+    1 + 2 + 3 + ... + n         = n(n+1)/2     -> O(n^2)
+    1 + 2 + 4 + 8 + ... + n     = 2n - 1       -> O(n)     (geometric, dominated by the last term)
+    n + n/2 + n/4 + ... + 1     <= 2n          -> O(n)
+    log n + log n + ... (n times)               -> O(n log n)
+    1 + 1/2 + 1/3 + ... + 1/n  ~ ln n          -> n*(that) = O(n log n)
+    # HOW: arithmetic series 1+...+n = n(n+1)/2 ~ n^2/2. Geometric series with ratio 2: the last term n is bigger than all the earlier ones combined
+    #      (1+2+...+n/2 = n-1), so the sum is ~2n. Harmonic series 1+1/2+...+1/n ~ ln n.
+
+==============================================================================
+2.4  RECURSION -> COMPLEXITY
+==============================================================================
+
+ METHOD:
+   1) Write the recurrence T(n) = (#calls) * T(size of each) + work outside calls.
+   2) Solve: unrolling, recursion tree, or Master theorem.
+
+ MASTER THEOREM  T(n) = a T(n/b) + O(n^d)
+    compare d with log_b(a):
+       d <  log_b a  ->  O(n^(log_b a))      (leaves dominate)
+       d == log_b a  ->  O(n^d log n)        (every level equal)
+       d >  log_b a  ->  O(n^d)              (root dominates)
+
+ QUICK TABLE
+    T(n) = T(n-1) + O(1)           O(n)               linear recursion
+    T(n) = T(n-1) + O(n)           O(n^2)
+    T(n) = 2 T(n-1) + O(1)         O(2^n)             subsets, hanoi, naive fib-like
+    T(n) = T(n-1) + T(n-2) + O(1)  O(1.618^n) ~ O(2^n)
+    T(n) = T(n/2) + O(1)           O(log n)           binary search
+    T(n) = T(n/2) + O(n)           O(n)               quickselect (average)
+    T(n) = 2T(n/2) + O(1)          O(n)               tree traversal
+    T(n) = 2T(n/2) + O(n)          O(n log n)         merge sort
+    T(n) = 3T(n/2) + O(n)          O(n^1.585)         Karatsuba
+    T(n) = k T(n-1)                O(k^n)             branching backtracking
+    # HOW: the Master theorem compares the work at the root (n^d) with the number of leaves (n^(log_b a)). The bigger one dominates;
+    #      a tie means every level costs the same and there are log n levels -> extra log n factor.
+
+ CALL-TREE VIEW (fast for interviews):
+    total work = (number of calls) x (work per call)
+    number of calls ~ branching^depth
+      fib(n): branching 2, depth n -> ~2^n calls
+      permutations of n: n * (n-1) * ... = n! leaves
+      subsets: 2^n leaves
+      memoized: number of DISTINCT states x work per state
+
+ RECURSION SPACE = maximum DEPTH (stack frames), not the number of calls.
+    factorial O(n) | naive fib O(n) | binary search O(log n) |
+    DFS on graph O(V) | merge sort O(log n) stack + O(n) buffer |
+    quick sort O(log n) average stack, O(n) worst | tree DFS O(height).
+
+ DP: time = (number of states) x (transitions per state); space = table size
+ (often reducible to a row or O(1)).
+    1D DP O(n) | 2D DP (n x m) O(nm) | knapsack O(nW) | interval DP O(n^3) |
+    bitmask DP O(2^n * n).
+    # HOW: DP time = (number of table cells) x (work per cell); space = table size, or one row if only the previous row is needed.
+
+==============================================================================
+2.5  HIDDEN COSTS IN PYTHON
+==============================================================================
+
+ OPERATION                                   COST
+ x in list / list.index / list.count          O(n)
+ x in set / dict, d[k], d.get                 O(1) average (O(len(key)) to hash a string)
+ list.append / pop()                          O(1) amortized
+ list.insert(i) / pop(i) / pop(0) / remove    O(n)
+ list slicing a[i:j]                          O(j-i) and creates a COPY
+ a + b (lists), a * k                         O(len)
+ sorted(a) / a.sort()                         O(n log n), O(n) space for sorted()
+ min / max / sum / len                        O(n) / O(n) / O(n) / O(1)
+ string s + t, s[i:j], s.replace, s.split      O(len)
+ s += c inside a loop                          O(n^2) total (use list + join)
+ "".join(list)                                 O(total length)
+ t in s (substring)                            O(n*m) worst; optimised in CPython
+ s == t                                        O(min(len))
+ tuple/str hashing                             O(length)
+ copy.deepcopy(obj)                            O(size of obj)
+ list(set(...)), set(list)                     O(n)
+ heapq.heappush/heappop                        O(log n);  heapify O(n)
+ deque.append/popleft                          O(1);      deque[i] middle O(n)
+ bisect.bisect                                 O(log n);  bisect.insort O(n)
+ dict/set iteration                            O(n)
+ Counter(a)                                    O(n)
+ max(a, key=...)                               O(n * cost of key)
+ recursion with slicing (f(a[1:]))             O(n) per call -> usually O(n^2)
+ list comprehension                            O(n) (not free: it is a loop!)
+ `del a[0]`, `a = a[1:]` in a loop             O(n^2) total
+ any / all / sum on generator                  O(n) (short-circuit for any/all)
+ # HOW (hidden costs): anything that copies or scans k items costs O(k): slices, +, 'in' on a list, sorted, join. Hash operations are O(1) on average because the
+ #      key is hashed once and we jump to a bucket (hashing a string key itself costs O(len)). A list comprehension is a loop of n iterations.
+
+ BIG INTEGERS: arithmetic on huge ints is O(digits), not O(1).
+ STRING KEYS in hash maps: lookups cost O(L) for length-L keys, so "O(1)" is
+ really O(L). In interview complexity statements, mention it for string-heavy
+ problems (e.g. group anagrams: O(N * K log K)).
+
+==============================================================================
+2.6  AMORTIZED ANALYSIS IN PRACTICE
+==============================================================================
+
+ Idea: a few operations are expensive, but the TOTAL over a sequence is small, so
+ the cost per operation averaged over the sequence is low.
+
+ EXAMPLES
+   - list.append (dynamic array): resizing copies n items occasionally; total for
+     n appends <= ~3n -> O(1) amortized.
+   - Two pointers / sliding window: inner `while` looks like nested loops, but
+     each pointer moves at most n times in total -> O(n), NOT O(n^2).
+   - Monotonic stack/deque: each element is pushed once and popped at most once ->
+     O(n) total even with a `while` inside the `for`.
+   - Union-Find with path compression + rank: ~O(alpha(n)) per operation.
+   - Hash table rehashing: amortized O(1) insert.
+   - Queue from two stacks: each item moves at most twice -> O(1) amortized.
+   - Binary counter increment: O(1) amortized (total flips <= 2n for n increments).
+   - Kadane / prefix sums: single pass.
+
+ HOW TO ARGUE: "Each element enters the structure once and leaves once, so the
+ total work across the whole loop is O(n)." (Aggregate method.)
+
+ AVERAGE-CASE vs AMORTIZED: average case uses probabilities over inputs;
+ amortized is a worst-case guarantee over a sequence of operations.
+
+==============================================================================
+2.7  SPACE COMPLEXITY: WHAT COUNTS
+==============================================================================
+
+   - AUXILIARY space = extra memory beyond the input (most common meaning).
+   - Total space = input + auxiliary. Say which one you give.
+   - Count: new lists/dicts/sets/strings, copies/slices, recursion stack depth,
+     memo tables, queues/stacks/heaps in BFS/DFS, output if you built it.
+   - "In-place" = O(1) auxiliary (sometimes O(log n) accepted).
+
+ EXAMPLES
+   reverse in place two pointers      O(1)      reverse by creating a new list   O(n)
+   hash map of n items                O(n)      counting lowercase letters       O(26) = O(1)
+   BFS on grid R x C                  O(R*C)    DFS recursion on grid            O(R*C) worst
+   recursive tree DFS                 O(h)      iterative tree DFS               O(h)
+   merge sort                         O(n)      heap sort                        O(1)
+   all subsets stored                 O(n*2^n)  subsets recursion only           O(n)
+   2D DP table                        O(nm)     rolling array                    O(min(n,m))
+   Python: arr[1:] in recursion       O(n) per frame -> O(n^2) total!
+
+ TIME-SPACE TRADE-OFFS (be ready to discuss):
+   Two Sum: O(n^2)/O(1)  vs  hash map O(n)/O(n)  vs  sort+two pointers O(n log n)/O(1)
+   Fibonacci: recursion O(2^n)/O(n)  vs  memo O(n)/O(n)  vs  loop O(n)/O(1)
+   Duplicates: nested loops O(n^2)/O(1)  vs  sort O(n log n)  vs  set O(n)/O(n)
+   Range sum queries: recompute O(n) each  vs  prefix sums O(1) each after O(n)
+   # HOW: Two Sum brute force = n(n-1)/2 pairs; hash map = n lookups + up to n stored; sort = n log n + two-pointer scan n. Fibonacci: naive ~2^n calls;
+   #      memo = n states; loop = n steps with 2 variables. Prefix sums: n additions once, then each query is one subtraction.
+
+==============================================================================
+2.8  COMPLEXITY OF STANDARD TECHNIQUES
+==============================================================================
+
+ Technique                      Time                         Space
+ Hash map one pass              O(n)                         O(n)
+ Two pointers (sorted)          O(n) (+ O(n log n) to sort)  O(1)
+ Sliding window                 O(n)                         O(alphabet) / O(k)
+ Prefix sum                     O(n) build, O(1) query       O(n)
+ Binary search                  O(log n)                     O(1)
+ Binary search on answer        O(log(range) * check)        O(1)
+ Sorting (comparison)           O(n log n)                   O(1)-O(n)
+ Counting sort                  O(n + k)                     O(k)
+ Heap: top k                    O(n log k)                   O(k)
+ Heap: build                    O(n)
+ Merge k sorted lists           O(N log k)                   O(k)
+ Monotonic stack/deque          O(n)                         O(n)
+ Linked list traversal/reverse  O(n)                         O(1)
+ Tree DFS / BFS                 O(n)                         O(h) / O(width)
+ BST operations                 O(h) (log n balanced)        O(h)
+ Graph BFS/DFS                  O(V + E)                     O(V)
+ Dijkstra (heap)                O((V+E) log V)               O(V)
+ Bellman-Ford                   O(VE)                        O(V)
+ Floyd-Warshall                 O(V^3)                       O(V^2)
+ Topological sort               O(V + E)                     O(V)
+ Union-Find                     ~O(alpha(n)) per op          O(n)
+ Kruskal / Prim                 O(E log E) / O(E log V)      O(V)
+ Trie                           O(L) per op                  O(total chars)
+ Backtracking subsets/perms     O(n * 2^n) / O(n * n!)       O(n)
+ Backtracking N-Queens          ~O(n!)                       O(n)
+ DP                             states x transitions         table size
+ Knapsack 0/1                   O(n*W)                       O(W)
+ LCS / edit distance            O(n*m)                       O(min(n,m))
+ LIS                            O(n^2) or O(n log n)         O(n)
+ Kadane                         O(n)                         O(1)
+ KMP / Z                        O(n + m)                     O(m)
+ Bit tricks                     O(1) per op (word size)      O(1)
+ # HOW (table): one pass = n; one pass per level over log n levels = n log n; table cells = states x work per state; a path/subtree walk = the height.
+ #      Space = what the algorithm stores (arrays, tables, queues, recursion depth).
+
+==============================================================================
+2.9  WORKED EXAMPLES (title -> answers in the list at the end of 2.9)
+==============================================================================
+
+ (Find time and space complexity. Answers follow the code blocks.)
+
+ E1.  def f(a):
+          total = 0
+          for x in a:
+              total += x
+          return total
+
+ E2.  def f(a):
+          for i in range(len(a)):
+              for j in range(i, len(a)):
+                  print(a[i], a[j])
+
+ E3.  def f(n):
+          i = 1
+          while i < n:
+              i *= 3
+
+ E4.  def f(n):
+          for i in range(n):
+              j = i
+              while j > 0:
+                  j //= 2
+
+ E5.  def f(n):
+          while n > 0:
+              for i in range(n):
+                  pass
+              n //= 2
+
+ E6.  def f(n):
+          if n <= 1: return 1
+          return f(n - 1) + f(n - 1)
+
+ E7.  def f(n):
+          if n <= 1: return 1
+          return f(n // 2) + f(n // 2) + n
+
+ E8.  def f(a, target):          # a is a sorted list
+          if not a: return False
+          mid = len(a) // 2
+          if a[mid] == target: return True
+          if a[mid] < target: return f(a[mid + 1:], target)
+          return f(a[:mid], target)
+
+ E9.  def f(a, b):               # a has n items, b has m items
+          for x in a:
+              for y in b:
+                  if x == y: return True
+          return False
+
+ E10. def f(a, b):
+          s = set(b)
+          for x in a:
+              if x in s: return True
+          return False
+
+ E11. def f(words):             # N strings of length up to L
+          return ["".join(sorted(w)) for w in words]
+
+ E12. def f(s):
+          result = ""
+          for ch in s:
+              result += ch.upper()
+          return result
+
+ E13. def f(a):
+          for i in range(len(a)):
+              a.sort()
+
+ E14. def f(a):                  # two pointers
+          i = 0
+          for j in range(len(a)):
+              while i < j and a[i] < a[j] - 10:
+                  i += 1
+
+ E15. def f(n):
+          for i in range(1, n + 1):
+              for j in range(i, n + 1, i):
+                  pass
+
+ E16. import heapq
+      def f(a):
+          h = []
+          for x in a: heapq.heappush(h, x)
+          return [heapq.heappop(h) for _ in a]
+
+ E17. import heapq
+      def f(a):
+          heapq.heapify(a)
+          return a[0]
+
+ E18. def f(n):                  # all subsets of range(n)
+          res = [[]]
+          for x in range(n):
+              res += [r + [x] for r in res]
+          return res
+
+ E19. from functools import lru_cache
+      @lru_cache(None)
+      def f(n):
+          if n < 2: return n
+          return f(n - 1) + f(n - 2)
+
+ E20. def f(n):
+          i = 0
+          while i * i <= n:
+              i += 1
+
+ ---- ANSWERS TO 2.9 ----
+ E1.  O(n) time, O(1) space.
+ E2.  Triangle: n + (n-1) + ... + 1 = n(n+1)/2 -> O(n^2) time, O(1) space.
+ E3.  i = 1, 3, 9, ... -> log base 3 of n iterations -> O(log n); O(1) space.
+ E4.  Inner loop runs log2(i) times -> sum log i = log(n!) = O(n log n); O(1).
+ E5.  n + n/2 + n/4 + ... = 2n -> O(n) (geometric); O(1) space.
+ E6.  T(n) = 2T(n-1) + 1 -> O(2^n) time; recursion depth n -> O(n) space.
+ E7.  T(n) = 2T(n/2) + n -> O(n log n) time; O(log n) space.
+ E8.  Looks like binary search (log n), but slicing copies: T(n) = T(n/2) + O(n)
+      = O(n) time; space O(n) (copies; the sum of slice sizes n/2 + n/4 + ... = O(n),
+      and the stack depth log n). Fix: pass lo/hi indices -> O(log n) time.
+ E9.  O(n*m) worst case (no match); O(1) space.
+ E10. O(n + m) time (building the set + n lookups); O(m) space.
+ E11. Each word: sort O(L log L), join O(L) -> O(N * L log L) time; O(N*L) output.
+ E12. Concatenation creates a new string each time: O(n^2) worst case time
+      (CPython may optimise in place, do not rely on it). Fix: "".join(...) O(n).
+ E13. n sorts of an n-element list: O(n * n log n) = O(n^2 log n) (sorted input is
+      Timsort's best case O(n) per sort after the first -> O(n^2) overall, but
+      say worst-case O(n^2 log n)).
+ E14. Pointer i only moves forward and never exceeds n -> amortized O(n) total;
+      O(1) space.
+ E15. Harmonic series: n/1 + n/2 + ... + n/n = n ln n -> O(n log n).
+ E16. n pushes O(n log n) + n pops O(n log n) = O(n log n) time; O(n) space.
+ E17. heapify is O(n) (bottom-up); the peek is O(1) -> O(n) time, O(1) extra space.
+ E18. 2^n subsets, each up to n long: output size is O(n * 2^n), so time and space
+      are O(n * 2^n).
+ E19. Memoized: n distinct states, O(1) work each -> O(n) time; O(n) space (cache +
+      recursion depth).
+ E20. O(sqrt n) time, O(1) space.
+
+
+==============================================================================
+2.10  OPTIMISATION LADDER: FROM BRUTE FORCE TO OPTIMAL
+==============================================================================
+
+ Show this progression in interviews (state complexity at each rung):
+
+  PROBLEM: "Does the array contain two numbers adding to target?"
+     Rung 1  brute force, all pairs               O(n^2) time   O(1) space
+     Rung 2  sort + two pointers                  O(n log n)    O(1)
+     Rung 3  hash set of seen values              O(n)          O(n)
+     (Optimal in time: must read all input -> Omega(n).)
+
+  PROBLEM: "Longest substring without repeating characters"
+     Rung 1  all substrings + check               O(n^3)
+     Rung 2  for each start extend until repeat   O(n^2)
+     Rung 3  sliding window + set                 O(n)  (each char added/removed once)
+     Rung 4  window + last-index map (jump left)  O(n), fewer steps
+
+  PROBLEM: "Fibonacci"
+     naive recursion O(2^n) -> memoization O(n) time/space -> loop O(n)/O(1) ->
+     matrix power / fast doubling O(log n).
+
+  PROBLEM: "Maximum subarray sum"
+     O(n^3) all subarrays -> O(n^2) running sums -> O(n log n) divide & conquer ->
+     O(n) Kadane.
+
+  PROBLEM: "k-th largest element"
+     sort everything O(n log n) -> min-heap of size k O(n log k) ->
+     quickselect O(n) average.
+
+  GENERAL RUNGS: brute force -> remove repeated work (memo / prefix / hash) ->
+  exploit order (sort / binary search / two pointers) -> exploit structure (heap /
+  DP / greedy) -> reduce space (rolling variables / in place).
+
+==============================================================================
+2.11  LOWER BOUNDS AND "CAN WE DO BETTER?"
+==============================================================================
+
+ - ANY algorithm that must READ all n inputs is Omega(n). So O(n) time is optimal
+   for scanning problems (max, sum, duplicates by hashing).
+ - Comparison-based SORTING is Omega(n log n) (decision tree with n! leaves).
+ - SEARCHING a sorted array by comparisons is Omega(log n); unsorted is Omega(n).
+ - Printing/returning all subsets/permutations is Omega(output size) (2^n, n!).
+ - Element distinctness needs Omega(n log n) in the comparison model (O(n) with
+   hashing, which is a different model).
+ - Merging two sorted lists of sizes m, n: Omega(m + n) (every element must be
+   output).
+ - Space: if you must return n items, output alone is O(n).
+
+ WHEN THE INTERVIEWER ASKS "CAN YOU DO BETTER?"
+   1) Check the lower bound: am I already at Omega(input)? If yes, say so.
+   2) Otherwise identify the bottleneck term in your complexity.
+   3) Ask what information is unused (sortedness? bounded range? duplicates?).
+   4) Trade space for time (hash/memo/precompute) or time for space (sort in place).
+
+==============================================================================
+2.12  ESTIMATING REAL RUNNING TIME
+==============================================================================
+
+   operations = f(n) from your analysis (e.g. n log n)
+   time ~ operations / speed
+   speed (CPython simple ops): ~10^6-10^7 / s for Python-level loops;
+                               built-ins (sort, sum, set ops) ~10^7-10^8 elements/s.
+
+   Examples with n = 10^5:
+      O(n log n) = 1.7 x 10^6 ops   ->  well under a second
+      O(n^2)     = 10^10 ops        ->  hours in Python -> reject
+   n = 10^6: O(n) loop ~ 0.1-0.5 s fine; O(n log n) with Python-level heap ~ several
+   seconds (borderline).
+
+   Constant factors matter at the margin: a Python-level O(n log n) heap loop can be
+   slower than a built-in sort-based O(n log n); recursion is slower than loops;
+   dict/set ops ~ 50-100 ns each.
+
+   Memory: a Python int in a list costs ~28 bytes + 8 byte pointer; a list of 10^7
+   ints ~ 360 MB-ish. Prefer arrays/bitsets/numpy only when allowed; avoid
+   storing what you can compute.
+
+==============================================================================
+2.13  HOW TO STATE COMPLEXITY IN AN INTERVIEW
+==============================================================================
+
+ TEMPLATE:
+   "Let n be the length of the array. I iterate once, and each hash-map operation
+    is O(1) on average, so the time is O(n). The map can hold up to n entries, so
+    the extra space is O(n)."
+
+ INCLUDE:
+   - the variables you use (n, m, V, E, k, L),
+   - the dominant step and WHY (sorting dominates -> O(n log n)),
+   - average vs worst case when they differ ("hash lookups are O(1) on average,
+     O(n) worst case"),
+   - amortized claims with the justification ("each element is pushed and popped
+     once"),
+   - space split: auxiliary vs output; recursion stack,
+   - trade-offs and alternatives.
+
+ AVOID: saying O(n) when two inputs exist; forgetting sort cost; claiming O(1)
+ space while using recursion; hiding slicing/concatenation costs; "log n" without
+ saying what halves.
+
+
+##############################################################################
+ PART 3 : MASTER CHEAT SHEETS
+##############################################################################
+
+ DATA STRUCTURES (average / worst where different)
+   Structure          Access   Search    Insert        Delete        Notes
+   Array/list         O(1)     O(n)      O(n) (end O(1)am) O(n)      contiguous
+   Linked list        O(n)     O(n)      O(1) at node/head O(1) at node  no random access
+   Stack / queue      -        O(n)      O(1)          O(1)          LIFO / FIFO
+   Deque              ends O(1) O(n)     O(1) both ends O(1) both ends
+   Hash table         -        O(1)/O(n) O(1)/O(n)     O(1)/O(n)     unordered
+   BST (balanced)     -        O(log n)  O(log n)      O(log n)      sorted order
+   BST (skewed)       -        O(n)      O(n)          O(n)
+   Binary heap        min O(1) O(n)      O(log n)      O(log n)      build O(n)
+   Trie               -        O(L)      O(L)          O(L)          prefix queries
+   Graph adj. list    -        O(V+E) traversal         edge add O(1)
+   Union-Find         -        ~O(1)     union ~O(1)
+   # HOW: array access = address math (O(1)), shifting for insert/delete (O(n)); linked list = pointer walk to access (O(n)), rewiring to insert (O(1));
+   #      hash = jump to a bucket; BST = one root-to-leaf path = height; heap = height log n; trie = one hop per character.
+
+ SORTING
+   Bubble/Selection/Insertion O(n^2) | Merge, Heap O(n log n) | Quick avg
+   O(n log n), worst O(n^2) | Counting O(n+k) | Radix O(d(n+b)) | Timsort O(n) best,
+   O(n log n) worst. Stable: bubble, insertion, merge, counting, radix, Timsort.
+
+ SEARCHING
+   Linear O(n) | Binary O(log n) | Hash O(1) avg | BFS/DFS O(V+E).
+
+ GRAPH ALGORITHMS
+   BFS/DFS/Topo O(V+E) | Dijkstra O((V+E) log V) | Bellman-Ford O(VE) |
+   Floyd O(V^3) | Kruskal O(E log E) | Prim O(E log V).
+
+ PYTHON BUILT-INS: see 2.5.
+
+ FORMULAS TO KNOW
+   1+...+n = n(n+1)/2 | 1+2+4+...+2^k = 2^(k+1)-1 | log2(n!) = Theta(n log n) |
+   subsets 2^n | permutations n! | combinations C(n,k) | Catalan C(2n,n)/(n+1) |
+   height of a complete tree floor(log2 n) | tree with n nodes has n-1 edges.
+
+
+==============================================================================
+ 4.  COMMON MISTAKES
+==============================================================================
+
+ TIMED ROUNDS
+   - Coding immediately without understanding or clarifying.
+   - Going silent; not explaining the idea.
+   - Jumping to a clever solution without stating the brute force.
+   - Over-engineering; writing too much code; no helper functions.
+   - Ignoring constraints (writing O(n^2) for n = 10^5).
+   - Not testing; only running the happy path; not dry-running.
+   - Panicking after one bug; random changes instead of tracing.
+   - Spending 30 minutes on one OA problem; no partial submission.
+   - Not reading the problem statement completely (return type, indexing, ties).
+   - Not stating complexity at the end.
+   - Memorising solutions instead of patterns (fails on variations).
+   - Reading input slowly in Python (input() in a loop of 10^6 lines).
+
+ COMPLEXITY ANALYSIS
+   - Multiplying instead of adding sequential loops; adding instead of
+     multiplying nested ones.
+   - Treating independent inputs as one n.
+   - Missing hidden costs: slicing, `in` on lists, string concatenation, sort in a
+     loop, deepcopy.
+   - Saying hash operations are always O(1).
+   - Counting recursive calls as space (space = depth).
+   - Calling inner `while` loops O(n) each when pointers only move forward
+     (amortized O(n) total).
+   - Calling the naive Fibonacci's space O(2^n).
+   - Forgetting the recursion stack in "O(1) space" claims.
+   - Confusing O(n log n) with O(n) for heapify, or log n with n for halving + copy.
+   - Reporting best case as the complexity.
+   - Ignoring output size (e.g., generating all subsets in O(2^n) when each costs
+     O(n) to copy).
+   - Equating "fast in practice" with a better big-O.
+
+
+==============================================================================
+ 5.  INTERVIEW FAQs
+==============================================================================
+
+ Q1.  How should I start a coding interview problem?
+      Restate the problem, ask clarifying questions, walk through an example, then
+      outline brute force before optimising.
+ Q2.  What if I don't know the solution?
+      Say what you do know, solve a simpler version, state the brute force, and
+      ask for a hint. Interviewers evaluate the process.
+ Q3.  Should I write the brute force?
+      State it with its complexity; code it only if time is plentiful, the
+      interviewer asks, or in an OA to secure partial credit.
+ Q4.  How much should I talk?
+      Continuously but concisely: intent before each block of code, not every
+      keystroke.
+ Q5.  How do I choose between hash map and sorting?
+      Hash map: O(n) time/O(n) space, keeps original order and indices. Sorting:
+      O(n log n), O(1) extra, loses indices unless stored.
+ Q6.  How do I handle a bug in the interview?
+      Stay calm, trace with the failing input, find the first wrong value, fix,
+      re-run.
+ Q7.  Can I use built-in functions (sort, Counter, heapq)?
+      Usually yes; say what they cost. If the question is about implementing the
+      algorithm itself (e.g. sort), don't use the built-in.
+ Q8.  What is the difference between time complexity and running time?
+      Complexity describes growth with input size, independent of hardware;
+      running time is the actual measured seconds.
+ Q9.  Why do we ignore constants?
+      For large n the growth rate dominates; constants depend on the machine and
+      implementation. (But mention them when comparing same-order approaches.)
+ Q10. Is O(n log n) always better than O(n^2)?
+      Asymptotically yes; for tiny n the quadratic algorithm with a smaller
+      constant can be faster (insertion sort inside Timsort).
+ Q11. What is the complexity of recursion with memoization?
+      (distinct states) x (work per state).
+ Q12. How do I know when to stop optimising?
+      When you reach the lower bound (e.g. must read all input) or meet the
+      constraints with margin; confirm with the interviewer.
+ Q13. How many problems should I solve?
+      Roughly 150-250 chosen by pattern with deep understanding and spaced
+      review beats hundreds of skimmed ones.
+ Q14. How do I manage time in an OA?
+      Skim, easiest first, partial credit with brute force, leave the final 5-10
+      minutes for checks.
+ Q15. What's the best way to practise?
+      Timed, pattern-grouped, then mixed; explain aloud; re-solve failures a week
+      later; keep a mistake log.
+ Q16. What do I do if I finish early?
+      Test more edge cases, discuss complexity and trade-offs, propose follow-ups
+      (streaming input, larger scale, parallelism).
+ Q17. What about whiteboard coding without an interpreter?
+      Write neat code, use meaningful names, leave space for edits, and dry-run
+      by hand on an example.
+ Q18. How do I analyse complexity of a recursive function quickly?
+      Number of calls x work per call; or recurrence + Master theorem; space =
+      depth.
+
+
+==============================================================================
+ 6.  PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+ PART A - COMPLEXITY (5 minutes each)
+ A1.  Determine the time complexity:
+        for i in range(n):
+            for j in range(0, n, 2):
+                for k in range(10):
+                    pass
+ A2.  Time complexity:
+        i = n
+        while i > 0:
+            for j in range(i):
+                pass
+            i //= 2
+ A3.  Time and space of generating all permutations of n distinct numbers and
+      storing them.
+ A4.  What is the complexity of this recursion?  f(n) = f(n/2) + f(n/2) + O(1).
+ A5.  Why is the following O(n^2) and how to fix it?
+        def reverse(s):
+            if not s: return ""
+            return reverse(s[1:]) + s[0]
+ A6.  Complexity of "for each of n words, check if it is in a list of m words" vs
+      using a set of those m words.
+ A7.  A sliding window uses `while` inside `for`. Is it O(n^2)?
+ A8.  Complexity of Dijkstra with a binary heap on V = 10^5, E = 5*10^5.
+ A9.  Time/space of 0/1 knapsack with n items and capacity W; why "pseudo-
+      polynomial"?
+ A10. Which is faster for n = 10^6 in Python: O(n log n) sort or an O(n^2)
+      approach? Estimate.
+
+ PART B - TIMED CODING DRILLS (targets in minutes)
+ B1.  (10) Two Sum: return indices of two numbers adding to target.
+ B2.  (15) Valid Parentheses.
+ B3.  (15) Reverse a linked list (iterative and recursive).
+ B4.  (20) Longest Substring Without Repeating Characters.
+ B5.  (20) Merge Intervals.
+ B6.  (25) Number of Islands.
+ B7.  (25) Top K Frequent Elements (O(n log k) and O(n)).
+ B8.  (25) Course Schedule (can finish all courses?).
+ B9.  (30) Coin Change (minimum coins).
+ B10. (30) Lowest Common Ancestor of a binary tree.
+ B11. (35) Subsets and Permutations (with and without duplicates).
+ B12. (40) Minimum Window Substring.
+ For each: write the clarifying questions, brute force + complexity, optimised
+ approach + complexity, code, three edge cases, and the final complexity statement.
+
+ PART C - MOCK ROUND (45 minutes): pick one medium problem you have not seen and
+ run the 7-step framework with a timer; afterwards fill in the self-rubric (1.14).
+
+---- ANSWERS ----
+ A1.  n * (n/2) * 10 = 5 n^2 -> O(n^2).
+ A2.  n + n/2 + ... = 2n -> O(n).
+ A3.  n! permutations, each of length n -> time O(n * n!), space O(n * n!) to store
+      all (O(n) if only generated).
+ A4.  T(n) = 2T(n/2) + 1 -> O(n) (Master case 1: n^(log2 2) = n > n^0).
+ A5.  Slicing copies O(n) at each of n levels -> O(n^2) time and space; fix with an
+      index or iterative reversal: "".join(reversed(s)) / s[::-1] -> O(n).
+ A6.  List version: O(n*m) (each `in` scans m). Set version: O(n + m) (build O(m),
+      n lookups O(1) average).
+ A7.  No. Each element enters and leaves the window at most once, so the pointers
+      move at most 2n times in total: amortized O(n).
+ A8.  O((V + E) log V) = (6 x 10^5) * 17 ~ 10^7 heap operations: feasible in a few
+      seconds in Python with care (use heapq and the stale-entry check).
+ A9.  O(n*W) time, O(W) space with a 1D array. The runtime is polynomial in the
+      numeric VALUE of W but exponential in its bit length -> pseudo-polynomial.
+ A10. O(n log n) ~ 2 x 10^7 basic steps (built-in sort runs in about a second).
+      O(n^2) = 10^12 -> impossible. Always prefer the n log n solution.
+
+ PART B hints:
+ B1.  hash map complement, O(n).
+ B2.  stack + matching map, O(n).
+ B3.  prev/cur/next pointers (iterative); recursion O(n) stack.
+ B4.  sliding window with last-seen indices, O(n).
+ B5.  sort by start, merge while start <= last end, O(n log n).
+ B6.  DFS/BFS flood fill, O(R*C).
+ B7.  Counter + heap of size k O(n log k), or bucket by frequency O(n).
+ B8.  Kahn's algorithm, processed == numCourses, O(V+E).
+ B9.  dp[a] = min(dp[a-c]) + 1, O(amount * coins).
+ B10. recursive: if both sides return non-None, current node is the LCA; O(n).
+ B11. backtracking; sort + skip duplicates; O(n * 2^n) and O(n * n!).
+ B12. window with need/missing counters, O(n + m).
+
+
+==============================================================================
+ 7.  QUICK REVISION SUMMARY
+==============================================================================
+
+ TIMED ROUNDS
+   - Time split (45 min): 5 clarify | 5 example/approach | 5 brute force + optimise
+     | 20 code | 7 test | 3 wrap-up.
+   - Framework: Understand -> Match -> Plan -> Implement -> Review -> Evaluate.
+   - Constraints decide the algorithm (n <= 10^5 -> O(n log n); n <= 2000 -> O(n^2);
+     n <= 20 -> O(2^n); n <= 10 -> O(n!)). In Python, budget ~10^7 simple ops/sec.
+   - Brute force first (state complexity), find the bottleneck, apply a pattern.
+   - Clarify, think aloud, test edge cases, state final complexity.
+   - OA: skim, easiest first, partial credit, fast I/O (sys.stdin), 5-10 min to
+     re-check.
+   - Stuck? simplify, example, brute force, ask what is repeated/searched, ask for
+     a hint.
+   - Practise timed, by pattern, with a mistake log and spaced repetition.
+
+ COMPLEXITY ANALYSIS
+   - Name the sizes -> count the innermost statement -> add hidden costs ->
+     simplify -> space (variables + new containers + stack + output).
+   - Sequential add, nested multiply, dependent loops sum a series, geometric
+     sums stay O(n), harmonic sums give n log n.
+   - Recursion: calls x work per call; recurrence/Master theorem; space = depth.
+   - Python hidden costs: slicing, `in list`, string +=, insert/pop(0), sort in
+     loops, deepcopy; hash ops O(1) average.
+   - Amortized: two pointers, monotonic stack, dynamic array, DSU.
+   - Lower bounds: must read input -> Omega(n); comparison sort -> Omega(n log n).
+   - Always say: variables, dominant step, average vs worst, space, trade-offs.
+
+==============================================================================
+ END OF NOTES
+==============================================================================

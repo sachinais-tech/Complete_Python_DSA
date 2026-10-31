@@ -1,0 +1,1160 @@
+==============================================================================
+ SEARCHING & SORTING  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Binary Search | Merge Sort | Quick Sort | Other Sorting Algorithms
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  PART 1: SEARCHING
+      1.1  Linear search
+      1.2  Binary search: idea, steps, code, trace, why O(log n)
+      1.3  Binary search pitfalls (mid, loop condition, infinite loops)
+      1.4  Binary search variants (first/last occurrence, lower/upper bound,
+           insert position, rotated array, peak element, 2D matrix)
+      1.5  Binary search on the ANSWER (sqrt, Koko, ship packages)
+      1.6  Python bisect module
+      1.7  Other searches (jump, interpolation, exponential)
+  PART 2: SORTING BASICS
+      2.1  Terminology: stable, in-place, adaptive, internal/external
+      2.2  Lower bound for comparison sorts
+  PART 3: MERGE SORT
+  PART 4: QUICK SORT (Lomuto, Hoare, pivot choice, 3-way, quickselect)
+  PART 5: OTHER SORTING ALGORITHMS
+      5.1  Bubble   5.2 Selection   5.3 Insertion   5.4 Heap
+      5.5  Shell    5.6 Counting    5.7 Radix       5.8 Bucket
+      5.9  Timsort (Python's sort)
+  PART 6: PYTHON SORTING TOOLS (sorted, sort, key, cmp_to_key)
+  PART 7: MASTER COMPARISON TABLE + HOW TO CHOOSE
+  PART 8: SORTING-BASED PROBLEMS (with steps)
+  9.  Common mistakes and edge cases
+ 10.  Interview tips and FAQs
+ 11.  Practice problems (with answers)
+ 12.  Quick revision summary
+
+
+##############################################################################
+ PART 1 : SEARCHING
+##############################################################################
+
+==============================================================================
+1.1  LINEAR (SEQUENTIAL) SEARCH
+==============================================================================
+
+Check elements one by one until found or the end is reached.
+Works on ANY list (sorted or not).
+
+    Steps: 1) for i in range(n)
+           2) if a[i] == target: return i
+           3) return -1
+    def linear_search(a, t):
+        for i, x in enumerate(a):
+            if x == t: return i
+        return -1
+
+    Best O(1) (first element) | Average O(n) | Worst O(n) | Space O(1)
+    # HOW: best = target at index 0 -> 1 comparison; worst = target last/absent -> n comparisons; average ~ (n+1)/2 comparisons
+    #      -> still O(n) once constants are dropped. Only a loop index is stored -> O(1) space.
+
+==============================================================================
+1.2  BINARY SEARCH
+==============================================================================
+
+PRECONDITION: the data is SORTED (and has O(1) random access, e.g. an array).
+IDEA: compare the target with the middle element and DISCARD HALF of the
+search range each step.
+
+    sorted array, target = 23
+    index :  0   1   2   3    4    5    6    7    8    9
+    value : [2   5   8   12   16   23   38   56   72   91]
+
+    Step 1: lo=0 hi=9  mid=4 -> 16 < 23  => target is on the right
+            [2 5 8 12 16] | 23 38 56 72 91          (discard left half, lo=5)
+    Step 2: lo=5 hi=9  mid=7 -> 56 > 23  => target is on the left
+            23 38 56 | 72 91                        (discard right, hi=6)
+    Step 3: lo=5 hi=6  mid=5 -> 23 == 23 => FOUND at index 5
+
+STEPS (iterative)
+    1) lo = 0, hi = n - 1
+    2) while lo <= hi:
+         a) mid = lo + (hi - lo) // 2
+         b) if a[mid] == target: return mid
+         c) elif a[mid] < target: lo = mid + 1      (search right)
+         d) else:                 hi = mid - 1      (search left)
+    3) return -1 (not found)
+
+CODE
+    def binary_search(a, t):
+        lo, hi = 0, len(a) - 1
+        while lo <= hi:
+            mid = lo + (hi - lo) // 2
+            if a[mid] == t: return mid
+            if a[mid] < t:  lo = mid + 1
+            else:           hi = mid - 1
+        return -1
+
+RECURSIVE VERSION
+    def bs(a, t, lo, hi):
+        if lo > hi: return -1
+        mid = (lo + hi) // 2
+        if a[mid] == t: return mid
+        if a[mid] < t:  return bs(a, t, mid + 1, hi)
+        return bs(a, t, lo, mid - 1)
+    Space O(log n) due to the call stack. (Iterative is O(1).)
+    # HOW: the recursive version keeps one stack frame per halving = log2(n) frames -> O(log n); the loop reuses 3 variables -> O(1).
+
+WHY O(log n)?
+    n -> n/2 -> n/4 -> ... -> 1 : after k steps size is n/2^k.
+    Stop when n/2^k = 1  =>  k = log2(n).
+    1,000,000 elements need at most ~20 comparisons.
+    Recurrence: T(n) = T(n/2) + O(1)  =>  O(log n)  (Master theorem case 2).
+
+COMPLEXITY: Best O(1) | Average O(log n) | Worst O(log n) | Space O(1) iterative.
+Binary search on a linked list is NOT useful (finding mid costs O(n)).
+If you will search once in unsorted data, linear O(n) beats sort + search
+O(n log n). Sorting first pays off for MANY searches.
+# HOW: one query: sort+search = n log n + log n  >  n (linear scan). q queries: sort once (n log n) + q*log n  vs  q*n -> sorting wins when q is large.
+
+==============================================================================
+1.3  BINARY SEARCH PITFALLS
+==============================================================================
+
+ 1. MID OVERFLOW: (lo + hi) can overflow in C/Java. Use lo + (hi-lo)//2.
+    (Python ints do not overflow, but write it the safe way anyway.)
+ 2. LOOP CONDITION: `lo <= hi` when the search space is the closed range
+    [lo, hi]. With a half-open range [lo, hi) use `lo < hi`. Be consistent!
+ 3. INFINITE LOOP: using lo = mid or hi = mid with a floor mid and `lo <= hi`.
+    Always make progress: lo = mid + 1 / hi = mid - 1 (or use the upper mid
+    when lo = mid).
+ 4. DUPLICATES: plain binary search returns ANY matching index; use the
+    lower/upper bound variants to get first/last.
+ 5. Searching an UNSORTED array gives wrong answers.
+ 6. Empty array: hi = -1 so the loop never runs -> return -1 (works).
+ 7. Floating point answers: loop a fixed number of iterations (e.g. 100) or
+    until hi - lo < eps instead of comparing equality.
+
+TWO COMMON TEMPLATES
+  Template A (find exact value): closed range, lo <= hi, mid +/- 1.
+  Template B (find boundary / first True): half-open style.
+      lo, hi = 0, n          # answer in [lo, hi]; hi means "none found"
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if condition(mid): hi = mid        # mid could be the answer, keep it
+          else:              lo = mid + 1
+      return lo              # first index where condition is True
+  Template B works for "first index such that predicate is True" when the
+  predicate looks like  F F F F T T T T  (monotonic).
+
+==============================================================================
+1.4  BINARY SEARCH VARIANTS (with steps)
+==============================================================================
+
+--- V1. FIRST OCCURRENCE (LOWER BOUND) ----------------------------------------
+    Goal: smallest index i with a[i] >= target.
+    Steps: 1) lo = 0, hi = n
+           2) while lo < hi: mid = (lo+hi)//2
+                 if a[mid] < target: lo = mid + 1
+                 else: hi = mid
+           3) return lo   (check lo < n and a[lo] == target for existence)
+    Example a=[1,2,2,2,3], t=2 -> lo=1.
+
+--- V2. LAST OCCURRENCE (UPPER BOUND) -----------------------------------------
+    Goal: first index with a[i] > target; last occurrence = that index - 1.
+    Steps: same as V1 but test  a[mid] <= target: lo = mid + 1 else hi = mid.
+    Example a=[1,2,2,2,3], t=2 -> upper = 4 -> last occurrence = 3.
+    Count of target = upper - lower = 4 - 1 = 3.
+
+--- V3. SEARCH INSERT POSITION -------------------------------------------------
+    Where should target be inserted to keep order? = lower bound.
+    [1,3,5,6], t=5 -> 2 ; t=2 -> 1 ; t=7 -> 4 ; t=0 -> 0.
+
+--- V4. SEARCH IN ROTATED SORTED ARRAY (distinct values) -----------------------
+    Example: [4,5,6,7,0,1,2] (sorted array rotated at the pivot)
+    KEY FACT: at least ONE half [lo..mid] or [mid..hi] is always sorted.
+    Steps: 1) lo=0, hi=n-1
+           2) mid; if a[mid]==t: return mid
+           3) if a[lo] <= a[mid]:                 # LEFT half sorted
+                 if a[lo] <= t < a[mid]: hi = mid-1   # target inside it
+                 else: lo = mid+1
+              else:                                # RIGHT half sorted
+                 if a[mid] < t <= a[hi]: lo = mid+1
+                 else: hi = mid-1
+           4) return -1
+    Trace t=0: lo0 hi6 mid3 (7). left [4..7] sorted, 0 not in -> lo=4.
+               lo4 hi6 mid5 (1). left [0,1] sorted (a[4]=0<=1), 0 in [0,1) ->
+               hi=4. mid=4 -> a[4]=0 found.
+    With DUPLICATES: when a[lo]==a[mid]==a[hi] you cannot decide; shrink
+    lo++, hi-- (worst case O(n)).
+    # HOW: when a[lo]==a[mid]==a[hi] we can discard only ONE element per step (lo++ or hi--); if all n are equal that is n steps -> O(n).
+
+--- V5. FIND MINIMUM IN ROTATED SORTED ARRAY -----------------------------------
+    Steps: 1) lo=0, hi=n-1
+           2) while lo < hi: mid=(lo+hi)//2
+                 if a[mid] > a[hi]: lo = mid+1   # min is on the right
+                 else: hi = mid                  # mid may be the min
+           3) return a[lo]
+    [4,5,6,7,0,1,2] -> 0. Number of rotations = index of the minimum.
+
+--- V6. FIND PEAK ELEMENT (a[i] > neighbours) -----------------------------------
+    Steps: 1) lo=0, hi=n-1
+           2) while lo < hi: mid
+                 if a[mid] < a[mid+1]: lo = mid+1   # climb right
+                 else: hi = mid
+           3) return lo
+    Works because moving toward the larger neighbour always reaches a peak.
+
+--- V7. SEARCH IN A 2D MATRIX (rows sorted, first of row > last of previous) -----
+    Treat as a flattened sorted array of m*n items:
+      row = mid // n,  col = mid % n.   O(log(m*n)).
+    # HOW: the flattened matrix has m*n cells; halving them takes log2(m*n) steps, O(1) each.
+    For matrices sorted row-wise and column-wise (not flattened-sorted): start
+    at top-right; if value > t move left, else move down. O(m+n).
+    # HOW: start top-right; every step removes one whole row or one whole column, so at most m+n steps.
+
+--- V8. SQUARE ROOT (integer) -----------------------------------------------------
+    Steps: 1) lo=0, hi=x  2) while lo<=hi: mid; if mid*mid <= x: ans=mid, lo=mid+1
+           else hi=mid-1   3) return ans.
+
+--- V9. SEARCH IN AN INFINITE / UNKNOWN-SIZE SORTED ARRAY -------------------------
+    Steps: 1) hi = 1; while a[hi] < t: hi *= 2   (exponential search)
+           2) binary search in [hi/2, hi].  O(log pos).
+    # HOW: doubling hi until it passes the target takes log2(pos) steps; binary search in [hi/2, hi] (size ~pos) takes log2(pos) more -> O(log pos).
+
+--- V10. FIND K CLOSEST ELEMENTS / MEDIAN OF TWO SORTED ARRAYS ---------------------
+    K closest: binary search on the left edge of the window of size k.
+    Median of two sorted arrays: binary search the partition of the smaller
+    array -> O(log(min(m,n))).
+    # HOW: binary search on the partition point of the SMALLER array: log2(min(m,n)) halvings with O(1) work per check.
+
+==============================================================================
+1.5  BINARY SEARCH ON THE ANSWER
+==============================================================================
+
+When the answer lies in a numeric RANGE [lo, hi] and a feasibility test
+`can(x)` is MONOTONIC (False...False True...True), binary search the answer
+instead of an index. Cost = O(log(range) * cost of can()).
+# HOW: the range [lo, hi] has (hi-lo+1) candidates, halved each time -> log2(range) checks; each check runs can(), usually one O(n) greedy pass.
+
+STEPS (template)
+    1) Define the search range [lo, hi] of possible answers.
+    2) Write can(x): is x feasible?  (greedy O(n) check usually)
+    3) Binary search for the smallest feasible x (or largest).
+       while lo < hi:
+           mid = (lo + hi) // 2
+           if can(mid): hi = mid
+           else:        lo = mid + 1
+       return lo
+
+--- B1. KOKO EATING BANANAS ------------------------------------------------------
+    piles, h hours; minimum speed k so that sum(ceil(p/k)) <= h.
+    Range: lo=1, hi=max(piles). can(k) = sum((p + k - 1)//k) <= h.
+    piles=[3,6,7,11], h=8 -> 4.
+
+--- B2. CAPACITY TO SHIP PACKAGES WITHIN D DAYS -----------------------------------
+    Range: lo = max(weights), hi = sum(weights).
+    can(cap): greedily load days; count days used <= D.
+
+--- B3. SPLIT ARRAY LARGEST SUM / PAINTERS PARTITION / ALLOCATE BOOKS ---------------
+    Minimise the maximum sum of k parts: same pattern as B2.
+
+--- B4. AGGRESSIVE COWS / MAGNETIC BALLS (maximise the minimum distance) ------------
+    Search the distance d; can(d): greedily place items at least d apart.
+    Here use the "largest feasible" form: if can(mid): lo = mid+1 (keep best).
+
+--- B5. SMALLEST DIVISOR, MIN DAYS TO MAKE m BOUQUETS, NTH MAGICAL NUMBER ------------
+    All identical shape: monotonic feasibility + greedy check.
+
+CLUE WORDS: "minimum possible maximum", "maximum possible minimum", "smallest
+x such that...", "at most k days/parts", with sorted-ness hidden in feasibility.
+
+==============================================================================
+1.6  PYTHON bisect MODULE
+==============================================================================
+
+    import bisect
+    a = [1, 2, 2, 2, 3]
+    bisect.bisect_left(a, 2)     # 1  (lower bound)
+    bisect.bisect_right(a, 2)    # 4  (upper bound), alias bisect.bisect
+    bisect.insort(a, 2)          # insert keeping sorted order (O(n) shifting)
+    bisect_left(a, x, lo, hi, key=...)   # Python 3.10+ supports key=
+    Search: i = bisect_left(a, x); found = i < len(a) and a[i] == x
+    All lookups O(log n); insort is O(n) because of list insertion.
+    # HOW: bisect is a binary search on positions (log n); insort must also shift later elements to make room -> O(n).
+
+==============================================================================
+1.7  OTHER SEARCHING ALGORITHMS
+==============================================================================
+
+ JUMP SEARCH (sorted)   jump ahead by sqrt(n) blocks until a[block] >= t, then
+                        linear search inside that block. O(sqrt n), O(1).
+                        # HOW: ~n/b jumps + up to b steps in a block; best b = sqrt(n): n/sqrt(n) + sqrt(n) = 2*sqrt(n) -> O(sqrt n).
+                        Useful when going backwards is costly.
+ INTERPOLATION SEARCH   guess the position using the value:
+                        pos = lo + (t - a[lo]) * (hi - lo) / (a[hi] - a[lo]).
+                        Uniformly distributed sorted data: O(log log n);
+                        worst O(n).
+                        # HOW: on uniform data each probe shrinks the range n -> sqrt(n) -> n^(1/4) ..., taking log log n probes; skewed data degrades to n.
+ EXPONENTIAL SEARCH     doubling bounds then binary search. O(log i) where i is
+                        the position of the target; good for unbounded lists.
+ TERNARY SEARCH         finds the max/min of a unimodal function (not a sorted
+                        search); O(log n).
+ HASH LOOKUP            O(1) average, no sortedness needed.
+ BST / balanced tree    O(log n) with dynamic inserts.
+
+ Choosing: unsorted & single query -> linear; sorted & static -> binary;
+ many lookups -> hash set/dict; dynamic ordered data -> balanced BST.
+
+
+##############################################################################
+ PART 2 : SORTING BASICS
+##############################################################################
+
+==============================================================================
+2.1  TERMINOLOGY
+==============================================================================
+
+ SORTING: arranging elements in order (ascending or descending) by a key.
+
+ STABLE      : equal keys keep their ORIGINAL relative order.
+               [(2,'a'), (1,'x'), (2,'b')] sorted by number
+               stable   -> (1,x) (2,a) (2,b)
+               unstable -> may give (1,x) (2,b) (2,a)
+               Matters when sorting by multiple keys in passes (sort by name,
+               then by age) and for radix sort correctness.
+ IN-PLACE    : uses O(1) (or O(log n)) extra memory beyond the input.
+ ADAPTIVE    : runs faster when the input is already (nearly) sorted
+               (insertion sort, Timsort, bubble with early exit).
+ COMPARISON SORT : orders elements only by comparing pairs (merge, quick,
+               heap, insertion...). Non-comparison: counting, radix, bucket.
+ INTERNAL vs EXTERNAL : internal sorts fit in RAM; external sorts (external
+               merge sort) handle data bigger than memory using disk runs.
+ ONLINE      : can sort as data arrives (insertion sort).
+ INVERSION   : pair (i<j) with a[i] > a[j]. Sorted array has 0 inversions;
+               reversed has n(n-1)/2. Insertion sort time = O(n + inversions).
+
+==============================================================================
+2.2  LOWER BOUND FOR COMPARISON SORTS
+==============================================================================
+
+Any comparison-based sort needs Omega(n log n) comparisons in the worst case.
+Argument (decision tree):
+   - Each comparison is a yes/no question -> a binary tree.
+   - There are n! possible orderings, so the tree needs >= n! leaves.
+   - A binary tree with L leaves has height >= log2(L).
+   - Height >= log2(n!) = Theta(n log n)  (Stirling).
+So merge sort and heap sort are asymptotically optimal among comparison sorts.
+Counting/radix/bucket sorts beat this by NOT comparing (they use key values),
+but they need extra assumptions about the keys.
+
+
+##############################################################################
+ PART 3 : MERGE SORT
+##############################################################################
+
+==============================================================================
+3.1  IDEA (DIVIDE AND CONQUER)
+==============================================================================
+
+ 1. DIVIDE : split the array into two halves.
+ 2. CONQUER: sort each half recursively.
+ 3. COMBINE: MERGE the two sorted halves into one sorted array.
+Base case: array of length 0 or 1 is already sorted.
+
+DIAGRAM  a = [38, 27, 43, 3, 9, 82, 10]
+
+                    [38 27 43 3 9 82 10]
+                     /                \
+              [38 27 43 3]          [9 82 10]
+               /       \             /     \
+          [38 27]    [43 3]       [9 82]   [10]
+           /   \      /   \        /  \
+         [38] [27]  [43] [3]     [9] [82]
+           \   /      \   /        \  /
+          [27 38]    [3 43]       [9 82]   [10]       <- merge level
+               \       /              \     /
+              [3 27 38 43]          [9 10 82]
+                      \                /
+                [3 9 10 27 38 43 82]                  <- final
+
+  Depth = log2(n) levels; each level does O(n) merge work => O(n log n).
+  # HOW: halving gives log2(n) levels; on one level the pieces together hold n elements, so merging costs n per level -> n * log2(n).
+
+THE MERGE STEP (heart of the algorithm)
+ Merge sorted L=[3,27,38,43] and R=[9,10,82]:
+    Steps: 1) i = 0 (in L), j = 0 (in R), out = []
+           2) while i < len(L) and j < len(R):
+                 take the smaller of L[i], R[j]  (use <= for STABILITY: when
+                 equal, take from LEFT first); advance that pointer
+           3) append the leftover of L or R
+    L: 3 27 38 43     R: 9 10 82
+       i               j
+    compare 3 vs 9   -> out [3]
+    27 vs 9          -> out [3,9]
+    27 vs 10         -> out [3,9,10]
+    27 vs 82         -> out [3,9,10,27]
+    38 vs 82         -> 38 ; 43 vs 82 -> 43 ; L empty; append 82
+    out = [3,9,10,27,38,43,82]       Time O(len(L)+len(R))
+    # HOW: every comparison moves exactly ONE element to the output, so total steps = len(L) + len(R).
+
+STEPS FOR MERGE SORT
+    1) If len(a) <= 1: return a
+    2) mid = len(a)//2
+    3) left  = merge_sort(a[:mid]);  right = merge_sort(a[mid:])
+    4) return merge(left, right)
+
+CODE
+    def merge_sort(a):
+        if len(a) <= 1: return a
+        mid = len(a) // 2
+        L, R = merge_sort(a[:mid]), merge_sort(a[mid:])
+        out, i, j = [], 0, 0
+        while i < len(L) and j < len(R):
+            if L[i] <= R[j]: out.append(L[i]); i += 1    # <= keeps it stable
+            else:            out.append(R[j]); j += 1
+        out.extend(L[i:]); out.extend(R[j:])
+        return out
+
+  Index-based version (avoids slicing copies): merge_sort(a, lo, hi) with one
+  auxiliary buffer of size n reused for every merge.
+
+COMPLEXITY
+    Recurrence: T(n) = 2T(n/2) + O(n)  =>  Theta(n log n)  (all cases)
+    # HOW: T(n)=2T(n/2)+n unrolls to n + 2(n/2) + 4(n/4) + ... = n per level for log2(n) levels -> n log n.
+    #      Best/avg/worst are equal because the split is always exactly in half.
+    Best / Average / Worst : O(n log n)
+    Space : O(n) auxiliary (+ O(log n) recursion stack)
+    # HOW: the merge buffer holds up to n elements -> O(n); the recursion adds depth log n -> O(n) overall.
+    Stable: YES.   In-place: NO (array version).   Adaptive: no.
+
+PROS: guaranteed O(n log n); stable; great for linked lists (O(1) extra space
+with relinking, no random access needed) and external sorting; parallelisable.
+CONS: O(n) extra memory for arrays; slower constant than quick sort in RAM.
+
+VARIANTS
+   - Bottom-up merge sort: start with runs of size 1, merge pairs of size
+     1,2,4,8,... iteratively (no recursion). O(n log n).
+   - Natural merge sort: detect existing runs (basis of Timsort).
+   - Linked-list merge sort: find middle with slow/fast pointers, split,
+     sort, merge (see linear data structures notes).
+
+--- MS1. COUNT INVERSIONS (classic) -------------------------------------------------
+    Idea: during merge, when R[j] is taken before the remaining L elements,
+    each of those remaining L elements forms an inversion with R[j].
+    Steps: 1) in merge: if L[i] <= R[j]: take L[i]
+                         else: take R[j]; inversions += len(L) - i
+           2) sum inversions from left half + right half + merge step.
+    [2,4,1,3,5] -> inversions: (2,1),(4,1),(4,3) = 3.   O(n log n).
+    # HOW: the counting (adding len(L)-i) happens inside the normal merge in O(1), so the total stays that of merge sort.
+
+--- MS2. SORT A LINKED LIST; MERGE K SORTED LISTS; EXTERNAL SORT ---------------------
+    k-way merge using a min-heap: O(N log k).
+    # HOW: N items overall; each pop/push on a heap of k lists costs log k -> N log k.
+    External sort: sort chunks that fit in RAM, write runs to disk, k-way merge.
+
+--- MS3. COUNT SMALLER ELEMENTS TO THE RIGHT / REVERSE PAIRS ------------------------
+    Modified merge sort counting during the merge (same idea as MS1).
+
+
+##############################################################################
+ PART 4 : QUICK SORT
+##############################################################################
+
+==============================================================================
+4.1  IDEA (DIVIDE AND CONQUER, WORK DONE BEFORE RECURSION)
+==============================================================================
+
+ 1. Choose a PIVOT.
+ 2. PARTITION: rearrange so that elements < pivot are on its left and
+    elements > pivot are on its right. The pivot is then in its FINAL position.
+ 3. Recursively sort the left part and the right part.
+
+        before:  [ 7  2  9  4  3  8  5 ]       pivot = 5 (last)
+        after partition:
+                 [ 2  4  3 | 5 | 9  8  7 ]
+                   < 5       ^    > 5
+                          pivot final position
+
+ No combine step needed (merge sort has no partition step; quick sort has no
+ merge step).
+
+==============================================================================
+4.2  PARTITION SCHEMES
+==============================================================================
+
+(A) LOMUTO PARTITION (simple; pivot = last element)
+    Steps: 1) pivot = a[hi]; i = lo - 1
+           2) for j in lo .. hi-1:
+                 if a[j] <= pivot: i += 1; swap a[i], a[j]
+           3) swap a[i+1], a[hi]       (put pivot in place)
+           4) return i + 1             (pivot index)
+    i marks the end of the "<= pivot" region.
+
+    Trace a=[10,80,30,90,40,50,70], pivot=70 (hi=6), i=-1
+      j=0: 10<=70 -> i=0, swap(a0,a0)        [10,80,30,90,40,50,70]
+      j=1: 80>70  -> nothing
+      j=2: 30<=70 -> i=1, swap(a1,a2)        [10,30,80,90,40,50,70]
+      j=3: 90>70  -> nothing
+      j=4: 40<=70 -> i=2, swap(a2,a4)        [10,30,40,90,80,50,70]
+      j=5: 50<=70 -> i=3, swap(a3,a5)        [10,30,40,50,80,90,70]
+      end: swap(a[i+1]=a4, pivot a6)         [10,30,40,50,70,90,80]
+      pivot index = 4. Left [10,30,40,50] < 70 < right [90,80].
+
+    Region picture during Lomuto:
+      | lo ........ i | i+1 ........ j-1 | j ....... hi-1 | hi |
+      |   <= pivot    |     > pivot      |   unexamined   |pivot|
+
+(B) HOARE PARTITION (fewer swaps; two pointers from both ends)
+    Steps: 1) pivot = a[lo]; i = lo - 1; j = hi + 1
+           2) loop: do i++ while a[i] < pivot
+                    do j-- while a[j] > pivot
+                    if i >= j: return j
+                    swap a[i], a[j]
+    Then recurse on [lo..j] and [j+1..hi] (NOT j-1/j+1; the pivot isn't
+    necessarily in final place). About 3x fewer swaps than Lomuto and handles
+    many duplicates better.
+
+(C) 3-WAY PARTITION (Dutch National Flag) - best with many duplicates
+    Regions:  [ < pivot | == pivot | unknown | > pivot ]
+    Steps: lt=lo, i=lo, gt=hi
+           while i <= gt:
+              a[i] < p : swap(a[lt], a[i]); lt++; i++
+              a[i] > p : swap(a[i], a[gt]); gt--          (don't advance i)
+              else     : i++
+    Recurse only on [lo..lt-1] and [gt+1..hi]. All-equal array becomes O(n).
+
+==============================================================================
+4.3  QUICK SORT CODE
+==============================================================================
+
+    def quick_sort(a, lo=0, hi=None):
+        if hi is None: hi = len(a) - 1
+        if lo < hi:
+            p = partition(a, lo, hi)
+            quick_sort(a, lo, p - 1)
+            quick_sort(a, p + 1, hi)
+
+    def partition(a, lo, hi):               # Lomuto
+        pivot, i = a[hi], lo - 1
+        for j in range(lo, hi):
+            if a[j] <= pivot:
+                i += 1
+                a[i], a[j] = a[j], a[i]
+        a[i + 1], a[hi] = a[hi], a[i + 1]
+        return i + 1
+
+    Randomised pivot: swap a[random.randint(lo,hi)] with a[hi] before
+    partitioning.
+
+STEPS (summary)
+    1) If the range has <= 1 element: stop.
+    2) Pick a pivot (random / median-of-three / last).
+    3) Partition around the pivot; get its final index p.
+    4) Quick sort a[lo..p-1] and a[p+1..hi].
+
+==============================================================================
+4.4  COMPLEXITY ANALYSIS
+==============================================================================
+
+ BEST / AVERAGE: pivot splits roughly in half
+       T(n) = 2T(n/2) + O(n)      => O(n log n)
+ WORST: pivot is always the min or max (e.g. sorted input with first/last
+       pivot, or all equal elements with Lomuto)
+       T(n) = T(n-1) + O(n)       => O(n^2)
+   # HOW (best/avg): partition costs n and the pieces are ~n/2 -> n per level x log2(n) levels.
+   #      HOW (worst): pivot = min/max leaves pieces n-1 and 0 -> n + (n-1) + ... + 1 = n(n+1)/2 -> O(n^2).
+ Even a 1:9 split every time still gives O(n log n) (depth log_{10/9} n).
+# HOW: a 1:9 split still shrinks the problem by a constant FACTOR (9/10) per level, so depth = log base (10/9) of n = c*log n; the constant c is dropped.
+ Expected time with a random pivot: O(n log n) (probability of bad luck is
+ vanishingly small).
+
+ Space: O(log n) average stack; O(n) worst. To guarantee O(log n): recurse
+ into the SMALLER part and loop on the larger (tail-call elimination).
+# HOW: only the current recursion path is stored: depth ~log n on average; a bad pivot makes depth n. Recursing into the smaller half first caps depth at log2(n).
+ Stable: NO (partition swaps long distances).  In-place: yes.  Adaptive: no.
+
+ PIVOT STRATEGIES
+    first/last element   : simple, O(n^2) on sorted input
+    random               : expected O(n log n), common default
+    median-of-three      : median(first, middle, last), avoids sorted worst case
+    true median (median of medians) : guaranteed O(n log n) but big constant
+    Introsort            : quick sort that switches to heap sort when depth
+                           exceeds 2*log2(n) -> worst-case O(n log n)
+                           (C++ std::sort).
+
+ QUICK SORT vs MERGE SORT
+    Quick : in-place, usually faster in practice (cache friendly, small
+            constants), worst case O(n^2), not stable.
+    Merge : O(n log n) always, stable, O(n) extra space, good for linked lists
+            and external data.
+
+==============================================================================
+4.5  QUICKSELECT (k-th smallest in O(n) average)
+==============================================================================
+
+Partition like quick sort, but recurse into ONLY the side that contains the
+k-th position.
+    Steps: 1) target index = k-1 (k-th smallest, 1-based)
+           2) p = partition(a, lo, hi)
+           3) if p == target: return a[p]
+              elif p > target: search left [lo..p-1]
+              else: search right [p+1..hi]
+    Average: n + n/2 + n/4 + ... = O(n). Worst O(n^2) (random pivot makes it
+    # HOW: one partition costs n, then we recurse into ONE side: n + n/2 + n/4 + ... < 2n -> O(n) (geometric sum).
+    #      Worst case the side is n-1 every time: n + (n-1) + ... = O(n^2).
+    very unlikely). Alternatives: min-heap of size k O(n log k); sort O(n log n).
+    Used for: k-th largest element, median, top-k (unordered).
+
+
+##############################################################################
+ PART 5 : OTHER SORTING ALGORITHMS
+##############################################################################
+
+==============================================================================
+5.1  BUBBLE SORT
+==============================================================================
+
+IDEA: repeatedly compare ADJACENT elements and swap if out of order. After
+each pass the largest remaining element "bubbles" to the end.
+
+    Steps: 1) for pass in 0 .. n-2
+           2)   swapped = False
+           3)   for j in 0 .. n-pass-2: if a[j] > a[j+1]: swap; swapped = True
+           4)   if not swapped: break      (already sorted -> early exit)
+
+    Trace [5,1,4,2,8]:
+      pass 1: (5,1)swap (5,4)swap (5,2)swap (5,8)ok   -> [1,4,2,5,8]
+      pass 2: (1,4)ok (4,2)swap (4,5)ok               -> [1,2,4,5,8]
+      pass 3: no swaps -> stop.
+
+    def bubble_sort(a):
+        n = len(a)
+        for p in range(n - 1):
+            swapped = False
+            for j in range(n - 1 - p):
+                if a[j] > a[j + 1]:
+                    a[j], a[j + 1] = a[j + 1], a[j]; swapped = True
+            if not swapped: break
+    Best O(n) (with flag) | Avg O(n^2) | Worst O(n^2) | Space O(1)
+    # HOW: pass p compares n-1-p pairs: (n-1)+(n-2)+...+1 = n(n-1)/2 -> O(n^2). Sorted input + 'swapped' flag stops after one pass of n-1 compares -> O(n).
+    Stable YES | In-place YES | Adaptive YES (with flag).
+    Number of swaps = number of inversions. Mostly of teaching value.
+
+==============================================================================
+5.2  SELECTION SORT
+==============================================================================
+
+IDEA: repeatedly SELECT the minimum of the unsorted part and put it at the
+front of the unsorted part.
+
+    Steps: 1) for i in 0 .. n-2
+           2)   min_idx = i
+           3)   for j in i+1 .. n-1: if a[j] < a[min_idx]: min_idx = j
+           4)   swap a[i], a[min_idx]
+
+    Trace [64,25,12,22,11]:
+      i=0: min 11 -> swap with 64   [11,25,12,22,64]
+      i=1: min 12 -> swap with 25   [11,12,25,22,64]
+      i=2: min 22 -> swap with 25   [11,12,22,25,64]
+      i=3: min 25 already in place  [11,12,22,25,64]
+
+    sorted part | unsorted part
+    [11 12 22 | 25 64]
+
+    Always O(n^2) comparisons (even if sorted), but only O(n) SWAPS (at most
+    # HOW: finding the minimum always scans the whole unsorted part: (n-1)+(n-2)+...+1 = n(n-1)/2 comparisons, whatever the input order;
+    #      one swap per outer step -> at most n-1 swaps.
+    n-1) -> useful when writes are expensive (flash memory).
+    Best/Avg/Worst O(n^2) | Space O(1) | Stable NO (long-distance swap) |
+    In-place YES | Not adaptive.
+
+==============================================================================
+5.3  INSERTION SORT
+==============================================================================
+
+IDEA: grow a sorted prefix; take the next element and INSERT it into its
+correct place in the prefix by shifting larger elements right (like sorting
+playing cards in your hand).
+
+    Steps: 1) for i in 1 .. n-1
+           2)   key = a[i]; j = i - 1
+           3)   while j >= 0 and a[j] > key: a[j+1] = a[j]; j -= 1   (shift)
+           4)   a[j+1] = key
+
+    Trace [12,11,13,5,6]:
+      i=1 key 11: shift 12        -> [11,12,13,5,6]
+      i=2 key 13: no shift        -> [11,12,13,5,6]
+      i=3 key 5 : shift 13,12,11  -> [5,11,12,13,6]
+      i=4 key 6 : shift 13,12,11  -> [5,6,11,12,13]
+
+    def insertion_sort(a):
+        for i in range(1, len(a)):
+            key, j = a[i], i - 1
+            while j >= 0 and a[j] > key:
+                a[j + 1] = a[j]; j -= 1
+            a[j + 1] = key
+
+    Best O(n) (already sorted) | Avg O(n^2) | Worst O(n^2) (reversed)
+    # HOW: shifts for element i = number of larger elements before it (inversions). Sorted input: 0 shifts + n-1 compares -> O(n).
+    #      Reversed input: 1+2+...+(n-1) = n(n-1)/2 shifts -> O(n^2).
+    Space O(1) | Stable YES | In-place YES | Adaptive YES | Online YES.
+    Time = O(n + inversions). EXCELLENT for small or nearly-sorted arrays;
+    used inside Timsort/introsort for tiny partitions (n < ~16-64).
+    Binary insertion sort: find position with binary search (fewer
+    comparisons), but shifting is still O(n).
+
+==============================================================================
+5.4  HEAP SORT
+==============================================================================
+
+PREREQ: a BINARY HEAP stored in an array. For node i: left child 2i+1, right
+child 2i+2, parent (i-1)//2. MAX-HEAP: parent >= children.
+
+        array [10, 5, 3, 4, 1]           10
+                                        /  \
+                                       5    3
+                                      / \
+                                     4   1
+
+STEPS
+    1) BUILD a max-heap from the array (heapify bottom-up, from the last
+       non-leaf n//2 - 1 down to 0):  O(n)
+    # HOW: sift-down starts at node n//2-1; a node at height h moves at most h levels and ~n/2^(h+1) nodes have height h:
+    #      total = n * sum(h / 2^(h+1)) <= n -> O(n)  (NOT n log n).
+    2) Repeat n-1 times:
+         a) swap root (max) with the last element of the heap
+         b) shrink heap size by 1 (the max is now fixed in its final place)
+         c) sift-down (heapify) the new root:  O(log n)
+         # HOW: sift-down goes at most the heap height, log2(n) levels, O(1) per level; it runs n-1 times -> n log n.
+
+    heapify(a, n, i):      (sift-down)
+         largest = i; l = 2i+1; r = 2i+2
+         if l<n and a[l]>a[largest]: largest = l
+         if r<n and a[r]>a[largest]: largest = r
+         if largest != i: swap a[i], a[largest]; heapify(a, n, largest)
+
+    Trace [4,10,3,5,1]:
+      build heap -> [10,5,3,4,1]
+      swap 10<->1  [1,5,3,4 | 10]  sift -> [5,4,3,1 | 10]
+      swap 5<->1   [1,4,3 | 5,10]  sift -> [4,1,3 | 5,10]
+      swap 4<->3   [3,1 | 4,5,10]  sift -> [3,1 | 4,5,10]
+      swap 3<->1   [1 | 3,4,5,10]  -> sorted [1,3,4,5,10]
+
+    def heap_sort(a):
+        n = len(a)
+        for i in range(n // 2 - 1, -1, -1): heapify(a, n, i)
+        for end in range(n - 1, 0, -1):
+            a[0], a[end] = a[end], a[0]
+            heapify(a, end, 0)
+
+    Best/Avg/Worst O(n log n) | Space O(1) | Stable NO | In-place YES |
+    Not adaptive. Poor cache locality -> slower than quick sort in practice.
+    Building the heap is O(n), not O(n log n): most nodes are near the bottom.
+    Python alternative: heapq (min-heap): heapify(list) then heappop n times.
+
+==============================================================================
+5.5  SHELL SORT
+==============================================================================
+
+IDEA: generalised insertion sort. Sort elements far apart first (gap), then
+shrink the gap to 1. Far moves remove many inversions quickly.
+    Steps: 1) gap = n//2
+           2) while gap > 0: do an insertion sort on elements gap apart
+              (for i in gap..n-1: key=a[i]; j=i; while j>=gap and a[j-gap]>key:
+                  a[j]=a[j-gap]; j-=gap; a[j]=key)
+           3) gap //= 2
+    Complexity depends on the gap sequence: ~O(n^2) worst for n/2 halving,
+    O(n^(3/2)) Knuth, about O(n log^2 n) with better gaps. In-place, not
+    stable. Rarely asked in depth.
+
+==============================================================================
+5.6  COUNTING SORT (non-comparison)
+==============================================================================
+
+ASSUMPTION: keys are integers in a SMALL range [0, k]. Count occurrences,
+then place elements by their counts.
+
+    Steps: 1) find max (k); count = [0]*(k+1)
+           2) for x in a: count[x] += 1
+           3) prefix-sum the counts: count[i] += count[i-1]
+              (count[i] = number of elements <= i = end position + 1)
+           4) go through a from RIGHT to LEFT (for stability):
+                  out[count[x]-1] = x; count[x] -= 1
+           5) out is sorted.
+
+    Trace a = [4,2,2,8,3,3,1]:
+      counts (0..8): [0,1,2,2,1,0,0,0,1]
+      prefix       : [0,1,3,5,6,6,6,6,7]
+      placing from the right gives out = [1,2,2,3,3,4,8]
+    Simple version (no stability needed): rebuild by repeating each value
+    count[v] times.
+
+    def counting_sort(a):
+        if not a: return a
+        k = max(a)
+        count = [0] * (k + 1)
+        for x in a: count[x] += 1
+        for i in range(1, k + 1): count[i] += count[i - 1]
+        out = [0] * len(a)
+        for x in reversed(a):
+            count[x] -= 1; out[count[x]] = x
+        return out
+    Time O(n + k) | Space O(n + k) | Stable YES (with the right-to-left pass) |
+    # HOW: pass to count (n) + pass over the k+1 counters for prefix sums (k) + pass to place (n) = 2n + k -> O(n+k); count[] (k+1) + out[] (n) -> O(n+k) space.
+    Not in-place. Bad when k >> n. Negative numbers: offset by min.
+
+==============================================================================
+5.7  RADIX SORT (LSD)
+==============================================================================
+
+IDEA: sort numbers digit by digit from the LEAST significant digit to the
+most, using a STABLE sort (counting sort) for each digit.
+
+    Trace [170,45,75,90,802,24,2,66]:
+      by 1s digit  : 170, 90, 802, 2, 24, 45, 75, 66
+      by 10s digit : 802, 2, 24, 45, 66, 170, 75, 90
+      by 100s digit: 2, 24, 45, 66, 75, 90, 170, 802   <- sorted
+
+    Steps: 1) d = number of digits of the max value
+           2) for each digit position (exp = 1, 10, 100...):
+                 stable counting sort by (x // exp) % 10
+    Time O(d * (n + b)) where b = base (10)  ~ O(n) for fixed d.
+    # HOW: d digit passes, each a counting sort costing n + b -> d*(n+b); for fixed d (e.g. 32-bit ints) and b = 10 that is O(n).
+    Space O(n + b) | Stable YES. Works for fixed-length strings/integers.
+    MSD radix sort starts from the most significant digit (used for strings).
+
+==============================================================================
+5.8  BUCKET SORT
+==============================================================================
+
+IDEA: distribute elements into buckets by value range, sort each bucket
+(usually insertion sort), concatenate. Best for uniformly distributed data,
+e.g. floats in [0,1).
+    Steps: 1) create n empty buckets
+           2) put x into bucket int(n * x)
+           3) sort each bucket
+           4) concatenate buckets in order
+    Average O(n + k) for uniform input; worst O(n^2) (all in one bucket).
+    # HOW: uniform data -> ~1 item per bucket, so each tiny sort is O(1) -> O(n+k); if every item lands in ONE bucket, that bucket's insertion sort costs O(n^2).
+    Space O(n + k). Stable if the bucket sort is stable.
+    (Used by "Top K Frequent": bucket index = frequency.)
+
+==============================================================================
+5.9  TIMSORT (what Python uses)
+==============================================================================
+
+HYBRID of merge sort and insertion sort, designed for real-world data that has
+existing ordered RUNS.
+   1) Scan the array for natural runs (ascending or strictly descending -
+      descending runs are reversed). Short runs are extended to a minimum
+      length (minrun, ~32-64) using binary insertion sort.
+   2) Merge runs pairwise under invariants that keep the merge stack balanced.
+   3) "Galloping mode" speeds up merging when one run keeps winning.
+   Best O(n) (already sorted) | Avg/Worst O(n log n) | Space O(n) worst |
+    # HOW: natural runs are found in one pass (n); merging costs n per merge level over log(#runs) levels; an already sorted input is ONE run -> O(n).
+   STABLE. Used by Python (list.sort, sorted) and Java (objects).
+   Introsort is C++'s std::sort; Go and Rust have pattern-defeating quicksort
+   or merge variants.
+
+
+##############################################################################
+ PART 6 : PYTHON SORTING TOOLS
+##############################################################################
+
+    a.sort()                    # in place, returns None (!), stable
+    b = sorted(a)               # new list, works on any iterable
+    sorted(a, reverse=True)
+    sorted(words, key=len)                      # sort by a key function
+    sorted(words, key=lambda w: (len(w), w))    # multi-key: length, then alpha
+    sorted(people, key=lambda p: (-p.age, p.name))   # age desc, name asc
+    sorted(d.items(), key=lambda kv: kv[1])     # sort dict by value
+    sorted(s)                                   # list of characters of a string
+    "".join(sorted(s))                          # sorted string
+    from operator import itemgetter, attrgetter
+    sorted(rows, key=itemgetter(1))
+    from functools import cmp_to_key
+    sorted(nums, key=cmp_to_key(lambda a, b: -1 if str(a)+str(b) > str(b)+str(a) else 1))
+        # e.g. "largest number" problem: order by concatenation
+    heapq.nsmallest(k, a) / nlargest(k, a)      # O(n log k)
+
+    Key function is called ONCE per element (decorate-sort-undecorate).
+    Because sort is stable, you can sort by secondary key first, then primary.
+    Time O(n log n); space O(n). Mixed types (int vs str) raise TypeError.
+    # HOW: sort = n log n comparisons; sorted() builds a new list of n items -> O(n) space; key() is called once per element (n calls).
+    Comparison of tuples is lexicographic.
+
+
+##############################################################################
+ PART 7 : MASTER COMPARISON TABLE
+##############################################################################
+
+ Algorithm       Best        Average      Worst       Space     Stable  In-place
+ --------------  ----------  -----------  ----------  --------  ------  --------
+ Bubble          O(n)        O(n^2)       O(n^2)      O(1)      Yes     Yes
+ Selection       O(n^2)      O(n^2)       O(n^2)      O(1)      No      Yes
+ Insertion       O(n)        O(n^2)       O(n^2)      O(1)      Yes     Yes
+ Shell           O(n log n)  gap-depend.  O(n^2)      O(1)      No      Yes
+ Merge           O(n log n)  O(n log n)   O(n log n)  O(n)      Yes     No
+ Quick           O(n log n)  O(n log n)   O(n^2)      O(log n)  No      Yes
+ Heap            O(n log n)  O(n log n)   O(n log n)  O(1)      No      Yes
+ Counting        O(n + k)    O(n + k)     O(n + k)    O(n + k)  Yes     No
+ Radix           O(d(n+b))   O(d(n+b))    O(d(n+b))   O(n + b)  Yes     No
+ Bucket          O(n + k)    O(n + k)     O(n^2)      O(n + k)  Yes*    No
+ Timsort         O(n)        O(n log n)   O(n log n)  O(n)      Yes     No
+ # HOW (table): the three O(n^2) sorts count pairs, n(n-1)/2; merge/heap/quick(avg) do n work per level x log n levels; counting/radix/bucket never compare, they scan n items and k counters.
+
+HOW TO CHOOSE
+   Small n (< ~50) or nearly sorted      -> insertion sort
+   General purpose in RAM, speed         -> quick sort (random pivot/introsort)
+   Need guaranteed O(n log n)            -> merge sort or heap sort
+   Need stability                        -> merge sort / Timsort / counting
+   Memory very tight                     -> heap sort / in-place quick sort
+   Linked list                           -> merge sort
+   Huge data on disk                     -> external merge sort
+   Integers in small range               -> counting sort
+   Fixed-width integers/strings          -> radix sort
+   Uniform floats                        -> bucket sort
+   Only need top-k / k-th element        -> heap or quickselect, not full sort
+   Python code                           -> just use sorted()/list.sort()
+
+MNEMONICS
+   O(n^2) simple sorts: bubble, selection, insertion.
+   O(n log n) guaranteed: merge, heap.   Quick: n log n average.
+   Stable: Bubble, Insertion, Merge, Counting, Radix, Timsort. ("BIM-CRT")
+   Unstable: Selection, Quick, Heap, Shell.
+
+
+##############################################################################
+ PART 8 : SORTING-BASED PROBLEMS (with steps)
+##############################################################################
+
+--- X1. SORT COLORS (0,1,2) in one pass: Dutch National Flag ---------------------
+    Steps: low=mid=0; high=n-1;
+           a[mid]==0: swap(low,mid); low++; mid++
+           a[mid]==1: mid++
+           a[mid]==2: swap(mid,high); high--
+    O(n), O(1).
+
+--- X2. MERGE INTERVALS -----------------------------------------------------------
+    Steps: 1) sort by start  2) res=[first]
+           3) for each (s,e): if s <= res[-1][1]: res[-1][1] = max(res[-1][1], e)
+                              else: res.append([s,e])
+    [[1,3],[2,6],[8,10],[15,18]] -> [[1,6],[8,10],[15,18]].  O(n log n).
+    # HOW: sort = n log n; the merge sweep is one pass = n; n log n dominates.
+
+--- X3. K-TH LARGEST ELEMENT --------------------------------------------------------
+    Option A: quickselect O(n) avg.  Option B: min-heap of size k, O(n log k):
+       push each; if len(heap) > k: heappop. Answer = heap[0].
+
+--- X4. TOP K FREQUENT ELEMENTS ---------------------------------------------------
+    Counter + heap (O(n log k)) or bucket sort by frequency (O(n)).
+
+--- X5. MEETING ROOMS / MIN ROOMS --------------------------------------------------
+    Steps: 1) sort start times and end times separately
+           2) two pointers: if start < earliest end: need a new room (rooms++)
+                            else a room frees up (end pointer++)
+           3) track max rooms.  O(n log n).
+    # HOW: sorting the starts and the ends = 2 n log n; the two-pointer sweep is one pass of 2n steps; sorting dominates.
+
+--- X6. LARGEST NUMBER (arrange numbers to form largest) ----------------------------
+    Steps: convert to strings; sort with comparator a+b vs b+a (cmp_to_key);
+    join; strip leading zeros ("0" case).  [3,30,34,5,9] -> "9534330".
+
+--- X7. SORT BY FREQUENCY / CUSTOM KEY ----------------------------------------------
+    sorted(s, key=lambda c: (-cnt[c], c)).
+
+--- X8. SORT ARRAY BY PARITY / PARTITION --------------------------------------------
+    Two pointers: swap odd on the left with even on the right. O(n).
+
+--- X9. MERGE SORTED ARRAY / TWO SORTED ARRAYS ---------------------------------------
+    Fill from the back (see arrays notes).
+
+--- X10. DUPLICATES / GAPS / CLOSEST PAIR: sort first, then compare neighbours --------
+    Minimum absolute difference: sort, min over adjacent differences. O(n log n).
+
+--- X11. COUNT INVERSIONS: merge sort (see MS1). --------------------------------------
+
+--- X12. SORT A NEARLY SORTED (K-SORTED) ARRAY ---------------------------------------
+    Each element is at most k positions from its place.
+    Steps: min-heap of first k+1 items; repeatedly pop min to output and push
+    the next element. O(n log k).
+    # HOW: the heap holds k+1 items, so each push/pop costs log(k+1); n of each -> n log k.
+
+--- X13. FIND PAIRS WITH A GIVEN SUM / 3SUM: sort + two pointers. ---------------------
+
+--- X14. MEDIAN OF A STREAM: two heaps (max-heap lower half, min-heap upper half). ----
+
+
+==============================================================================
+ 9.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ BINARY SEARCH
+   - Using it on unsorted data.
+   - Off-by-one: hi = n vs n-1 must match the loop condition and update rules.
+   - Infinite loop from lo = mid with floor division.
+   - Returning mid when you need the boundary (first/last) in duplicates.
+   - Floating-point equality; integer overflow of (lo+hi) in other languages.
+   - Forgetting that bisect functions return positions, not "found/not found".
+   - Wrong monotonic predicate in search-on-answer problems.
+
+ SORTING
+   - list.sort() returns None: `a = a.sort()` destroys your list reference.
+   - Assuming quick sort is always O(n log n) (worst O(n^2)).
+   - Forgetting stability needs (e.g. sorting records by two keys).
+   - Quick sort with all-equal elements and Lomuto -> O(n^2). Use 3-way.
+   - Recursion depth: Python's limit ~1000; quick sort on sorted input with a
+     bad pivot recurses n deep -> RecursionError.
+   - Merge sort: leftover tails must be appended; use <= for stability.
+   - Counting sort with negative values or huge range.
+   - Mutating the list while sorting/iterating.
+   - Comparing mixed types (TypeError).
+   - Using sorted() when only min/max/top-k is required (wasteful).
+
+ EDGE CASES: empty list, one element, two elements, already sorted, reverse
+ sorted, all equal, duplicates, negatives, very large n, target absent,
+ target smaller/larger than all elements.
+
+
+==============================================================================
+ 10.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+ TIPS
+   - If the input is sorted (or sortable) and you need a lookup -> think binary
+     search. "Minimise the maximum / maximise the minimum" -> binary search
+     on the answer.
+   - Say the invariant out loud: "the answer is always within [lo, hi]".
+   - Know quick sort partition by heart and merge sort merge by heart.
+   - Always state stability, space and worst case when you name a sort.
+   - Ask: can I just use the built-in sort? (Usually yes; but be ready to
+     implement.)
+
+ FAQs
+ Q1. Time complexity of binary search and why?
+     O(log n): the search space halves every step.
+ Q2. Binary search requirement?  Sorted data + random access.
+ Q3. Merge sort vs quick sort?
+     Merge: stable, always n log n, O(n) extra space. Quick: in-place, faster in
+     practice, worst case n^2, unstable.
+ Q4. When does quick sort hit its worst case, and how to avoid it?
+     Already sorted/all-equal input with a poor pivot. Use random/median-of-three
+     pivot, 3-way partition, or introsort.
+ Q5. Which sorts are stable?
+     Bubble, insertion, merge, counting, radix, Timsort.
+ Q6. Which sort for linked lists? Merge sort (no random access needed, O(1)
+     extra space).
+ Q7. Which sort is best for nearly sorted data? Insertion sort / Timsort O(n).
+ Q8. Can we sort faster than n log n? Yes with counting/radix/bucket sort under
+     assumptions about the keys (not comparison-based).
+ Q9. Why is heap build O(n)?
+     Most nodes are near leaves and sift only a few levels:
+     sum over levels of (n/2^(h+1)) * h = O(n).
+ Q10. Why is merge sort space O(n)? The merge needs an auxiliary buffer.
+ Q11. What sorting algorithm does Python use? Timsort, stable, O(n log n)
+      worst, O(n) best.
+ Q12. How to find the k-th largest efficiently?
+      Quickselect O(n) average or heap of size k O(n log k).
+ Q13. What is an inversion?  Pair i<j with a[i]>a[j]; count via merge sort.
+ Q14. What is stable sort and why does it matter?
+      Equal keys keep original order; enables multi-pass sorting by several
+      keys and is required by radix sort.
+ Q15. Space complexity of recursive binary search? O(log n).
+ Q16. What is the time of sorting n strings of length L?
+      O(L * n log n) comparisons-based (each comparison O(L)).
+ Q17. Is binary search possible on a rotated array? Yes, O(log n) with the
+      "one half is sorted" logic.
+ Q18. Difference between lower_bound and upper_bound?
+      First index >= x vs first index > x. Their difference is the count of x.
+ Q19. In-place vs out-of-place? In-place uses O(1) extra space.
+ Q20. Insertion sort vs selection sort?
+      Insertion: adaptive and stable, fewer comparisons on sorted data.
+      Selection: fewest swaps (n-1), always n^2 comparisons, unstable.
+
+
+==============================================================================
+ 11.  PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+ P1.  Binary search for 7 in [1,3,5,7,9,11]; list lo/hi/mid each step.
+ P2.  In [1,2,2,2,3,4], find first and last index of 2 and the count.
+ P3.  Search 3 in the rotated array [5,6,7,1,2,3,4].
+ P4.  Sort [38,27,43,3,9,82,10] with Lomuto quick sort for the first partition
+      (pivot = last element 10). Show the array after partition.
+ P5.  Show insertion sort passes for [9,5,1,4,3].
+ P6.  Perform selection sort on [29,10,14,37,13].
+ P7.  Counting sort on [3,6,4,1,3,4,1,4]: counts and result.
+ P8.  Radix sort on [329,457,657,839,436,720,355] (show each pass).
+ P9.  Count inversions of [8,4,2,1].
+ P10. Time/space of merge sort, quick sort (avg & worst), heap sort.
+ P11. Integer square root of 27 using binary search.
+ P12. Smallest eating speed: piles [30,11,23,4,20], h = 6.
+ P13. Why is Python's list.pop(0)-based "sorted insertion" bad?  And what is
+      bisect.insort's complexity?
+ P14. Which of bubble/selection/insertion/merge/quick/heap are stable?
+
+---- ANSWERS ----
+ P1.  lo0 hi5 mid2 (5<7) -> lo3 ; lo3 hi5 mid4 (9>7) -> hi3 ; lo3 hi3 mid3
+      (7) found at index 3.
+ P2.  lower bound=1, upper bound=4 -> first index 1, last index 3, count 3.
+ P3.  lo0 hi6 mid3 (1). Left half [5,6,7,1] not sorted-> a[lo]=5 > a[mid]=1,
+      so RIGHT half [1..4] sorted: 1 < 3 <= 4 -> lo=4. mid=5 (3) found at 5.
+ P4.  pivot 10, i=-1. j scans: 38>10, 27>10, 43>10, 3<=10 -> i=0 swap(a0,a3)
+      -> [3,27,43,38,9,82,10]; 9<=10 -> i=1 swap(a1,a4) -> [3,9,43,38,27,82,10];
+      82>10. Final swap a[2] with pivot -> [3,9,10,38,27,82,43]. Pivot index 2.
+ P5.  [9,5,1,4,3] -> i=1: [5,9,1,4,3] -> i=2: [1,5,9,4,3] -> i=3: [1,4,5,9,3]
+      -> i=4: [1,3,4,5,9].
+ P6.  min 10 -> [10,29,14,37,13]; min 13 -> [10,13,14,37,29];
+      min 14 in place; min 29 -> [10,13,14,29,37]. Sorted.
+ P7.  counts for 0..6: [0,2,0,2,3,0,1]; sorted [1,1,3,3,4,4,4,6].
+ P8.  1s digit : 720, 355, 436, 457, 657, 329, 839
+      10s digit: 720, 329, 436, 839, 355, 457, 657
+      100s     : 329, 355, 436, 457, 657, 720, 839
+ P9.  [8,4,2,1] is reversed: n(n-1)/2 = 6 inversions.
+ P10. Merge: O(n log n) all cases, O(n) space. Quick: avg O(n log n), worst
+      O(n^2), space O(log n) avg. Heap: O(n log n), O(1) space.
+ P11. lo0 hi27: mid13 (169>27) hi12 ... eventually answer 5 (5*5=25 <= 27,
+      6*6=36 > 27).
+ P12. Range 1..30. speed 10: 3+2+3+1+2 = 11 > 6. speed 20: 2+1+2+1+1 = 7 > 6.
+      speed 23: 2+1+1+1+1 = 6 <= 6 ok. speed 22: 2+1+2+1+1 = 7 > 6. Minimum 23.
+ P13. insort is O(log n) to find + O(n) to insert (shifting). Insertion-sorting
+      by repeated insort is O(n^2) total; just call sorted().
+ P14. Stable: bubble, insertion, merge. Unstable: selection, quick, heap.
+
+
+==============================================================================
+ 12.  QUICK REVISION SUMMARY
+==============================================================================
+
+ BINARY SEARCH
+   - Sorted + random access. Halve the range each step: O(log n), O(1) space.
+   - mid = lo + (hi-lo)//2; found -> return; a[mid] < t -> lo = mid+1; else
+     hi = mid-1.
+   - Variants: lower/upper bound, insert position, rotated array (one half
+     sorted), min in rotated, peak, 2D matrix (flatten), sqrt.
+   - Search on answer: monotonic feasibility check + range [lo, hi].
+
+ MERGE SORT
+   - Split in halves, sort recursively, merge. Theta(n log n) always, O(n)
+     space, STABLE. Great for linked lists, external sorting, inversion count.
+
+ QUICK SORT
+   - Pick pivot, partition (Lomuto/Hoare/3-way), recurse on both sides.
+   - Avg O(n log n), worst O(n^2), O(log n) stack, in-place, UNSTABLE.
+   - Fix worst case: random/median-of-three pivot, 3-way partition, introsort.
+   - Quickselect: k-th element in O(n) average.
+
+ OTHERS
+   - Bubble/Selection/Insertion: O(n^2); insertion best for small/nearly
+     sorted (O(n)); selection has fewest swaps.
+   - Heap sort: O(n log n), O(1) space, unstable; build heap in O(n).
+   - Counting/Radix/Bucket: linear time, need key assumptions.
+   - Timsort (Python): merge + insertion hybrid, stable, O(n) best.
+
+ LOWER BOUND: comparison sorts need Omega(n log n).
+ PYTHON: sorted(), list.sort(key=..., reverse=...), bisect_left/right,
+         heapq.nsmallest/nlargest, functools.cmp_to_key.
+
+==============================================================================
+ END OF NOTES
+==============================================================================

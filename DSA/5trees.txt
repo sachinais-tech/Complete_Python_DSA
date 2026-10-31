@@ -1,0 +1,1255 @@
+==============================================================================
+ TREES  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Binary Trees | Binary Search Trees | Heap | Priority Queue
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  PART 1: TREE BASICS
+      1.1  What is a tree? Terminology
+      1.2  Types of trees and key formulas
+  PART 2: BINARY TREES
+      2.1  Node, representation, building a tree
+      2.2  Depth-first traversals: preorder, inorder, postorder (rec + iter)
+      2.3  Breadth-first: level order (+ zigzag, right view)
+      2.4  Morris traversal (O(1) space) overview
+      2.5  Constructing a tree from two traversals
+      2.6  Classic binary tree problems with steps
+  PART 3: BINARY SEARCH TREES
+      3.1  Definition and property
+      3.2  Search, insert, delete (3 cases), min/max, successor
+      3.3  Complexity, skewed trees
+      3.4  Balanced trees: AVL (rotations), Red-Black (overview)
+      3.5  Classic BST problems with steps
+  PART 4: HEAP
+      4.1  Definition, min/max heap, complete binary tree
+      4.2  Array representation and index formulas
+      4.3  Insert (sift-up), extract (sift-down), peek
+      4.4  Build heap in O(n) + proof
+      4.5  Heap sort
+      4.6  Python heapq module
+      4.7  Classic heap problems with steps
+  PART 5: PRIORITY QUEUE
+      5.1  ADT and operations
+      5.2  Implementations compared
+      5.3  Python: heapq, PriorityQueue, tuples, tie-breaks, lazy deletion
+      5.4  Applications (Dijkstra, Huffman, scheduling, median)
+  6.  Comparison table
+  7.  Common mistakes and edge cases
+  8.  Interview tips and FAQs
+  9.  Practice problems (with answers)
+ 10.  Quick revision summary
+
+
+##############################################################################
+ PART 1 : TREE BASICS
+##############################################################################
+
+==============================================================================
+1.1  WHAT IS A TREE? TERMINOLOGY
+==============================================================================
+
+A TREE is a NON-LINEAR, HIERARCHICAL structure of NODES connected by EDGES:
+   - exactly one ROOT (no parent),
+   - every other node has exactly ONE parent,
+   - no cycles; n nodes have exactly n-1 edges; connected.
+
+                    A            <- root (level 0)
+                  /   \
+                 B     C         <- level 1  (B, C are siblings; children of A)
+                / \     \
+               D   E     F       <- level 2  (D, E, F ... leaves)
+                   |
+                   G             <- level 3
+
+TERMS
+   Root        topmost node (A)
+   Parent/Child  B is the parent of D and E
+   Siblings    nodes with the same parent (D, E)
+   Leaf        node with no children (D, G, F)
+   Internal    node with at least one child (A, B, C, E)
+   Degree      number of children of a node (A=2, E=1); tree degree = max
+   Edge        link between parent and child
+   Path        sequence of nodes connected by edges
+   Ancestor/Descendant   nodes on the path to the root / below a node
+   Depth of a node   number of EDGES from root to the node (depth(G)=3)
+   Height of a node  number of EDGES on the longest path DOWN to a leaf
+                     (height(B)=2, height(leaf)=0)
+   Height of a tree  height of the root (here 3).  (Some books count nodes;
+                     state your convention. Empty tree: height -1 (edges) or 0 (nodes).)
+   Level       depth + 1 in some books (root = level 1) - check the convention
+   Subtree     a node together with all its descendants
+   Forest      a set of disjoint trees
+
+==============================================================================
+1.2  TYPES OF TREES AND KEY FORMULAS
+==============================================================================
+
+ BINARY TREE        each node has AT MOST 2 children (left, right).
+ FULL (strict)      every node has 0 or 2 children.
+ COMPLETE           all levels full except possibly the last, which is filled
+                    LEFT to right.  (Heaps are complete trees.)
+ PERFECT            all internal nodes have 2 children and all leaves are on
+                    the same level (2^(h+1) - 1 nodes).
+ BALANCED           height is O(log n); height-balanced: for every node
+                    |height(left) - height(right)| <= 1.
+ # HOW: 'balanced' means the height h stays near log2(n): each level can hold twice as many nodes as the one above (1,2,4,8,...),
+ #      so n nodes fit in about log2(n) levels.
+ DEGENERATE/SKEWED  every node has one child -> behaves like a linked list.
+
+     Full            Complete          Perfect          Skewed
+       1                1                 1               1
+      / \              / \               / \               \
+     2   3            2   3             2   3               2
+        / \          / \  /            / \ / \               \
+       4   5        4  5 6            4  5 6  7               3
+
+FORMULAS (binary tree, height h counted in EDGES, n nodes)
+   Max nodes at level L (root level 0)  : 2^L
+   Max nodes in a tree of height h      : 2^(h+1) - 1
+   Min nodes in a tree of height h      : h + 1  (skewed)
+   Min height for n nodes               : floor(log2 n)
+   Max height for n nodes               : n - 1
+   leaves = (nodes with 2 children) + 1
+   n nodes -> n - 1 edges
+   n nodes in a complete tree -> height = floor(log2 n)
+   Catalan: number of structurally different binary trees with n nodes
+            = C(2n, n) / (n + 1)   (n=3 -> 5)
+
+OTHER TREE FAMILIES (names to know)
+   N-ary tree, Trie (prefix tree), Segment tree, Fenwick tree, B/B+ tree
+   (databases), AVL, Red-Black, Splay, Treap, Heap, Expression tree, Huffman
+   tree, Decision tree, Suffix tree/array.
+
+
+##############################################################################
+ PART 2 : BINARY TREES
+##############################################################################
+
+==============================================================================
+2.1  NODE AND REPRESENTATION
+==============================================================================
+
+    class TreeNode:
+        def __init__(self, val=0, left=None, right=None):
+            self.val = val
+            self.left = left
+            self.right = right
+
+LINKED REPRESENTATION (most common): each node holds left/right references.
+ARRAY REPRESENTATION (for complete trees; used by heaps):
+   0-based: node i -> left 2i+1, right 2i+2, parent (i-1)//2
+   1-based: node i -> left 2i,   right 2i+1, parent i//2
+   Wasteful for sparse/skewed trees (many empty slots).
+
+SAMPLE TREE used in all examples below:
+
+                1
+              /   \
+             2     3
+            / \     \
+           4   5     6
+
+    root = TreeNode(1, TreeNode(2, TreeNode(4), TreeNode(5)),
+                       TreeNode(3, None, TreeNode(6)))
+
+==============================================================================
+2.2  DEPTH-FIRST TRAVERSALS
+==============================================================================
+
+Where is the ROOT visited relative to its subtrees?
+   PREORDER  (N L R) : Root, Left, Right    -> 1 2 4 5 3 6
+   INORDER   (L N R) : Left, Root, Right    -> 4 2 5 1 3 6
+   POSTORDER (L R N) : Left, Right, Root    -> 4 5 2 6 3 1
+
+RECURSIVE CODE
+    def preorder(n):
+        if n: print(n.val); preorder(n.left); preorder(n.right)
+    def inorder(n):
+        if n: inorder(n.left); print(n.val); inorder(n.right)
+    def postorder(n):
+        if n: postorder(n.left); postorder(n.right); print(n.val)
+    Time O(n) (each node once); Space O(h) recursion stack
+    (h = log n balanced, n skewed).
+    # HOW: every node is visited exactly once with O(1) work -> n steps. The stack holds one frame per node on the CURRENT root-to-node path
+    #      = the tree height h: about log2(n) if balanced, up to n if the tree is a chain.
+
+USES
+   Preorder  : copy a tree, serialize, prefix expression, directory listing.
+   Inorder   : sorted order of a BST!
+   Postorder : delete a tree, compute sizes/heights (children first),
+               postfix expression, evaluating expression trees.
+
+MEMORY TRICK to dry-run: walk around the tree outline; visit the node when you
+pass its LEFT side (pre), BOTTOM (in) or RIGHT side (post).
+
+ITERATIVE TRAVERSALS (use an explicit stack; avoids recursion limit)
+
+ Preorder iterative
+    Steps: 1) stack=[root]
+           2) while stack: node = pop(); visit; push right child, then left
+              (so left is processed first)
+    def preorder_iter(root):
+        res, st = [], [root] if root else []
+        while st:
+            n = st.pop(); res.append(n.val)
+            if n.right: st.append(n.right)
+            if n.left:  st.append(n.left)
+        return res
+
+ Inorder iterative
+    Steps: 1) cur = root, stack = []
+           2) while cur or stack:
+                 while cur: push cur; cur = cur.left      (go as left as possible)
+                 cur = pop(); visit cur
+                 cur = cur.right
+    def inorder_iter(root):
+        res, st, cur = [], [], root
+        while cur or st:
+            while cur: st.append(cur); cur = cur.left
+            cur = st.pop(); res.append(cur.val)
+            cur = cur.right
+        return res
+    Trace: push 1,2,4 -> pop 4 (visit) -> right None -> pop 2 (visit) -> right 5:
+           push 5 -> pop 5 -> pop 1 -> right 3: push 3 -> pop 3 -> right 6: push 6
+           -> pop 6.   Output 4 2 5 1 3 6.
+
+ Postorder iterative (two stacks, or reverse of modified preorder)
+    Steps: 1) preorder variant visiting Root, Right, Left   (push left then right)
+           2) reverse the result  -> Left, Right, Root
+    def postorder_iter(root):
+        res, st = [], [root] if root else []
+        while st:
+            n = st.pop(); res.append(n.val)
+            if n.left:  st.append(n.left)
+            if n.right: st.append(n.right)
+        return res[::-1]
+
+==============================================================================
+2.3  BREADTH-FIRST: LEVEL-ORDER TRAVERSAL
+==============================================================================
+
+Visit level by level using a QUEUE (collections.deque).
+    Steps: 1) queue = deque([root])
+           2) while queue:
+                 size = len(queue)                # nodes in the current level
+                 level = []
+                 repeat size times: node = popleft(); level.append(node.val);
+                                    push node.left, node.right if present
+                 result.append(level)
+    Sample tree -> [[1],[2,3],[4,5,6]]
+    Diagram: queue [1] -> [2,3] -> [3,4,5] -> [4,5,6] -> [5,6] -> [6] -> []
+    Time O(n), Space O(w) where w = max width (up to n/2).
+    # HOW: BFS enqueues and dequeues each node once -> n steps. The queue holds one whole level at a time; the widest level of a tree
+    #      can have about n/2 nodes (the last level of a complete tree) -> O(width).
+
+    def level_order(root):
+        if not root: return []
+        res, q = [], deque([root])
+        while q:
+            level = []
+            for _ in range(len(q)):
+                n = q.popleft(); level.append(n.val)
+                if n.left:  q.append(n.left)
+                if n.right: q.append(n.right)
+            res.append(level)
+        return res
+
+VARIANTS
+   ZIGZAG: reverse every other level (flip a flag, level[::-1]).
+   RIGHT SIDE VIEW: last node of each level. LEFT VIEW: first node.
+   BOTTOM-UP: reverse the result list.
+   AVERAGE OF LEVELS, MAX PER LEVEL, MIN DEPTH (first leaf reached by BFS).
+   CONNECT NEXT POINTERS (perfect tree): link nodes within a level.
+   VERTICAL ORDER: BFS with (node, column) and group by column.
+
+==============================================================================
+2.4  MORRIS TRAVERSAL (O(1) extra space, inorder)
+==============================================================================
+
+Uses temporary "threads": the right child of the inorder PREDECESSOR points to
+the current node, so we can return without a stack.
+    Steps: 1) cur = root
+           2) while cur:
+                 if no left child: visit cur; cur = cur.right
+                 else: pred = rightmost node in cur.left (stop if pred.right is cur)
+                       if pred.right is None: pred.right = cur (thread); cur = cur.left
+                       else: pred.right = None (remove thread); visit cur; cur = cur.right
+    Time O(n), Space O(1); temporarily modifies the tree. Good to know for
+    # HOW: each edge is walked at most ~3 times (down, thread, back), so the total is still proportional to n; no stack/recursion -> O(1).
+    follow-ups ("without recursion or stack?").
+
+==============================================================================
+2.5  CONSTRUCTING A TREE FROM TWO TRAVERSALS
+==============================================================================
+
+A single traversal does not determine the tree. These pairs do (distinct values):
+   preorder + inorder, postorder + inorder.   (preorder + postorder only for
+   FULL binary trees.)
+
+PREORDER + INORDER
+    Steps: 1) first element of preorder = ROOT
+           2) find root in inorder -> elements to its left form the LEFT subtree,
+              elements to its right the RIGHT subtree (their counts tell how
+              many preorder elements belong to each)
+           3) recurse on both parts
+           4) use a dict value->inorder index for O(1) lookups -> O(n) total
+    # HOW: the dict makes 'find root in inorder' O(1) instead of an O(n) scan; each node is created once -> n * O(1) = O(n).
+    #      Without the dict: n nodes x O(n) scan = O(n^2).
+    Example preorder [3,9,20,15,7], inorder [9,3,15,20,7]
+        root 3; inorder left [9], right [15,20,7]
+        left preorder [9] -> node 9
+        right preorder [20,15,7]: root 20; inorder left [15], right [7]
+
+                3
+               / \
+              9   20
+                 /  \
+                15    7
+    For postorder + inorder: the ROOT is the LAST postorder element; build the
+    RIGHT subtree first (when consuming postorder from the end).
+
+==============================================================================
+2.6  CLASSIC BINARY TREE PROBLEMS (with steps)
+==============================================================================
+
+--- T1. MAXIMUM DEPTH (HEIGHT) -------------------------------------------------
+    Steps: base: None -> 0.  depth = 1 + max(depth(left), depth(right)).
+    def max_depth(n): return 0 if not n else 1 + max(max_depth(n.left), max_depth(n.right))
+    O(n) time, O(h) space.  (Iterative: count levels in BFS.)
+    # HOW: max_depth(n) = 1 + max(depth(left), depth(right)): the function is called once per node -> n calls, O(1) work each;
+    #      the stack depth equals the tree height h.
+
+--- T2. COUNT NODES / COUNT LEAVES / SUM OF NODES -------------------------------
+    count(n) = 0 if None else 1 + count(left) + count(right).
+    COMPLETE tree count in O(log^2 n): compare left-most and right-most heights;
+    # HOW: if the left and right boundary heights differ we recurse, but one of the two sides is always a PERFECT tree (counted by a formula).
+    #      So each level costs O(log n) to measure heights and there are log n levels -> log n * log n = O(log^2 n).
+    if equal -> 2^h - 1, else 1 + count(left) + count(right).
+
+--- T3. INVERT (MIRROR) A BINARY TREE --------------------------------------------
+    Steps: swap left and right children at every node (recursively).
+    def invert(n):
+        if n: n.left, n.right = invert(n.right), invert(n.left)
+        return n
+
+--- T4. SAME TREE / SYMMETRIC TREE -------------------------------------------------
+    Same: both None -> True; one None or values differ -> False;
+          recurse (a.left,b.left) and (a.right,b.right).
+    Symmetric: isMirror(a, b): values equal and isMirror(a.left, b.right) and
+               isMirror(a.right, b.left).  Start with (root.left, root.right).
+
+--- T5. HEIGHT-BALANCED CHECK (O(n)) --------------------------------------------------
+    Steps: compute height bottom-up; return -1 as a signal if a subtree is
+    unbalanced.
+    def height(n):
+        if not n: return 0
+        l = height(n.left)
+        if l == -1: return -1
+        r = height(n.right)
+        if r == -1 or abs(l - r) > 1: return -1
+        return 1 + max(l, r)
+    balanced = height(root) != -1.   (Naive version recomputes heights: O(n^2).)
+    # HOW: bottom-up height() visits each node once -> O(n). Naive: calling height() at every node re-walks whole subtrees, up to n per node -> n * n = O(n^2) on a chain.
+
+--- T6. DIAMETER OF A BINARY TREE -----------------------------------------------------
+    Diameter = longest path (in edges) between any two nodes; may not pass
+    through the root.
+    Steps: 1) for each node, the best path THROUGH it = height(left)+height(right)
+           2) track the global maximum while computing heights (post-order)
+    def diameter(root):
+        best = 0
+        def h(n):
+            nonlocal best
+            if not n: return 0
+            l, r = h(n.left), h(n.right)
+            best = max(best, l + r)
+            return 1 + max(l, r)
+        h(root); return best
+    Sample tree: path 4-2-1-3-6 has 4 edges -> 4. O(n).
+    # HOW: h() runs once per node (post-order) and updates 'best' in O(1) -> n calls.
+
+--- T7. LOWEST COMMON ANCESTOR (binary tree) ---------------------------------------------
+    Steps: 1) if node is None or node is p or node is q: return node
+           2) left = LCA(node.left); right = LCA(node.right)
+           3) if both non-None: this node is the LCA; else return the non-None one
+    LCA(4,5) in sample = 2.  LCA(4,6) = 1.  O(n), O(h).
+    # HOW: one call per node in the worst case (the targets may be anywhere) -> n; stack depth = height h.
+
+--- T8. PATH SUM (root-to-leaf equals target) -----------------------------------------------
+    Steps: subtract node.val from target going down; at a LEAF check remaining==0.
+    Variants: all paths (backtracking with path list), Path Sum III (prefix sum
+    + hash map), maximum path sum (best gain from each side, ignore negatives).
+    MAX PATH SUM steps: gain(n) = n.val + max(0, gain(left), gain(right));
+    answer candidate at n = n.val + max(0,gain(left)) + max(0,gain(right)).
+
+--- T9. ALL ROOT-TO-LEAF PATHS -------------------------------------------------------------
+    Steps: DFS with the current path; at a leaf append the path; backtrack.
+
+--- T10. SERIALIZE / DESERIALIZE ------------------------------------------------------------
+    Preorder with null markers: "1,2,4,#,#,5,#,#,3,#,6,#,#".
+    Deserialize: read tokens in preorder, build recursively using an iterator.
+
+--- T11. RIGHT SIDE VIEW / LEVEL ORDER (see 2.3) -------------------------------------------
+
+--- T12. FLATTEN BINARY TREE TO LINKED LIST (preorder, in place) ----------------------------
+    Steps: for each node with a left subtree: find the rightmost node of the left
+    subtree, attach the original right subtree there, move left subtree to the
+    right, set left = None; continue with node.right.
+
+--- T13. CHECK IF TREE IS A SUBTREE OF ANOTHER ------------------------------------------------
+    For every node of the big tree, test isSameTree(node, subRoot). O(n*m).
+    # HOW: n nodes in the big tree x up to m nodes compared in isSameTree for each -> n * m.
+
+--- T14. BINARY TREE FROM TRAVERSALS (see 2.5) -----------------------------------------------
+
+--- T15. COUNT GOOD NODES / MIN DEPTH / SUM OF LEFT LEAVES / CHILDREN SUM ------------------
+    DFS carrying a running max / depth / flag down the recursion.
+
+--- T16. BOUNDARY TRAVERSAL, VERTICAL ORDER, TOP/BOTTOM VIEW -----------------------------------
+    Top view: BFS with horizontal distance (hd); first node seen per hd (left child
+    hd-1, right child hd+1). Bottom view: last node per hd.
+
+--- T17. NODES AT DISTANCE K FROM A TARGET ----------------------------------------------------
+    Steps: 1) DFS to record parent pointers  2) BFS outward from target over
+    (left, right, parent) with a visited set, stopping at distance k.
+
+GENERAL RECURSION RECIPE FOR TREE PROBLEMS
+   1) What do I need from the left and right subtrees? (return value)
+   2) Base case (None).
+   3) Combine at the current node (and update any global answer).
+   4) Return what the PARENT needs.
+   Top-down (pass info down: bounds, path sum) vs bottom-up (return info up:
+   height, size, validity).
+
+
+##############################################################################
+ PART 3 : BINARY SEARCH TREES (BST)
+##############################################################################
+
+==============================================================================
+3.1  DEFINITION
+==============================================================================
+
+A BST is a binary tree where for EVERY node:
+     all keys in the LEFT subtree  <  node.key  <  all keys in the RIGHT subtree
+(this must hold for the entire subtrees, not only the immediate children!)
+Duplicates: usually disallowed, or consistently placed on one side/with a count.
+
+            50
+          /    \
+        30      70
+       /  \    /  \
+     20   40  60   80
+
+KEY FACT: INORDER traversal of a BST gives keys in SORTED (ascending) order:
+          20 30 40 50 60 70 80.
+
+BST operations follow the ordering like binary search: each comparison discards
+a subtree. Cost = O(height).
+# HOW: each comparison moves one level down and discards a whole subtree, so the work is at most the number of levels = the height h.
+
+==============================================================================
+3.2  OPERATIONS WITH STEPS
+==============================================================================
+
+NODE: same TreeNode class (val, left, right).
+
+--- SEARCH -----------------------------------------------------------------------
+    Steps: 1) cur = root
+           2) while cur: if key == cur.val: found
+                         elif key < cur.val: cur = cur.left
+                         else: cur = cur.right
+           3) not found -> None
+    Search 60: 50 -> go right 70 -> go left 60 found.
+    Iterative O(h) time, O(1) space.
+    # HOW: the loop moves down one level per iteration -> at most h iterations; just a 'cur' pointer -> O(1).
+
+--- INSERT -----------------------------------------------------------------------
+    Steps: 1) if tree empty: new node is the root
+           2) walk down as in search, remembering the parent
+           3) when you fall off the tree (cur is None), attach the new node as
+              the left or right child of the parent
+    Insert 65 into the tree above: 50 -> right 70 -> left 60 -> right (empty) -> 65.
+    Recursive:
+    def insert(n, k):
+        if not n: return TreeNode(k)
+        if k < n.val: n.left = insert(n.left, k)
+        elif k > n.val: n.right = insert(n.right, k)
+        return n
+    New keys are always inserted as LEAVES. Build from [50,30,70,20,40,60,80]
+    gives the tree above; from SORTED input gives a skewed tree (O(n) height).
+    # HOW: sorted inserts always go to the right of the last node, forming a chain of n nodes -> height n-1 -> every operation walks n nodes.
+
+--- FIND MIN / MAX ----------------------------------------------------------------
+    Min = keep going left; Max = keep going right. O(h).
+    # HOW: min = follow left pointers to the bottom, at most h steps; max = right pointers, at most h steps.
+
+--- INORDER SUCCESSOR / PREDECESSOR ------------------------------------------------
+    Successor (next larger):
+      if node has a right subtree: leftmost node of the right subtree
+      else: the lowest ancestor whose LEFT subtree contains the node
+            (walk from root: if key < cur.val: succ = cur; go left else go right)
+    Successor of 40 = 50 (ancestor); successor of 50 = 60 (leftmost of right).
+
+--- DELETE (three cases) ------------------------------------------------------------
+    Steps: 1) find the node
+           2) CASE 1 - LEAF: remove it (parent's pointer = None)
+           3) CASE 2 - ONE CHILD: replace the node with its child
+           4) CASE 3 - TWO CHILDREN:
+                 a) find the inorder successor (min of right subtree)
+                    (or the predecessor: max of left subtree)
+                 b) copy successor's value into the node
+                 c) delete the successor from the right subtree
+                    (it has at most one child -> case 1 or 2)
+    Diagram: delete 50 from the tree above
+        successor = 60 (leftmost of right subtree). Copy 60 into the root,
+        delete original 60 (a leaf).
+                60
+              /    \
+            30      70
+           /  \       \
+         20   40       80
+    def delete(n, k):
+        if not n: return None
+        if k < n.val:   n.left  = delete(n.left, k)
+        elif k > n.val: n.right = delete(n.right, k)
+        else:
+            if not n.left:  return n.right
+            if not n.right: return n.left
+            s = n.right
+            while s.left: s = s.left
+            n.val = s.val
+            n.right = delete(n.right, s.val)
+        return n
+
+--- VALIDATE A BST -----------------------------------------------------------------
+    WRONG: checking only left.val < node.val < right.val (fails for deep nodes).
+    RIGHT (bounds): each node must lie in (low, high); going left sets
+    high = node.val, going right sets low = node.val.
+    def is_bst(n, lo=float('-inf'), hi=float('inf')):
+        if not n: return True
+        if not (lo < n.val < hi): return False
+        return is_bst(n.left, lo, n.val) and is_bst(n.right, n.val, hi)
+    Alternative: inorder traversal must be strictly increasing. O(n).
+    # HOW: an inorder traversal visits each node once (n) and compares it with the previous value in O(1).
+
+==============================================================================
+3.3  COMPLEXITY
+==============================================================================
+
+                    Balanced BST      Skewed BST (worst)
+   Search           O(log n)          O(n)
+   Insert           O(log n)          O(n)
+   Delete           O(log n)          O(n)
+   Min/Max          O(log n)          O(n)
+   Inorder traversal O(n)
+   Space            O(n) nodes; O(h) recursion
+   # HOW (table above): search/insert/delete follow ONE root-to-leaf path, so they cost the height h. Balanced: h = log2(n).
+   #      Skewed (sorted inserts): h = n. Inorder visits all n nodes once.
+   Random-insert average height ~ 1.39 log2 n.
+
+COMPARISON  Hash table: O(1) avg lookup but unordered, no range/successor
+queries. BST: O(log n) AND ordered: floor/ceil, range queries, k-th smallest,
+sorted traversal. Sorted array: O(log n) search but O(n) insert.
+Python has no built-in BST; sortedcontainers (3rd party) or bisect on a list.
+
+==============================================================================
+3.4  SELF-BALANCING BSTs
+==============================================================================
+
+Problem: sorted insertions create a skewed O(n)-height tree. Self-balancing
+trees keep height O(log n) with ROTATIONS.
+
+BALANCE FACTOR (AVL) = height(left) - height(right) must be in {-1, 0, 1}.
+
+ROTATIONS (preserve BST order)
+   RIGHT rotation at y (left child x rises):
+          y                x
+         / \              / \
+        x   C    ->      A   y
+       / \                  / \
+      A   B                B   C
+   LEFT rotation is the mirror image.
+
+FOUR IMBALANCE CASES (node z is unbalanced)
+   Left-Left   (insert into left of left)   -> single RIGHT rotation at z
+   Right-Right                              -> single LEFT rotation at z
+   Left-Right  (insert into right of left)  -> LEFT rotate left child, then RIGHT rotate z
+   Right-Left                               -> RIGHT rotate right child, then LEFT rotate z
+
+   Example LL: insert 30, 20, 10:
+      30                20
+     /                 /  \
+    20     ->        10    30
+   /
+  10
+
+AVL TREE: strict balance; search/insert/delete O(log n) worst case; more
+rotations on updates; faster lookups.
+RED-BLACK TREE: looser balance (height <= 2 log2(n+1)); fewer rotations;
+each node is red or black with rules: root black, no two adjacent reds,
+every root-to-null path has the same number of black nodes. Used in
+C++ std::map, Java TreeMap. Insert/delete O(log n).
+OTHERS: Splay (recently used near root), Treap (random priorities), B-tree
+(disk-based, many keys per node, databases/filesystems).
+
+==============================================================================
+3.5  CLASSIC BST PROBLEMS (with steps)
+==============================================================================
+
+--- B1. LOWEST COMMON ANCESTOR IN A BST ------------------------------------------------
+    Steps: 1) cur = root
+           2) if both p and q < cur.val: cur = cur.left
+              elif both > cur.val: cur = cur.right
+              else: cur is the LCA (the paths split here)
+    O(h), O(1) iterative.
+    # HOW: a single downward walk using value comparisons -> at most h steps; no recursion, so O(1) space.
+
+--- B2. K-TH SMALLEST ELEMENT -------------------------------------------------------------
+    Steps: iterative inorder; pop the k-th time -> answer.
+    Follow-up with frequent updates: store subtree sizes in nodes -> O(h).
+
+--- B3. SORTED ARRAY -> HEIGHT-BALANCED BST ---------------------------------------------------
+    Steps: 1) mid element becomes the root  2) build left from the left half
+    and right from the right half recursively.  O(n).
+    # HOW: each element is picked as a root exactly once (n nodes built); halving the array gives log n levels of recursion.
+    [-10,-3,0,5,9] -> root 0, left (-10,-3 -> -3 with left -10), right (5,9).
+
+--- B4. CONVERT BST TO SORTED LIST / RECOVER BST (two swapped nodes) ----------------------
+    Recover: inorder; find the first and second places where prev.val > cur.val;
+    swap the two offending nodes' values.
+
+--- B5. RANGE SUM OF BST [L, R] ---------------------------------------------------------------
+    Steps: if node < L: go right only; if node > R: go left only; else add
+    node and visit both. Prunes subtrees.
+
+--- B6. FLOOR AND CEIL --------------------------------------------------------------------------
+    Floor(x): largest key <= x. Steps: cur=root; ans=None; while cur:
+       if cur.val == x: return cur; if cur.val < x: ans=cur; cur=cur.right
+       else: cur=cur.left.   Ceil is the mirror.
+
+--- B7. TWO SUM IN A BST ------------------------------------------------------------------------
+    Steps: inorder to a sorted list + two pointers; or hash set during traversal;
+    or two BST iterators (forward and backward) for O(h) space.
+    # HOW: each iterator keeps a stack of at most h nodes (one root-to-leaf path).
+
+--- B8. BST ITERATOR (next() / hasNext()) ----------------------------------------------------
+    Steps: controlled iterative inorder: keep a stack of the left spine;
+    next(): pop node, push the left spine of its right child. Amortized O(1) per
+    call, O(h) space.
+    # HOW: each node is pushed once and popped once over n next() calls -> 2n pushes/pops / n calls = O(1) amortized; the stack holds <= h nodes.
+
+--- B9. INSERT / DELETE / SEARCH (see 3.2) ----------------------------------------------------
+--- B10. CONSTRUCT BST FROM PREORDER -----------------------------------------------------------
+    Steps: use an upper bound: build(bound): if idx==n or pre[idx] > bound: None;
+    root = pre[idx++]; root.left = build(root.val); root.right = build(bound).
+    O(n).
+    # HOW: each preorder value is consumed exactly once, using the upper bound to place it -> n steps.
+--- B11. COUNT UNIQUE BSTs WITH n NODES ------------------------------------------------------
+    Catalan number: dp[n] = sum dp[i] * dp[n-1-i]. n=3 -> 5.
+
+
+##############################################################################
+ PART 4 : HEAP
+##############################################################################
+
+==============================================================================
+4.1  DEFINITION
+==============================================================================
+
+A HEAP is a COMPLETE binary tree that satisfies the HEAP PROPERTY:
+   MAX-HEAP : every parent >= its children  -> maximum at the ROOT
+   MIN-HEAP : every parent <= its children  -> minimum at the ROOT
+
+   MIN-HEAP                       MAX-HEAP
+         1                            50
+       /   \                        /    \
+      3     2                      30     40
+     / \   /                      /  \   /
+    7   5 4                      10  20 35
+
+Only the parent-child relation is ordered - NOT left vs right siblings and NOT
+across levels. Heap is not sorted, so searching for an arbitrary value is O(n).
+
+Because the tree is COMPLETE (filled left to right), it is stored compactly in
+an ARRAY with no gaps. Height = floor(log2 n).
+
+==============================================================================
+4.2  ARRAY REPRESENTATION
+==============================================================================
+
+    min-heap tree:        1
+                        /   \
+                       3     2
+                      / \   /
+                     7   5 4
+
+    array: index  0  1  2  3  4  5
+           value [1, 3, 2, 7, 5, 4]
+
+    0-based:  parent(i) = (i-1)//2      left(i) = 2i+1     right(i) = 2i+2
+    1-based:  parent(i) = i//2          left(i) = 2i       right(i) = 2i+1
+    Leaves are indices n//2 .. n-1; last internal node = n//2 - 1.
+
+    Check: node 3 at index 1 -> children indices 3,4 -> values 7,5; parent index 0.
+
+==============================================================================
+4.3  OPERATIONS
+==============================================================================
+
+ Operation          Time        Notes
+ peek (min/max)     O(1)        heap[0]
+ insert (push)      O(log n)    sift-up
+ extract (pop)      O(log n)    sift-down
+ build heap         O(n)        bottom-up heapify
+ search arbitrary   O(n)
+ delete arbitrary   O(log n)    given its index (replace with last, sift up/down)
+ decrease/increase key  O(log n)
+ merge two heaps    O(n)        (binary heap); O(log n) for binomial/Fibonacci heaps
+
+--- INSERT (SIFT-UP / BUBBLE-UP) -----------------------------------------------------
+    Steps: 1) append the new value at the END of the array (keeps tree complete)
+           2) while it has a parent and violates the heap property
+              (min-heap: value < parent): swap with the parent
+    Example min-heap [1,3,6,5,9,8], insert 2:
+        append -> [1,3,6,5,9,8,2]   (index 6, parent index 2 = 6)
+        2 < 6 swap  -> [1,3,2,5,9,8,6]
+        parent index 0 = 1 < 2 stop.
+        Result [1,3,2,5,9,8,6]
+    Diagram:     1                1
+               /   \            /   \
+              3     6   ->     3     2
+             / \   / \        / \   / \
+            5  9  8   2      5  9  8   6
+    Worst case moves up to the root: O(log n).
+    # HOW: a node can swap with its parent once per level; the tree has log2(n) levels -> at most log2(n) swaps (each O(1)).
+
+--- EXTRACT MIN (SIFT-DOWN / HEAPIFY-DOWN) -------------------------------------------
+    Steps: 1) save root (the answer)
+           2) move the LAST element to the root, shrink the array by one
+           3) while the node has a smaller child than itself:
+                 swap with the SMALLER child (min-heap) [larger for max-heap]
+    Example [1,3,2,5,9,8,6]:
+        remove 1; move last (6) to root -> [6,3,2,5,9,8]
+        children of 6: 3 and 2 -> smaller is 2 (index 2): swap -> [2,3,6,5,9,8]
+        children of 6 at index 2: index 5 -> 8; 6 < 8 stop.
+        Result [2,3,6,5,9,8]
+    Why the SMALLER child: so the new parent is still <= both children.
+    O(log n).
+    # HOW: the moved-down element can swap at most once per level on the way to a leaf -> at most log2(n) swaps; each swap needs 2 comparisons (constant).
+
+--- HEAP CLASS (min-heap) -------------------------------------------------------------
+    class MinHeap:
+        def __init__(self): self.a = []
+        def push(self, x):
+            self.a.append(x); i = len(self.a) - 1
+            while i > 0 and self.a[i] < self.a[(i - 1) // 2]:
+                p = (i - 1) // 2
+                self.a[i], self.a[p] = self.a[p], self.a[i]; i = p
+        def pop(self):
+            a = self.a
+            a[0], a[-1] = a[-1], a[0]; top = a.pop()
+            i, n = 0, len(a)
+            while True:
+                l, r, s = 2*i + 1, 2*i + 2, i
+                if l < n and a[l] < a[s]: s = l
+                if r < n and a[r] < a[s]: s = r
+                if s == i: break
+                a[i], a[s] = a[s], a[i]; i = s
+            return top
+        def peek(self): return self.a[0]
+    (pop on an empty heap needs a guard: check `if not a` first.)
+
+==============================================================================
+4.4  BUILD HEAP IN O(n)
+==============================================================================
+
+Given an unsorted array, apply sift-down to each internal node from the LAST
+internal node (n//2 - 1) back to the root (index 0).
+
+    Steps: for i from n//2 - 1 down to 0: sift_down(i)
+
+    Example min-heap from [9,4,7,1,6,2]  (n=6, start at index 2):
+      i=2: 7 vs child idx5 (2): swap          -> [9,4,2,1,6,7]
+      i=1: 4 vs children (1,6): smallest 1    -> [9,1,2,4,6,7]
+      i=0: 9 vs children (1,2): smallest 1    -> [1,9,2,4,6,7]
+           9 now at idx1, children (4,6): swap with 4 -> [1,4,2,9,6,7]
+      Result [1,4,2,9,6,7]   (valid min-heap)
+
+    WHY O(n), NOT O(n log n)?
+      A node at height h does at most h swaps. There are about n/2^(h+1) nodes
+      at height h, so   total = sum_h (n / 2^(h+1)) * h  =  n * sum h/2^(h+1)  <= n.
+      Most nodes are near the leaves and move very little.
+    Repeated insertion (n pushes) would be O(n log n) - building bottom-up is
+    faster. Python: heapq.heapify(list) is O(n).
+
+==============================================================================
+4.5  HEAP SORT
+==============================================================================
+
+    Steps: 1) build a MAX-heap from the array: O(n)
+           2) for end = n-1 down to 1:
+                 swap a[0] (max) with a[end]    (max goes to its final place)
+                 heap size shrinks to end
+                 sift-down a[0] within the heap: O(log n)
+                 # HOW: n-1 extractions x sift-down of at most log2(n) levels = n log n.
+    Trace [4,10,3,5,1]:
+        max-heap          [10,5,3,4,1]
+        swap 10,1; sift   [5,4,3,1 | 10]
+        swap 5,1;  sift   [4,1,3 | 5,10]
+        swap 4,3;  sift   [3,1 | 4,5,10]
+        swap 3,1          [1 | 3,4,5,10]   -> sorted [1,3,4,5,10]
+    Time O(n log n) in all cases | Space O(1) | NOT stable | in-place.
+    # HOW: build = O(n) + (n-1 extractions x O(log n) sift-down) = O(n log n); it sorts within the same array -> O(1) extra space.
+
+==============================================================================
+4.6  PYTHON heapq MODULE (MIN-HEAP ONLY)
+==============================================================================
+
+    import heapq
+    h = []
+    heapq.heappush(h, 5)            # O(log n)
+    heapq.heappop(h)                # O(log n), returns smallest
+    h[0]                            # peek smallest, O(1)
+    heapq.heapify(lst)              # in place, O(n)
+    heapq.heappushpop(h, x)         # push then pop smallest (faster than two calls)
+    heapq.heapreplace(h, x)         # pop smallest, then push x
+    heapq.nsmallest(k, it) / heapq.nlargest(k, it, key=...)   # O(n log k)
+    heapq.merge(*sorted_iterables)  # lazy k-way merge
+
+    MAX-HEAP TRICK: store negatives:  heappush(h, -x);  largest = -heappop(h)
+    For tuples/objects: heappush(h, (-priority, item)).
+    Only h[0] is guaranteed to be smallest; the list is NOT fully sorted.
+    heapq has no remove/decrease-key; use lazy deletion (see 5.3).
+    Python's heap is a binary heap stored in a list (0-based).
+
+==============================================================================
+4.7  CLASSIC HEAP PROBLEMS (with steps)
+==============================================================================
+
+--- H1. K-TH LARGEST ELEMENT IN AN ARRAY ----------------------------------------------
+    Steps: 1) keep a MIN-heap of size k
+           2) for each x: push x; if len(heap) > k: pop (removes the smallest)
+           3) heap[0] is the k-th largest
+    Why min-heap: it holds the k largest seen; its root is the smallest of
+    them = k-th largest.
+    [3,2,1,5,6,4], k=2 -> heap ends [5,6] -> heap[0] = 5.
+    Time O(n log k), Space O(k).  (Quickselect: O(n) average.)
+    # HOW: n pushes/pops on a heap that never exceeds k items -> each costs log k -> n log k; the heap stores k items -> O(k) space.
+
+--- H2. K SMALLEST ELEMENTS: use a MAX-heap of size k (push negatives). ------------------
+
+--- H3. TOP K FREQUENT ELEMENTS ------------------------------------------------------------
+    Steps: 1) Counter  2) min-heap of (freq, value) with size k, or
+    heapq.nlargest(k, count, key=count.get)  3) output the values.
+    O(n log k).  Bucket sort alternative: O(n).
+    # HOW: counting = n; the heap keeps k items -> (#distinct values) * log k <= n log k.
+
+--- H4. MERGE K SORTED LISTS / ARRAYS ---------------------------------------------------------
+    Steps: 1) push the first element of each list as (value, list_id, index)
+           2) pop the smallest; append to output; push the next element from the
+              same list (if any)
+           3) repeat until the heap is empty
+    Time O(N log k) (N total elements), Space O(k).
+    # HOW: N elements overall pass through a heap holding one item per list (size k) -> each push/pop costs log k -> N log k.
+    Linked-list version: tuples (node.val, id, node); the id breaks ties so nodes
+    are never compared.
+
+--- H5. MEDIAN OF A DATA STREAM (two heaps) --------------------------------------------------
+    Keep: MAX-heap `low` (smaller half) and MIN-heap `high` (larger half).
+    Invariant: len(low) == len(high) or len(low) == len(high) + 1;
+               every element of low <= every element of high.
+    Steps (add x): 1) push x to low (as -x); move low's max to high
+                   2) if len(high) > len(low): move high's min back to low
+    Median: if sizes equal -> (low max + high min)/2, else low max.
+    Trace, adding 5, 2, 8:
+        add 5: low {5}, high {}            -> median 5
+        add 2: low {2}, high {5}           -> median (2+5)/2 = 3.5
+        add 8: low {2,5}, high {8}         -> median 5 (max of low)
+    addNum O(log n); findMedian O(1).
+    # HOW: addNum = O(1) pushes/pops on two heaps of size ~n/2 (log n each); the median is the top of a heap (or the average of two tops) -> O(1).
+
+--- H6. HEAP SORT (4.5) ------------------------------------------------------------------------
+
+--- H7. TASK SCHEDULER / REORGANIZE STRING / LAST STONE WEIGHT ----------------------------------
+    Greedy with a max-heap: always take the most frequent / heaviest item.
+    Last Stone Weight: repeatedly pop the two heaviest, push back the difference.
+    Reorganize String: pop the most frequent char; place; hold it back one turn;
+    if the heap is empty but chars remain -> impossible.
+
+--- H8. CONNECT ROPES / MINIMUM COST (Huffman-like) ---------------------------------------------
+    Steps: min-heap; while more than one rope: pop two smallest a, b; cost += a+b;
+    push a+b.  Greedy-optimal. [4,3,2,6] -> 5, 9, 15 = 29.
+
+--- H9. K CLOSEST POINTS TO ORIGIN --------------------------------------------------------------
+    Steps: max-heap of size k keyed on distance (push (-dist, point)); pop when
+    size > k.  O(n log k).
+    # HOW: n elements pass through a heap of size <= k -> n * log k.
+
+--- H10. SORT A K-SORTED ARRAY ----------------------------------------------------------------
+    Min-heap of first k+1 elements; pop the min, push the next. O(n log k).
+    # HOW: n pushes/pops on a heap of k+1 items, log(k+1) each -> n log k.
+
+--- H11. MEETING ROOMS II (min rooms) -----------------------------------------------------------
+    Steps: sort meetings by start; min-heap of END times; for each meeting: if
+    heap[0] <= start: pop (reuse the room); push end. Answer = max heap size.
+
+--- H12. SMALLEST RANGE COVERING K LISTS, KTH SMALLEST IN MATRIX, SLIDING WINDOW MEDIAN ----------
+    Heap holding one candidate per list/row; pop and advance.
+
+--- H13. DIJKSTRA'S SHORTEST PATH ----------------------------------------------------------------
+    See 5.4.
+
+
+##############################################################################
+ PART 5 : PRIORITY QUEUE
+##############################################################################
+
+==============================================================================
+5.1  ADT AND OPERATIONS
+==============================================================================
+
+PRIORITY QUEUE = abstract data type where every element has a PRIORITY and the
+element with the HIGHEST priority is removed first (not the oldest). A normal
+queue is the special case where priority = arrival time.
+
+    insert(item, priority)
+    extract_max / extract_min   (remove the top-priority item)
+    peek                        (view it)
+    is_empty, size
+    (optional) change_priority / decrease_key, remove(item)
+
+A priority queue is the ADT (behaviour); a HEAP is the usual data structure
+(implementation).
+
+==============================================================================
+5.2  IMPLEMENTATIONS COMPARED
+==============================================================================
+
+ Implementation           insert      extract top   peek     Notes
+ Unsorted array/list      O(1)        O(n)          O(n)     simple
+ Sorted array/list        O(n)        O(1)*         O(1)     *if top at the end
+ Sorted linked list       O(n)        O(1)          O(1)
+ Binary heap              O(log n)    O(log n)      O(1)     standard choice
+ Balanced BST             O(log n)    O(log n)      O(log n) also supports ordered queries
+ Binomial heap            O(log n)    O(log n)      O(log n) merge O(log n)
+ Fibonacci heap           O(1) am.    O(log n) am.  O(1)     decrease-key O(1) am.
+
+Binary heap wins on simplicity + speed. With n inserts and n extracts:
+   unsorted list O(n^2), heap O(n log n).
+   # HOW: unsorted list: n inserts (O(1) each) + n extract-mins (O(n) scan each) = n*n. Heap: n pushes + n pops, log n each = n log n.
+
+==============================================================================
+5.3  PYTHON USAGE
+==============================================================================
+
+(A) heapq (fast, not thread-safe)
+    import heapq
+    pq = []
+    heapq.heappush(pq, (2, "write"))      # (priority, item)
+    heapq.heappush(pq, (1, "read"))
+    heapq.heappop(pq)                     # (1, 'read')  - lowest number first
+    MAX priority first: push (-priority, item).
+
+(B) queue.PriorityQueue (thread-safe wrapper over heapq, blocking put/get)
+    from queue import PriorityQueue
+    q = PriorityQueue(); q.put((1, "task")); q.get()    # smallest first
+
+(C) TIE-BREAKING AND UNCOMPARABLE ITEMS
+    When priorities are equal Python compares the NEXT tuple element; if those
+    are not comparable (e.g. dicts, custom objects) you get TypeError.
+    Fix: insert a unique counter:
+        import itertools; counter = itertools.count()
+        heapq.heappush(pq, (priority, next(counter), item))
+    The counter also makes equal-priority items FIFO (stable).
+    Custom class: define __lt__ so heapq can order objects.
+
+(D) UPDATING PRIORITIES / DELETING - LAZY DELETION
+    heapq cannot find/change an element. Standard trick:
+       - Push a new entry with the new priority.
+       - Keep a dict of the current "valid" priority (or a removed-flag).
+       - When popping, SKIP entries that are stale.
+    Used in Dijkstra: if popped distance > best known distance for the node,
+    ignore it.
+
+(E) MAX-HEAP WITH CUSTOM KEY: wrap in a tuple with negated key, or a small
+    class with __lt__ reversed.
+
+==============================================================================
+5.4  APPLICATIONS
+==============================================================================
+
+ - DIJKSTRA / PRIM: pick the nearest unvisited vertex / cheapest edge.
+ - HUFFMAN CODING: repeatedly merge the two lowest-frequency nodes.
+ - OPERATING-SYSTEM SCHEDULING, event-driven simulation, bandwidth management.
+ - A* search, best-first search.
+ - TOP-K / KTH ELEMENT problems, streaming median, merge K sorted streams.
+ - Load balancing, hospital triage, rate-limited job queues.
+
+--- DIJKSTRA with a priority queue -------------------------------------------------------------
+    Steps: 1) dist[source]=0, all others inf; heap = [(0, source)]
+           2) while heap: d, u = heappop(heap)
+                 if d > dist[u]: continue            (stale entry)
+                 for (v, w) in graph[u]:
+                     if d + w < dist[v]: dist[v] = d + w; heappush(heap, (dist[v], v))
+           3) dist holds shortest distances (non-negative weights only)
+    Time O((V + E) log V). Not valid with negative edges (use Bellman-Ford).
+    # HOW: each vertex pops at most once with its best distance and each edge pushes at most once (E pushes); a heap op costs log(size) <= log V
+    #      -> (V + E) * log V.
+
+--- HUFFMAN CODING ------------------------------------------------------------------------------
+    Steps: 1) min-heap of leaf nodes keyed by frequency
+           2) while heap has > 1 node: pop two smallest; create a parent with
+              freq = sum; push it
+           3) the last node is the root; left edge = 0, right edge = 1;
+              a leaf's path is its code (frequent symbols get shorter codes)
+    Frequencies a:5 b:9 c:12 d:13 e:16 f:45:
+        merge 5+9=14; 12+13=25; 14+16=30; 25+30=55; 45+55=100.
+    O(n log n).
+    # HOW: n-1 merges; each merge does 2 pops + 1 push on a heap of <= n items (log n each) -> (n-1) * 3 log n = O(n log n).
+
+
+==============================================================================
+ 6.  COMPARISON TABLE
+==============================================================================
+
+                       Binary Tree   BST (balanced)   Heap          Hash table
+ Search arbitrary      O(n)          O(log n)         O(n)          O(1) avg
+ Insert                O(1)*         O(log n)         O(log n)      O(1) avg
+ Delete                O(n)          O(log n)         O(log n)**    O(1) avg
+ Find min / max        O(n)          O(log n)         O(1) (one of) O(n)
+ Sorted order output   O(n log n)    O(n) inorder     O(n log n)    O(n log n)
+ Ordered queries       no            yes (floor,range) no           no
+ (* given the position; ** arbitrary delete given its index)
+ # HOW (table): hash table = jump to a bucket (O(1) average). BST = one path of length h (log n if balanced). Heap = only the top is ordered, so min is O(1)
+ #      but arbitrary search scans all n nodes.
+
+ BST vs HEAP:
+   BST : fully ordered (left < node < right); search O(log n); inorder sorted.
+   Heap: only parent/child ordered; max/min O(1); search O(n); complete tree in
+         an array.
+
+ TRAVERSAL SUMMARY (sample tree 1; 2,3; 4,5,_,6)
+   Preorder   1 2 4 5 3 6
+   Inorder    4 2 5 1 3 6
+   Postorder  4 5 2 6 3 1
+   Level      1 2 3 4 5 6
+
+
+==============================================================================
+ 7.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ BINARY TREES
+   - Forgetting the base case (None) -> AttributeError.
+   - Mixing height conventions (edges vs nodes); state which you use.
+   - Confusing depth (from root) with height (to deepest leaf).
+   - Level order: not capturing len(queue) before the inner loop.
+   - Postorder iterative: forgetting to reverse; inorder iterative: forgetting
+     the `cur = cur.right` step.
+   - Recursion depth on skewed trees (Python limit ~1000): use iteration or
+     sys.setrecursionlimit.
+   - Mutating shared lists (path) without copying/backtracking: append path[:].
+   - Diameter: counting nodes vs edges.
+
+ BST
+   - Validating a BST by comparing only parent and children (must use bounds
+     or inorder).
+   - Duplicates handling not defined; ask the interviewer.
+   - Delete with two children: must delete the successor from the right subtree.
+   - Using a BST on sorted input without balancing -> O(n) operations.
+   - Using <= vs < in bounds for duplicates.
+   - Integer bounds: use float('-inf')/('inf') or None.
+
+ HEAP
+   - heapq is a MIN-heap only; forgetting to negate for max-heap (and to
+     negate back when popping).
+   - Assuming heap list is sorted or that heap[1] is the second smallest.
+   - Wrong index formulas (0-based vs 1-based).
+   - Sift-down: swapping with the wrong child (must be smaller for min-heap).
+   - Popping from an empty heap -> IndexError.
+   - Comparing uncomparable items in tuples -> TypeError; add a counter.
+   - K-th LARGEST needs a MIN-heap of size k (and vice versa).
+   - Mutating an element in the list directly breaks the heap invariant.
+   - Building via n pushes (O(n log n)) when heapify (O(n)) is possible.
+
+ EDGE CASES: empty tree, single node, skewed tree, duplicate values, negative
+ values, k > n, k = 0, all equal priorities, very deep trees.
+
+
+==============================================================================
+ 8.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+ TIPS
+   - For tree problems say: "I'll use recursion; base case is None; at each
+     node I need X from the children and return Y to the parent."
+   - Decide DFS vs BFS: level/shortest-depth -> BFS; path/subtree/aggregate ->
+     DFS.
+   - BST question -> exploit inorder = sorted and the left < node < right rule.
+   - "top K", "k-th", "merge K", "stream", "median", "schedule" -> heap.
+   - Always give time (O(n), O(h), O(log n)) and space (recursion stack = O(h)).
+
+ FAQs
+ Q1. Binary tree vs binary search tree?
+     BT: at most 2 children, no order. BST: left < node < right.
+ Q2. Which traversal gives sorted output for a BST?  Inorder.
+ Q3. Complexity of BST operations?  O(h): O(log n) balanced, O(n) skewed.
+ Q4. How do you delete a node with two children in a BST?
+     Replace by inorder successor (or predecessor), then delete that node.
+ Q5. What is a complete binary tree and why do heaps need it?
+     All levels full except the last, filled left to right -> array storage
+     without gaps and height log n.
+ Q6. Heap vs BST?  Heap: min/max at root O(1), partial order, array based.
+     BST: total order, O(log n) search.
+ Q7. Why is building a heap O(n)?  Most nodes are near the leaves and sift down
+     very little: sum of n/2^(h+1)*h = O(n).
+ Q8. Time for insert/extract in a heap?  O(log n) each (height of the tree).
+ Q9. Is a priority queue the same as a heap?  No: PQ is the ADT, heap is an
+     implementation.
+ Q10. How to implement a max-heap in Python?  Negate values with heapq.
+ Q11. Find the k-th largest element?  Min-heap size k: O(n log k); quickselect
+      O(n) avg.
+ Q12. How do you find the height of a binary tree?  1 + max(height(l), height(r)).
+ Q13. Maximum number of nodes in a binary tree of height h?  2^(h+1) - 1.
+ Q14. How to check if a binary tree is a BST?  Recurse with (low, high) bounds or
+      check inorder strictly increasing.
+ Q15. What is a balanced tree and why care?  Height O(log n) -> guaranteed
+      logarithmic operations; AVL and red-black trees maintain it by rotations.
+ Q16. DFS vs BFS on trees?  DFS: stack/recursion, O(h) space; BFS: queue,
+      O(width) space.
+ Q17. How to do inorder traversal without recursion/stack?  Morris traversal.
+ Q18. Lowest common ancestor in BST vs binary tree?
+      BST: use values to decide, O(h). Binary tree: recursive search, O(n).
+ Q19. Why can't heapq decrease a key?  It stores a plain list with no index map;
+      use lazy deletion (push new entry, skip stale).
+ Q20. How is a complete tree stored in an array?  Parent (i-1)//2, children
+      2i+1, 2i+2.
+ Q21. Can a tree have a cycle?  No (that would be a graph).
+ Q22. Number of leaf nodes in a full binary tree with n internal nodes?  n + 1.
+
+
+==============================================================================
+ 9.  PRACTICE PROBLEMS (answers below)
+==============================================================================
+
+ P1.  Give preorder, inorder, postorder and level order of:
+                 10
+               /    \
+              5      15
+             / \       \
+            2   7       20
+ P2.  Build the BST by inserting 8, 3, 10, 1, 6, 14, 4, 7, 13 and list inorder.
+ P3.  Delete 3 (two children) from the BST of P2 and draw the result.
+ P4.  Reconstruct the tree: preorder [1,2,4,5,3], inorder [4,2,5,1,3].
+ P5.  Insert 15, 10, 20, 5, 30, 1 into an empty min-heap one by one (array
+      after each insertion).
+ P6.  Build a min-heap from [12, 3, 17, 8, 1, 9] with bottom-up heapify.
+ P7.  After P6, perform one extract-min and show the heap.
+ P8.  Height of a complete binary tree with 20 nodes? Maximum nodes in a binary
+      tree of height 4?
+ P9.  Find the k=3 largest elements of [7, 10, 4, 3, 20, 15] using a heap.
+ P10. Is the following a valid BST? root 5, left 3, right 8, and 8's left child 4.
+ P11. Merge [1,4,7], [2,5,8], [3,6,9] with a heap (state the heap contents at
+      the start).
+ P12. Diameter of the tree in P1.
+ P13. Number of structurally different binary trees with 4 nodes; BSTs with 3 keys.
+ P14. LCA of 4 and 7 in the BST of P2.
+
+---- ANSWERS ----
+ P1.  Preorder 10 5 2 7 15 20 | Inorder 2 5 7 10 15 20 | Postorder 2 7 5 20 15 10
+      | Level 10 5 15 2 7 20.
+ P2.  Tree:        8
+                 /   \
+                3     10
+               / \      \
+              1   6      14
+                 / \    /
+                4   7  13
+      Inorder: 1 3 4 6 7 8 10 13 14.
+ P3.  Successor of 3 = leftmost of right subtree = 4. Copy 4 into 3's place,
+      delete the leaf 4. Result:     8
+                                   /   \
+                                  4     10
+                                 / \      \
+                                1   6      14
+                                     \     /
+                                      7   13
+ P4.  Root 1; inorder left [4,2,5] right [3]; left preorder [2,4,5]: root 2,
+      left 4, right 5.
+                 1
+                / \
+               2   3
+              / \
+             4   5
+ P5.  [15] -> [10,15] -> [10,15,20] -> [5,10,20,15] (5 bubbles to root:
+      append at idx3, parent idx1 (15) swap, parent idx0 (10) swap -> [5,10,20,15])
+      -> insert 30: [5,10,20,15,30] -> insert 1: append idx5, parent idx2 (20)
+      swap, parent idx0 (5) swap -> [1,10,5,15,30,20].
+ P6.  n=6, start i=2: 17 vs child idx5 (9): swap -> [12,3,9,8,1,17]
+      i=1: 3 vs children (8,1): smallest 1 -> swap -> [12,1,9,8,3,17]
+      i=0: 12 vs children (1,9): swap with 1 -> [1,12,9,8,3,17];
+           12 at idx1, children (8,3): swap with 3 -> [1,3,9,8,12,17].
+      Result [1,3,9,8,12,17].
+ P7.  Remove 1; move last (17) to root: [17,3,9,8,12]; children (3,9): swap with 3
+      -> [3,17,9,8,12]; 17 at idx1 children idx3=8, idx4=12 -> swap with 8 ->
+      [3,8,9,17,12]. Result [3,8,9,17,12].
+ P8.  Height = floor(log2 20) = 4 (edges). Max nodes at height 4 = 2^5 - 1 = 31.
+ P9.  Min-heap size 3: after 7,10,4 -> [4,7,10]; 3: push then pop 3 -> [4,7,10];
+      20: -> pop 4 -> [7,10,20]; 15: -> pop 7 -> [10,15,20]. Answer {10,15,20}
+      (3rd largest = heap[0] = 10).
+ P10. No: 4 lies in the right subtree of 5 but 4 < 5. Bounds check fails at node 4
+      (needs 5 < val < 8).
+ P11. Initial heap: [(1,0,0),(2,1,0),(3,2,0)]. Pop 1, push 4, pop 2, push 5, pop 3,
+      push 6, ... output 1 2 3 4 5 6 7 8 9.
+ P12. Longest path: 2-5-10-15-20 = 4 edges (7-5-10-15-20 also 4). Diameter 4.
+ P13. Catalan(4) = 14 binary tree shapes; BSTs with 3 keys = Catalan(3) = 5.
+ P14. 4 is in the left subtree of 3 -> 6; 7 is under 6 -> both under 6; split at
+      6 (4 < 6 < 7). LCA = 6.
+
+
+==============================================================================
+ 10.  QUICK REVISION SUMMARY
+==============================================================================
+
+ TREES BASICS
+   - n nodes, n-1 edges; depth from root, height to deepest leaf.
+   - Full, complete, perfect, balanced, skewed. Max nodes 2^(h+1)-1.
+
+ BINARY TREES
+   - Traversals: pre (N L R), in (L N R), post (L R N), level (BFS queue).
+   - Tree from preorder+inorder (root from preorder, split by inorder).
+   - Recursion pattern: base None -> combine children -> return to parent.
+   - Key problems: height, diameter, LCA, balanced, symmetric, invert, path sum,
+     serialize, views, nodes at distance k.
+
+ BST
+   - left < node < right (whole subtrees); inorder is sorted.
+   - Search/insert/delete O(h): O(log n) balanced, O(n) skewed.
+   - Delete: leaf / one child / two children (use inorder successor).
+   - Validate with bounds. LCA via value comparison. K-th smallest via inorder.
+   - AVL/Red-Black keep height O(log n) with rotations.
+
+ HEAP
+   - Complete binary tree + heap property; stored in an array:
+     parent (i-1)//2, children 2i+1, 2i+2.
+   - peek O(1); push (sift-up) / pop (sift-down) O(log n); build O(n).
+   - Python heapq = min-heap (negate for max). k-th largest -> min-heap size k.
+   - Heap sort: O(n log n), O(1) space, unstable.
+
+ PRIORITY QUEUE
+   - ADT: highest priority out first; heap is the standard implementation.
+   - heapq with (priority, counter, item); lazy deletion for updates.
+   - Uses: Dijkstra O((V+E) log V), Huffman, scheduling, merge K lists, median
+     of stream (two heaps).
+
+ COMPLEXITY LINE
+   tree traversal O(n) | BST ops O(h) | heap push/pop O(log n) | heapify O(n) |
+   heap peek O(1) | top-k with heap O(n log k) | merge k lists O(N log k).
+
+==============================================================================
+ END OF NOTES
+==============================================================================

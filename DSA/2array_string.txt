@@ -1,0 +1,1420 @@
+==============================================================================
+ ARRAYS & STRINGS  -  Complete Study Notes (Exam + Interview Ready)
+ Topics: Arrays | Strings | Hash Tables | Two Pointer | Sliding Window
+ Language for examples: Python
+==============================================================================
+ HOW TO READ THE COMPLEXITY COMMENTS: lines that start with '# HOW:' show how the nearby Big-O was worked out:
+   count the steps (loop runs x work per run, or calls x work per call), then keep the dominant term and drop constants.
+
+TABLE OF CONTENTS
+  1.  ARRAYS
+      1.1  What is an array? Memory layout
+      1.2  Static vs Dynamic arrays; Python list internals
+      1.3  Operations and complexity
+      1.4  2D arrays / matrices
+      1.5  Core array techniques (prefix sum, in-place, Kadane, etc.)
+      1.6  Classic array problems with solving steps
+  2.  STRINGS
+      2.1  What is a string? Immutability
+      2.2  Operations and complexity; Python string methods
+      2.3  Common string patterns (palindrome, anagram, frequency)
+      2.4  Classic string problems with solving steps
+      2.5  Pattern matching (naive, KMP, Rabin-Karp overview)
+  3.  HASH TABLES
+      3.1  Concept, hash function, buckets
+      3.2  Collision handling (chaining, open addressing)
+      3.3  Load factor and resizing
+      3.4  Python dict / set / Counter / defaultdict
+      3.5  Hash table patterns with solving steps
+  4.  TWO POINTER TECHNIQUE
+      4.1  Concept and variants
+      4.2  When to use / recognise it
+      4.3  Templates and problems with solving steps
+  5.  SLIDING WINDOW
+      5.1  Concept: fixed vs variable window
+      5.2  Templates
+      5.3  Problems with solving steps
+  6.  Choosing the right technique (decision guide)
+  7.  Common mistakes and edge cases
+  8.  Interview tips and FAQs
+  9.  Practice problems (with answers)
+ 10.  Quick revision summary
+
+
+##############################################################################
+ PART 1 : ARRAYS
+##############################################################################
+
+==============================================================================
+1.1  WHAT IS AN ARRAY?
+==============================================================================
+
+An ARRAY is a collection of elements stored in CONTIGUOUS (side-by-side)
+memory locations, accessed by an integer INDEX (starting at 0).
+
+MEMORY LAYOUT (array of 4-byte ints, base address 1000):
+
+    index :   0      1      2      3      4
+            +------+------+------+------+------+
+    value   |  10  |  20  |  30  |  40  |  50  |
+            +------+------+------+------+------+
+    address  1000   1004   1008   1012   1016
+
+    address of arr[i] = base_address + i * element_size
+    So arr[3] = 1000 + 3*4 = 1012  ->  computed in ONE step -> O(1) access
+    # HOW: address = base + i*size is one multiply + one add no matter how big i is -> constant steps -> O(1).
+    ("random access").
+
+WHY O(1) ACCESS BUT O(n) INSERT/DELETE IN THE MIDDLE?
+
+    Insert 25 at index 2:      before: [10, 20, 30, 40, 50]
+      shift 50,40,30 right ->  [10, 20, __, 30, 40, 50]
+      place 25            ->   [10, 20, 25, 30, 40, 50]
+    Every element after the index moves => O(n).
+    # HOW: inserting at index 2 moves the n-2 later items one slot right; at index 0 it moves all n -> up to n moves -> O(n).
+
+    Delete index 1:            [10, 20, 30, 40, 50]
+      shift 30,40,50 left ->   [10, 30, 40, 50]
+    Also O(n).
+    # HOW: deleting index 1 shifts the n-2 later items one slot left; worst case ~n shifts -> O(n).
+
+KEY PROPERTIES
+   + Fast index access, cache-friendly (contiguous memory).
+   + Simple, low overhead.
+   - Fixed size in low-level languages (C/Java arrays).
+   - Insert/delete in middle is O(n).
+   - Search in unsorted array is O(n).
+
+==============================================================================
+1.2  STATIC vs DYNAMIC ARRAYS; PYTHON LIST
+==============================================================================
+
+STATIC ARRAY : size fixed at creation (C: int a[5]).
+DYNAMIC ARRAY: grows automatically (Python list, Java ArrayList, C++ vector).
+
+HOW A DYNAMIC ARRAY GROWS (doubling strategy):
+
+   capacity 4:  [a][b][c][d]      full! append(e):
+   1. allocate new array of capacity 8
+   2. copy 4 old elements        [a][b][c][d][ ][ ][ ][ ]
+   3. add e                      [a][b][c][d][e][ ][ ][ ]
+   4. free old array
+   The copy is O(n), but it happens rarely, so append is
+   O(1) AMORTIZED  (n appends cost about 3n total).
+    # HOW: n appends = n cheap writes + resize copies of 1+2+4+...+n/2 (< n) items (geometric sum)
+    #      total < 3n steps; 3n / n appends = ~3 steps each -> O(1) amortized.
+
+PYTHON LIST NOTES
+   - A list stores POINTERS (references) to objects, not the objects
+     themselves. So a list can hold mixed types.
+         list: [ptr0][ptr1][ptr2] -> 5, "hi", 3.14
+   - Over-allocates (about 12.5% growth) to make append amortized O(1).
+   - The "array" module and numpy store raw typed values (more compact).
+
+CREATING ARRAYS
+    a = [0] * 5                        # [0,0,0,0,0]
+    a = [i*i for i in range(5)]        # list comprehension
+    grid = [[0]*m for _ in range(n)]   # CORRECT 2D (n rows, m cols)
+    bad  = [[0]*m]*n                   # WRONG: all rows are the SAME list!
+
+==============================================================================
+1.3  ARRAY OPERATIONS AND COMPLEXITY (Python list)
+==============================================================================
+
+    Operation                          Time            Notes
+    ---------------------------------  --------------  ----------------------
+    a[i] read / write                  O(1)
+    len(a)                             O(1)
+    a.append(x)                        O(1) amortized
+    a.pop()  (last)                    O(1)
+    a.insert(i, x)                     O(n)            shifts right
+    a.pop(i) / del a[i]                O(n)            shifts left
+    a.pop(0) / a.insert(0,x)           O(n)            use deque instead
+    x in a / a.index(x) / a.count(x)   O(n)            linear scan
+    a.remove(x)                        O(n)
+    a[i:j] (slice)                     O(j-i)          makes a COPY
+    a + b                              O(n+m)
+    a.extend(b)                        O(m)
+    a.reverse()                        O(n)
+    a.sort()                           O(n log n)      Timsort
+    min / max / sum                    O(n)
+    Binary search (sorted, bisect)     O(log n)
+    # HOW (table above): index/len/pop() touch a fixed number of cells -> O(1). insert/pop(i)/remove/index/count shift or
+    #      scan up to n items, 1 step each -> O(n). Slice copies j-i items -> O(j-i). a+b copies n+m. sort = n log n compares.
+
+Space: O(n) for the array itself.
+
+TRAVERSAL
+    for x in a: ...                    # values
+    for i in range(len(a)): ...        # indices
+    for i, x in enumerate(a): ...      # both
+    for i in range(len(a)-1, -1, -1)   # reverse
+
+==============================================================================
+1.4  2D ARRAYS / MATRICES
+==============================================================================
+
+    grid (3 x 4):         col0 col1 col2 col3
+                 row0  [   1    2    3    4 ]
+                 row1  [   5    6    7    8 ]
+                 row2  [   9   10   11   12 ]
+
+    grid[r][c]   -> element at row r, col c           O(1)
+    rows = len(grid);  cols = len(grid[0])
+
+    Traversal (row-major):  for r in range(rows): for c in range(cols): ...  O(R*C)
+    # HOW: outer loop runs R times, inner loop runs C times per outer pass -> R*C visits, O(1) each -> O(R*C).
+
+    4-direction neighbours:  (r-1,c) (r+1,c) (r,c-1) (r,c+1)
+        for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+            nr, nc = r+dr, c+dc
+            if 0 <= nr < rows and 0 <= nc < cols: ...
+
+    TRANSPOSE (swap rows and columns):
+        t = [list(row) for row in zip(*grid)]
+    ROTATE 90 deg CLOCKWISE (in place for N x N):
+        Steps: 1) transpose (swap grid[i][j] with grid[j][i] for j > i)
+               2) reverse each row
+        Example:   1 2 3        transpose     1 4 7     reverse rows   7 4 1
+                   4 5 6   ->                 2 5 8   ->               8 5 2
+                   7 8 9                      3 6 9                    9 6 3
+        Time O(N^2), space O(1).
+    # HOW: transpose swaps ~N^2/2 pairs and reversing rows touches ~N^2/2 items -> c*N^2 steps -> O(N^2);
+    #      everything is swapped in place (one temp) -> O(1) extra space.
+
+    DIAGONALS: main diagonal r == c ; anti-diagonal r + c == n-1.
+    Cells on the same diagonal share r-c; on the same anti-diagonal share r+c.
+
+==============================================================================
+1.5  CORE ARRAY TECHNIQUES
+==============================================================================
+
+(A) PREFIX SUM  (range-sum queries in O(1) after O(n) build)
+-----------------------------------------------------------------------
+    arr    : [ 3,  1,  4,  1,  5]
+    prefix : [ 0,  3,  4,  8,  9, 14]     prefix[i] = sum of arr[0..i-1]
+    sum(arr[l..r]) = prefix[r+1] - prefix[l]
+
+    Diagram:  arr:  | 3 | 1 | 4 | 1 | 5 |
+              sum of index 1..3 = prefix[4]-prefix[1] = 9-3 = 6  (1+4+1)
+
+    Steps: 1) prefix = [0]*(n+1)
+           2) for i in range(n): prefix[i+1] = prefix[i] + arr[i]
+           3) answer each query with a subtraction.
+    Time: build O(n), query O(1). Space O(n).
+    # HOW: build = one loop of n additions -> O(n). Query = 2 array reads + 1 subtraction, no loop -> O(1).
+    #      The prefix array has n+1 cells -> O(n) space.
+
+    2D prefix sum: P[i][j] = grid[i-1][j-1] + P[i-1][j] + P[i][j-1] - P[i-1][j-1]
+    Rectangle sum = P[r2+1][c2+1] - P[r1][c2+1] - P[r2+1][c1] + P[r1][c1]
+
+(B) DIFFERENCE ARRAY (many range updates, then one pass)
+-----------------------------------------------------------------------
+    To add v to arr[l..r]: diff[l] += v; diff[r+1] -= v.
+    Final array = running (prefix) sum of diff.   O(1) per update, O(n) rebuild.
+    # HOW: an update writes 2 cells (diff[l], diff[r+1]) -> O(1); one prefix-sum pass over n cells rebuilds the array -> O(n).
+
+(C) IN-PLACE MODIFICATION
+-----------------------------------------------------------------------
+    Use extra index(es) to overwrite the array without extra memory.
+    Example: remove duplicates from sorted array (see two pointers).
+
+(D) KADANE'S ALGORITHM  (maximum subarray sum)
+-----------------------------------------------------------------------
+    Idea: at each position, either EXTEND the previous subarray or START NEW.
+        best_ending_here = max(x, best_ending_here + x)
+        best_overall     = max(best_overall, best_ending_here)
+
+    Steps:
+      1. cur = best = arr[0]
+      2. For each x in arr[1:]:
+            cur  = max(x, cur + x)      # extend or restart
+            best = max(best, cur)
+      3. Return best.
+
+    Trace on [-2, 1, -3, 4, -1, 2, 1, -5, 4]:
+        x    : -2   1  -3   4  -1   2   1  -5   4
+        cur  : -2   1  -2   4   3   5   6   1   5
+        best : -2   1   1   4   4   5   6   6   6     -> answer 6  ([4,-1,2,1])
+    Time O(n), Space O(1).
+    # HOW: one loop of n-1 iterations; each does 2 max() calls and an add (constant work) -> O(n). Only cur/best kept -> O(1) space.
+
+(E) SORTING + SCANNING
+-----------------------------------------------------------------------
+    Sort first (O(n log n)), then neighbours reveal duplicates, gaps, merges.
+    e.g. merge overlapping intervals: sort by start, then sweep.
+
+(F) FREQUENCY / COUNTING ARRAY
+-----------------------------------------------------------------------
+    If values are in a small known range (e.g. 'a'-'z' or 0..k), use
+    count = [0]*26 instead of a dict. O(1) access, tiny memory.
+
+(G) BINARY SEARCH on a sorted array: O(log n)
+    # HOW: every step halves the remaining range: n -> n/2 -> n/4 -> ... -> 1, which takes log2(n) steps -> O(log n).
+-----------------------------------------------------------------------
+    Steps: 1) lo=0, hi=n-1
+           2) while lo <= hi: mid=(lo+hi)//2
+                 if arr[mid]==target -> found
+                 elif arr[mid] < target -> lo = mid+1
+                 else hi = mid-1
+           3) not found -> -1
+    Diagram:  [1 3 5 7 9 11 13], target 11
+              lo=0,hi=6,mid=3 (7)  7<11 -> lo=4
+              lo=4,hi=6,mid=5 (11) found.
+
+==============================================================================
+1.6  CLASSIC ARRAY PROBLEMS  (with solving steps)
+==============================================================================
+
+--- P1. REVERSE AN ARRAY IN PLACE -------------------------------------------
+    Steps: 1) left=0, right=n-1
+           2) while left < right: swap a[left], a[right]; left++; right--
+    Diagram: [1 2 3 4 5]
+              L         R      swap -> [5 2 3 4 1]
+                L     R        swap -> [5 4 3 2 1]
+                    LR         stop
+    Time O(n), Space O(1).
+    # HOW: loop runs while left < right = n/2 swaps, each O(1) -> n/2 steps -> O(n). Two index variables -> O(1) space.
+        a[l], a[r] = a[r], a[l]
+
+--- P2. ROTATE ARRAY RIGHT BY k  --------------------------------------------
+    Reversal method (O(n) time, O(1) space):
+    # HOW: the 3 reversals touch n + k + (n-k) = 2n elements -> O(n) time; all done in place -> O(1) space.
+    Steps: 1) k = k % n
+           2) reverse the whole array
+           3) reverse first k elements
+           4) reverse remaining n-k elements
+    Example [1,2,3,4,5,6,7], k=3:
+        reverse all   -> [7,6,5,4,3,2,1]
+        reverse 0..2  -> [5,6,7,4,3,2,1]
+        reverse 3..6  -> [5,6,7,1,2,3,4]   <- answer
+
+--- P3. FIND MAX / SECOND MAX IN ONE PASS -----------------------------------
+    Steps: 1) first=second=-inf
+           2) for x: if x > first: second=first; first=x
+                     elif x > second and x != first: second=x
+    Time O(n), Space O(1).
+    # HOW: one pass; each element is compared with 2 variables (constant) -> n * O(1) = O(n); only first/second stored -> O(1).
+
+--- P4. MOVE ZEROES TO END (keep order of non-zero) -------------------------
+    Steps: 1) w = 0  (write position)
+           2) for each x: if x != 0: a[w]=x; w++
+           3) fill a[w:] with 0
+    Example [0,1,0,3,12] -> w writes 1,3,12 -> [1,3,12,0,0]
+    Time O(n), Space O(1).
+    # HOW: pass 1 reads n items and writes <= n; pass 2 fills the remaining zeros (<= n) -> ~2n steps -> O(n); in place -> O(1).
+
+--- P5. MISSING NUMBER (0..n, one missing) ----------------------------------
+    Method: expected = n(n+1)/2; answer = expected - sum(arr). O(n), O(1).
+    # HOW: sum(arr) is one pass over n items = O(n); n(n+1)/2 is a formula = O(1); no extra storage.
+    Alt: XOR all indices and values.
+
+--- P6. FIND DUPLICATE / FIRST REPEATING ------------------------------------
+    Steps (hash set): seen=set(); for x: if x in seen -> duplicate else add.
+    O(n) time, O(n) space.
+    # HOW: n iterations; set lookup and insert are O(1) on average -> O(n) time; the set can grow to n items -> O(n) space.
+    O(1)-space variant for values in 1..n: Floyd's cycle detection, or mark
+    visited by negating arr[abs(x)-1].
+
+--- P7. PRODUCT OF ARRAY EXCEPT SELF (no division) --------------------------
+    Steps: 1) result[i] = product of everything LEFT of i  (left pass)
+           2) multiply by running product of everything RIGHT of i (right pass)
+    Example [1,2,3,4]:
+        left products (pass 1)  : [1, 1, 2, 6]
+        running right product   : i=3: 1, i=2: 4, i=1: 12, i=0: 24
+        result = left * right   : [24, 12, 8, 6]
+    Time O(n), Space O(1) extra.
+    # HOW: two passes (left-to-right, right-to-left) of n steps each = 2n -> O(n); the result array IS the output, so extra space is O(1).
+
+--- P8. MERGE TWO SORTED ARRAYS ---------------------------------------------
+    Steps: 1) i=0, j=0, out=[]
+           2) while both valid: append the smaller of a[i], b[j]; advance it
+           3) append the leftover tail
+    Time O(n+m), Space O(n+m).
+    # HOW: every step outputs one element and advances i or j, so total steps = n+m -> O(n+m); the output holds n+m items.
+
+--- P9. MERGE OVERLAPPING INTERVALS -----------------------------------------
+    Steps: 1) sort intervals by start
+           2) result=[first]
+           3) for each interval: if start <= result[-1].end: merge
+                 (result[-1].end = max(result[-1].end, end))
+              else append new
+    Time O(n log n), Space O(n).
+    # HOW: sorting = O(n log n); the merge sweep is one pass = O(n); n log n dominates n -> O(n log n). Result list up to n -> O(n).
+
+--- P10. MAJORITY ELEMENT (> n/2) : BOYER-MOORE VOTING ----------------------
+    Idea: pair off different elements; the majority survives.
+    Steps: 1) candidate=None, count=0
+           2) for x: if count==0: candidate=x
+                     count += 1 if x==candidate else -1
+           3) (verify candidate if majority is not guaranteed)
+    Trace [2,2,1,1,1,2,2]: cand 2(c1)->2(c2)->1(c1)->1(c0)->1(c1)->2(c0)->2(c1)
+    -> candidate 2.   Time O(n), Space O(1).
+    # HOW: one pass, O(1) work per element (an if and an add); two variables -> O(1) space.
+
+--- P11. SPIRAL MATRIX TRAVERSAL --------------------------------------------
+    Steps: 1) top=0,bottom=R-1,left=0,right=C-1
+           2) loop while top<=bottom and left<=right:
+                 go left->right along top row; top++
+                 go top->bottom along right col; right--
+                 if top<=bottom: right->left along bottom row; bottom--
+                 if left<=right: bottom->top along left col; left++
+    Time O(R*C).
+    # HOW: each of the R*C cells is visited exactly once (the 4 boundaries only shrink) -> O(R*C).
+
+--- P12. SUBARRAY SUM EQUALS K (works with negatives) -----------------------
+    Idea: prefix[j]-prefix[i] = k  <=>  prefix[i] = prefix[j]-k.
+    Steps: 1) counts={0:1}; pref=0; ans=0
+           2) for x: pref+=x; ans += counts.get(pref-k,0);
+                     counts[pref] = counts.get(pref,0)+1
+    Time O(n), Space O(n).
+    # HOW: n iterations with O(1)-average dict get/set; the dict can hold n+1 distinct prefix sums -> O(n) space.
+
+--- P13. DUTCH NATIONAL FLAG (sort 0s,1s,2s) --------------------------------
+    Three pointers low, mid, high:
+    Steps: 1) low=mid=0; high=n-1
+           2) while mid <= high:
+                 a[mid]==0: swap(a[low],a[mid]); low++; mid++
+                 a[mid]==1: mid++
+                 a[mid]==2: swap(a[mid],a[high]); high--   (don't advance mid)
+    Regions: [0..low) zeros | [low..mid) ones | [mid..high] unknown | (high..] twos
+    Time O(n), Space O(1).
+    # HOW: every iteration either advances mid or shrinks high, so the unknown region [mid..high] loses 1 cell each time
+    #      -> <= n steps -> O(n); 3 pointers -> O(1).
+
+
+##############################################################################
+ PART 2 : STRINGS
+##############################################################################
+
+==============================================================================
+2.1  WHAT IS A STRING?
+==============================================================================
+
+A STRING is a sequence of characters. Internally like an array of characters:
+
+    s = "HELLO"
+        index :   0    1    2    3    4
+                +----+----+----+----+----+
+                | H  | E  | L  | L  | O  |
+                +----+----+----+----+----+
+        negative:  -5   -4   -3   -2   -1
+
+PYTHON STRINGS ARE IMMUTABLE: s[0] = 'J' raises TypeError. Every "modification"
+creates a NEW string (cost O(n)).
+
+    s = "abc"; s += "d"   # new string created, old one discarded
+
+CONSEQUENCES
+   - Repeated concatenation in a loop is O(n^2).
+   # HOW: iteration k copies a string of length k -> 1+2+...+n = n(n+1)/2 characters copied -> O(n^2).
+   - Build with a list then join:  "".join(parts)  -> O(n).
+   # HOW: join computes the total length once, allocates once, copies each character once -> O(n).
+   - To edit characters: convert to list, change, join back.
+         chars = list(s); chars[0] = 'J'; s = "".join(chars)
+   - Strings are hashable -> can be dict keys / set members.
+
+CHARACTER <-> NUMBER
+    ord('a') = 97,  chr(97) = 'a'
+    index in alphabet: ord(c) - ord('a')     ('a'->0 ... 'z'->25)
+    digit char to int: int('7') or ord(c) - ord('0')
+
+==============================================================================
+2.2  STRING OPERATIONS AND COMPLEXITY
+==============================================================================
+
+    Operation                    Time           Notes
+    ---------------------------  -------------  ------------------------------
+    len(s), s[i]                 O(1)
+    s[i:j]                       O(j-i)         copy
+    s + t                        O(n+m)         new string
+    s * k                        O(n*k)
+    t in s, s.find(t)            O(n*m) worst   (CPython is optimised, ~O(n) typical)
+    s == t                       O(min(n,m))
+    s.split() / s.join()         O(n)
+    s.replace(a, b)              O(n)
+    s.upper()/lower()            O(n)
+    s.strip()                    O(n)
+    s[::-1] (reverse)            O(n)
+    sorted(s)                    O(n log n)     returns list of chars
+    s.startswith / endswith      O(len(prefix))
+    # HOW (table above): s[i]/len are direct reads -> O(1). Anything that builds or scans a string (copy, split, replace,
+    #      upper, strip, reverse, +) touches each character once -> O(length). sorted(s) = n log n compares.
+
+USEFUL METHODS
+    s.isalpha() s.isdigit() s.isalnum() s.isspace() s.islower() s.isupper()
+    s.count(sub)   s.index(sub) (error if absent)   s.find(sub) (-1 if absent)
+    s.split(sep)   "sep".join(list)   s.strip()   s.title()   s.swapcase()
+    f-strings: f"{name} has {n} items"
+
+COMPARISON: strings compare lexicographically (dictionary order, by code point).
+    "apple" < "banana" True;   "Z" < "a" True  (uppercase code points are smaller).
+
+==============================================================================
+2.3  COMMON STRING PATTERNS
+==============================================================================
+
+(A) PALINDROME  (reads same forward and backward)
+    Simple:  s == s[::-1]               O(n) time, O(n) space
+    # HOW: s[::-1] copies n chars (O(n) time AND O(n) space); == compares up to n chars (O(n)).
+    Two pointer (O(1) space):
+    # HOW: the two pointers meet in the middle -> n/2 comparisons -> O(n); only two ints stored -> O(1).
+      Steps: 1) l=0, r=len-1
+             2) while l<r: if s[l]!=s[r] -> False; l++; r--
+             3) True
+    With cleaning (ignore case/non-alnum): skip non-alnum chars via pointers
+    and compare lowercased.
+
+(B) ANAGRAM  (same letters, different order)
+    Method 1: sorted(a) == sorted(b)             O(n log n)
+    # HOW: sorting each string = O(n log n), the final == compare is O(n); sorting dominates.
+    Method 2: Counter(a) == Counter(b)           O(n)
+    # HOW: counting each string is one pass O(n); comparing the two count tables is O(alphabet) <= O(n).
+    Method 3: count[26] array: +1 for a, -1 for b; all zeros?   O(n), O(1) space
+    # HOW: one pass over each string, one O(1) counter update per char; the table has 26 slots forever -> O(1) space.
+    Diagram: "listen" vs "silent"
+        l:1 i:1 s:1 t:1 e:1 n:1   both strings give the same frequency table.
+
+(C) FREQUENCY MAP
+    from collections import Counter
+    Counter("hello") -> {'l':2, 'h':1, 'e':1, 'o':1}
+    Counter(s).most_common(k)
+
+(D) REVERSE WORDS
+    " ".join(s.split()[::-1])  (split() handles extra spaces)
+    In place on a char array: reverse whole string, then reverse each word.
+
+(E) CASE / CHARACTER TRANSFORMS
+    Caesar cipher: chr((ord(c)-97+k) % 26 + 97)
+
+(F) SUBSTRING vs SUBSEQUENCE
+    Substring  : CONTIGUOUS characters.   "abc" in "xabcx"
+    Subsequence: order kept, gaps allowed. "ace" is a subsequence of "abcde".
+    A string of length n has n(n+1)/2 substrings and 2^n subsequences.
+
+==============================================================================
+2.4  CLASSIC STRING PROBLEMS  (with solving steps)
+==============================================================================
+
+--- S1. VALID PALINDROME (alphanumeric only, ignore case) -------------------
+    Steps: 1) l=0, r=n-1
+           2) while l<r:
+                 skip while l<r and not s[l].isalnum(): l++
+                 skip while l<r and not s[r].isalnum(): r--
+                 if s[l].lower() != s[r].lower(): return False
+                 l++; r--
+           3) return True
+    "A man, a plan, a canal: Panama" -> True.  Time O(n), Space O(1).
+    # HOW: l and r together visit each char at most once (they only move toward each other) -> n steps.
+
+--- S2. FIRST UNIQUE CHARACTER ----------------------------------------------
+    Steps: 1) count = Counter(s)
+           2) scan s left to right; first char with count==1 -> return its index
+           3) none -> -1
+    Time O(n), Space O(1) (alphabet bounded).
+    # HOW: Counter = one pass O(n); the lookup scan is another pass O(n) -> 2n = O(n); at most 26 keys -> O(1) space.
+
+--- S3. LONGEST COMMON PREFIX -----------------------------------------------
+    Steps: 1) take the first string as the prefix
+           2) for each other string: shrink prefix until s.startswith(prefix)
+           3) return prefix
+    OR vertical scan: compare column i across all strings until mismatch.
+    Diagram: ["flower","flow","flight"]
+        f f f  -> ok
+        l l l  -> ok
+        o o i  -> mismatch  => "fl"
+
+--- S4. ISOMORPHIC STRINGS ("egg" ~ "add") ----------------------------------
+    Steps: 1) two maps s->t and t->s
+           2) for each pair (a,b): if a mapped to something else or b mapped
+              from something else -> False; else record mapping
+           3) True
+
+--- S5. STRING COMPRESSION ("aaabb" -> "a3b2") ------------------------------
+    Steps: 1) iterate with run counter
+           2) when char changes, append char + count (count if > 1)
+           3) use list + join
+    Time O(n).
+    # HOW: one pass over the n chars; each char is read/appended once -> O(n).
+
+--- S6. LONGEST PALINDROMIC SUBSTRING (expand around centre) ----------------
+    Idea: every palindrome has a centre (a char, or between two chars).
+    Steps: 1) for each i in 0..n-1:
+                 expand(i, i)       # odd length
+                 expand(i, i+1)     # even length
+           2) expand: while l>=0 and r<n and s[l]==s[r]: l--; r++
+                 palindrome is s[l+1:r]
+           3) keep the longest.
+    Diagram: "babad", centre at index 1 ('a'):
+              b a b   -> l=0,r=2 match, then l=-1 stop => "bab"
+    Time O(n^2), Space O(1). (Manacher's algorithm gives O(n).)
+    # HOW: 2n-1 centres, each expansion can run up to ~n/2 steps -> (2n)(n/2) = O(n^2); only indices kept -> O(1) space.
+
+--- S7. VALID PARENTHESES (uses a stack) ------------------------------------
+    Steps: 1) stack=[]; pairs={')':'(',']':'[','}':'{'}
+           2) for ch: if opening: push
+                      else: if stack empty or stack.pop()!=pairs[ch] -> False
+           3) valid iff stack empty at end
+    "{[()]}" -> push { [ ( ; then ) pops ( ; ] pops [ ; } pops { -> empty -> True.
+
+--- S8. REVERSE A STRING / WORDS --------------------------------------------
+    s[::-1]  or two-pointer swap on list(s).
+
+--- S9. COUNT AND SAY / ADD BINARY / MULTIPLY STRINGS ------------------------
+    Digit-by-digit with carry (from the right):
+    Add binary steps: 1) i=len(a)-1, j=len(b)-1, carry=0
+                      2) while i>=0 or j>=0 or carry:
+                            total = carry + (a[i] if i>=0) + (b[j] if j>=0)
+                            append total%2; carry = total//2
+                      3) reverse result.
+
+--- S10. GROUP ANAGRAMS -----------------------------------------------------
+    Steps: 1) dict key -> list
+           2) key = tuple(sorted(word))   (or 26-count tuple)
+           3) append word to dict[key]; return dict.values()
+    ["eat","tea","tan","ate","nat","bat"] -> [[eat,tea,ate],[tan,nat],[bat]]
+    Time O(N * K log K), K = max word length.
+    # HOW: N words; sorting one word of K letters = K log K; N sorts -> N*K log K (hashing a K-long key is only O(K)).
+
+--- S11. ATOI (string to integer) -------------------------------------------
+    Steps: 1) skip leading spaces
+           2) read optional sign + or -
+           3) read digits, build number: num = num*10 + digit
+           4) stop at first non-digit
+           5) clamp to 32-bit range [-2^31, 2^31-1]
+
+==============================================================================
+2.5  PATTERN MATCHING (find pattern P of length m in text T of length n)
+==============================================================================
+
+(A) NAIVE:  for each start i in 0..n-m, compare P with T[i:i+m].
+    Time O(n*m) worst case, Space O(1).
+    # HOW: n-m+1 start positions, each compares up to m chars -> (n-m+1)*m ~ n*m worst case (e.g. T=aaaa...ab, P=aa...ab).
+    Diagram:  T = a a a a b      P = a a b
+              try i=0: a a a vs a a b  X (mismatch at 3rd)
+              try i=1: a a a vs a a b  X
+              try i=2: a a b vs a a b  match!
+
+(B) KMP (Knuth-Morris-Pratt)  -  O(n + m)
+    # HOW: text index i never moves back; j falls back at most as many times as it moved forward => total steps <= 2n;
+    #      building the LPS array uses the same argument on the pattern (m) -> O(n+m).
+    Idea: never move backward in the text. Precompute for the pattern the
+    LPS array ("longest proper prefix which is also a suffix") for each prefix.
+    LPS example, P = "ababaca":
+        index :  0 1 2 3 4 5 6
+        char  :  a b a b a c a
+        lps   :  0 0 1 2 3 0 1
+    Build LPS steps:
+        1) lps[0]=0; len=0; i=1
+        2) while i<m:
+              if P[i]==P[len]: len++; lps[i]=len; i++
+              elif len>0: len = lps[len-1]       (fall back, don't advance i)
+              else: lps[i]=0; i++
+    Search steps:
+        1) i (text), j (pattern) = 0
+        2) if T[i]==P[j]: i++; j++
+           if j==m: match at i-j; j = lps[j-1]
+           elif mismatch: if j>0: j=lps[j-1] else i++
+    Time O(n+m), Space O(m).
+
+(C) RABIN-KARP (rolling hash)  -  average O(n+m)
+    # HOW: a rolling update is ~2 multiply/add ops (O(1)) and there are n-m+1 windows -> O(n+m);
+    #      if EVERY window hash collides we compare m chars each time -> worst O(n*m).
+    Idea: compute a hash of the pattern; slide a window over the text, update
+    the hash in O(1), and compare strings only when hashes match.
+    Rolling update:  new_hash = (old_hash - T[i]*base^(m-1)) * base + T[i+m]  (mod p)
+    Worst O(n*m) with many collisions. Good for multiple-pattern search.
+
+(D) Python: `pattern in text` and text.find(pattern) are fine in practice.
+    Interviews may ask you to implement naive or explain KMP.
+
+
+##############################################################################
+ PART 3 : HASH TABLES
+##############################################################################
+
+==============================================================================
+3.1  CONCEPT
+==============================================================================
+
+A HASH TABLE stores KEY -> VALUE pairs and supports insert, lookup, delete in
+O(1) AVERAGE time by using a HASH FUNCTION to compute an array index from
+# HOW: hash(key) costs O(len(key)), % size is O(1), then we jump straight to the bucket -> no scanning of other keys -> O(1).
+the key.
+
+    key  --hash function-->  integer  --% table_size-->  bucket index
+
+    index = hash(key) % capacity
+
+DIAGRAM (capacity 7):
+
+     key "apple" --hash--> 12345 % 7 = 4
+     key "kiwi"  --hash--> 98765 % 7 = 1
+
+    bucket:   0     1       2     3     4        5     6
+            +----+--------+----+----+---------+----+----+
+            |    |kiwi:5  |    |    |apple:3  |    |    |
+            +----+--------+----+----+---------+----+----+
+
+GOOD HASH FUNCTION
+   - Deterministic (same key -> same hash).
+   - Uniform spread across buckets (few collisions).
+   - Fast to compute.
+   - Equal keys must give equal hashes (if a == b then hash(a) == hash(b)).
+   Example for strings:  h = (h*31 + ord(c)) % M  over each char.
+
+WHY KEYS MUST BE IMMUTABLE/HASHABLE in Python: if a key could change after
+insertion, its hash would change and it could never be found again.
+   OK: int, str, tuple (of hashables), frozenset, bool, None
+   NOT OK: list, dict, set  -> use tuple(list) or frozenset(set) instead.
+
+==============================================================================
+3.2  COLLISIONS
+==============================================================================
+
+COLLISION = two different keys map to the same bucket. Unavoidable
+(pigeonhole principle), so we need a strategy.
+
+(A) SEPARATE CHAINING  (each bucket holds a linked list / list of entries)
+
+    bucket 0: -> (none)
+    bucket 1: -> [kiwi:5] -> [fig:9]  -> None      <- collision chain
+    bucket 4: -> [apple:3]
+    Lookup: hash -> go to bucket -> scan the chain comparing keys.
+    Cost = O(1 + load factor) average; O(n) worst if all keys collide.
+    # HOW: n keys over b buckets -> average chain length alpha = n/b; lookup = hash + scan alpha items = O(1+alpha);
+    #      if all n keys collide the single chain has n items -> O(n).
+
+(B) OPEN ADDRESSING  (all entries live in the table array itself; on
+    collision, probe for another slot)
+    - LINEAR PROBING    : try i, i+1, i+2, ...        (clustering problem)
+    - QUADRATIC PROBING : try i, i+1^2, i+2^2, ...
+    - DOUBLE HASHING    : step size from a second hash function
+    Diagram (linear probing, insert key with hash 1 when slot 1 taken):
+        slot: 0     1       2       3
+            [   ] [kiwi ] [fig ← placed here after probing 1->2] [   ]
+    Deletion needs a TOMBSTONE marker so later probes don't stop early.
+    CPython dict uses open addressing with a perturbed probe sequence.
+
+LOAD FACTOR  alpha = (number of entries) / (number of buckets)
+   Chaining works for alpha > 1; open addressing needs alpha < 1.
+   When alpha exceeds a threshold (about 0.66-0.75), RESIZE (double capacity)
+   and REHASH every key: O(n) occasionally -> amortized O(1) inserts.
+   # HOW: a resize rehashes n keys (O(n)) but happens only after ~n/2 more inserts (capacity doubles) -> O(n)/(n/2) = O(1) amortized.
+
+COMPLEXITY
+              Average    Worst
+   insert     O(1)       O(n)
+   search     O(1)       O(n)
+   delete     O(1)       O(n)
+   space      O(n)
+   # HOW (table above): average = few items per bucket -> constant probes. Worst = all keys in one bucket -> scan n items.
+   (Worst case: all keys collide into one bucket. Treeified chains in Java 8
+    improve worst to O(log n).)
+
+HASH TABLE vs OTHERS
+   Hash table : fast lookup, NO ordering of keys (Python 3.7+ dict keeps
+                insertion order, but not sorted order).
+   Balanced BST: O(log n), keeps sorted order, supports range queries.
+   Array      : O(1) by index only.
+
+==============================================================================
+3.3  PYTHON DICT / SET / COUNTER / DEFAULTDICT
+==============================================================================
+
+DICT
+    d = {}                    d["a"] = 1            d.get("z", 0)
+    "a" in d                  del d["a"]            d.pop("a", None)
+    for k, v in d.items():    d.setdefault(k, [])   d.keys() d.values()
+    Dict comprehension: {x: x*x for x in range(5)}
+
+SET  (hash table with keys only; unique elements)
+    s = set(); s.add(3); 3 in s; s.remove(3) (KeyError) ; s.discard(3)
+    union a|b   intersection a&b   difference a-b   symmetric diff a^b
+    Dedupe a list:  list(set(a))   (order not kept; use dict.fromkeys(a) to keep)
+
+COUNTER (frequency map)
+    from collections import Counter
+    c = Counter("banana")  -> {'a':3,'n':2,'b':1}
+    c["z"] -> 0 (no KeyError)    c.most_common(2)
+
+DEFAULTDICT
+    from collections import defaultdict
+    g = defaultdict(list); g[k].append(v)     # no need to check key exists
+    cnt = defaultdict(int); cnt[x] += 1
+
+ORDEREDDICT / dict ordering: insertion order is preserved (3.7+).
+
+COMPLEXITY recap: get/set/delete/in -> O(1) avg;  iteration O(n).
+
+==============================================================================
+3.4  HASH TABLE PATTERNS  (with solving steps)
+==============================================================================
+
+PATTERN 1 : FREQUENCY COUNTING     (anagrams, majority, top-k, unique chars)
+PATTERN 2 : COMPLEMENT LOOKUP      (two sum)
+PATTERN 3 : SEEN-SET / DUPLICATES  (contains duplicate, cycle detection)
+PATTERN 4 : GROUPING BY KEY        (group anagrams, group by length)
+PATTERN 5 : PREFIX-SUM + HASH MAP  (subarray sum equals k)
+PATTERN 6 : INDEX MAP              (store last seen index of values)
+
+--- H1. TWO SUM -------------------------------------------------------------
+    Problem: find indices i,j with a[i]+a[j]==target.
+    Steps: 1) seen = {}   # value -> index
+           2) for i, x in enumerate(a):
+                 need = target - x
+                 if need in seen: return [seen[need], i]
+                 seen[x] = i
+           3) return [] (none)
+    Trace [2,7,11,15], target 9:
+        i=0 x=2: need 7 not in {} -> seen={2:0}
+        i=1 x=7: need 2 in seen   -> return [0,1]
+    Time O(n), Space O(n).  (Brute force O(n^2); sorted+two-pointer O(n log n), O(1).)
+    # HOW: one loop of n iterations; 'need in seen' and 'seen[x]=i' are O(1) average -> O(n); seen grows to n entries -> O(n).
+    #      Brute force checks all n(n-1)/2 pairs = O(n^2).
+
+--- H2. CONTAINS DUPLICATE --------------------------------------------------
+    Steps: seen=set(); for x: if x in seen: True; seen.add(x). End: False.
+    Or: len(set(a)) != len(a).   O(n) time/space.
+
+--- H3. VALID ANAGRAM -------------------------------------------------------
+    Steps: 1) if len(a)!=len(b): False
+           2) count chars of a (+1) and b (-1)
+           3) all counts must be 0.
+
+--- H4. GROUP ANAGRAMS (see S10) --------------------------------------------
+
+--- H5. LONGEST CONSECUTIVE SEQUENCE (O(n)) ---------------------------------
+    Steps: 1) s = set(nums)
+           2) for x in s: if x-1 not in s:        # x starts a sequence
+                 length=1; while x+length in s: length++
+                 best = max(best, length)
+           3) return best
+    [100,4,200,1,3,2] -> starts: 100, 1, 200 ; from 1: 1,2,3,4 -> 4.
+    Each number is visited at most twice -> O(n).
+    # HOW: only a number with no left neighbour (x-1 absent) starts a run, and the while loop then walks that run once;
+    #      across all runs each number is stepped over once -> ~2n set lookups -> O(n).
+
+--- H6. TOP K FREQUENT ELEMENTS ---------------------------------------------
+    Steps: 1) count = Counter(nums)
+           2) heap: heapq.nlargest(k, count.keys(), key=count.get)  O(n log k)
+           OR bucket sort: buckets[freq] = [nums]; scan from high freq down.  O(n)
+
+--- H7. SUBARRAY SUM EQUALS K  (see P12) ------------------------------------
+
+--- H8. FIRST NON-REPEATING CHARACTER (see S2) ------------------------------
+
+--- H9. LRU CACHE  (hash map + doubly linked list) --------------------------
+    Hash map: key -> node for O(1) lookup. DLL keeps usage order
+    (head = most recent, tail = least recent).
+    get(k): move node to head, return value.
+    put(k,v): if exists update + move to head; else insert at head;
+              if over capacity, remove tail node and its map entry.
+    Both operations O(1).
+    # HOW: dict lookup is O(1); unlinking/relinking a doubly-linked-list node changes a fixed number of pointers -> O(1).
+    Diagram:  head <-> [k3] <-> [k1] <-> [k2] <-> tail
+                       newest              oldest (evict)
+
+--- H10. DESIGN HASHMAP FROM SCRATCH ----------------------------------------
+    Steps: 1) buckets = [[] for _ in range(SIZE)]
+           2) put: idx = hash(key)%SIZE; update existing pair or append
+           3) get: scan bucket idx for key
+           4) remove: delete pair from bucket idx
+           5) (optional) resize when load factor too high.
+
+
+##############################################################################
+ PART 4 : TWO POINTER TECHNIQUE
+##############################################################################
+
+==============================================================================
+4.1  CONCEPT
+==============================================================================
+
+Use TWO indices that move through the data (usually an array or string) to
+avoid a nested loop. Often turns O(n^2) into O(n) with O(1) extra space.
+# HOW: nested loops examine all n(n-1)/2 pairs = O(n^2); two pointers move toward each other and each step discards one
+# candidate, so at most n steps -> O(n).
+
+VARIANT A : OPPOSITE ENDS (converging)
+    Start one pointer at each end, move towards each other.
+    Needs SORTED data (or a symmetric property like palindrome).
+
+        [ 1  2  4  7  11  15 ]
+          L                R   -> compare, then move L right or R left
+
+VARIANT B : SAME DIRECTION (fast/slow, read/write)
+    Both start at the left; one "reads" ahead, one "writes" or lags.
+
+        [ 0  1  0  3  12 ]
+          w  r            -> r scans, w marks where next good value goes
+
+VARIANT C : FAST & SLOW (Floyd's) on linked lists / cycle detection
+    slow moves 1 step, fast moves 2 steps.
+    - If a cycle exists they meet.
+    - Fast reaches the end when slow is at the middle (find middle node).
+
+VARIANT D : TWO ARRAYS / TWO SEQUENCES  (merge, intersection, subsequence)
+    One pointer per array.
+
+==============================================================================
+4.2  WHEN TO USE  (recognition clues)
+==============================================================================
+
+   - Input is SORTED (or can be sorted) and you search for pairs/triplets.
+   - "In place", "O(1) extra space" requirements.
+   - Palindromes, reversing, comparing from both ends.
+   - Removing duplicates / elements, partitioning.
+   - Merging sorted sequences.
+   - Linked list middle / cycle / nth from end.
+
+WHY IT WORKS (opposite ends, target sum, sorted array):
+   If a[L]+a[R] < target, then a[L] is too small with EVERY remaining partner
+   <= a[R], so discard L (L++). If > target, a[R] is too big with every
+   remaining partner >= a[L], so discard R (R--). Each step discards one
+   candidate => at most n steps.
+
+==============================================================================
+4.3  TEMPLATES AND PROBLEMS  (with solving steps)
+==============================================================================
+
+TEMPLATE 1 - Opposite ends
+    l, r = 0, len(a) - 1
+    while l < r:
+        s = a[l] + a[r]
+        if s == target: ...record/return
+        elif s < target: l += 1
+        else:            r -= 1
+
+TEMPLATE 2 - Same direction (read/write)
+    w = 0
+    for r in range(len(a)):
+        if keep(a[r]):
+            a[w] = a[r]
+            w += 1
+    # a[:w] is the result
+
+TEMPLATE 3 - Fast / slow
+    slow = fast = head
+    while fast and fast.next:
+        slow = slow.next
+        fast = fast.next.next
+
+--- T1. TWO SUM II (sorted array) -------------------------------------------
+    Steps: 1) l=0, r=n-1
+           2) sum=a[l]+a[r]
+           3) sum==target -> return; sum<target -> l++; sum>target -> r--
+    Trace [2,7,11,15], target 9:
+        L=2,R=15 sum 17 > 9 -> R--
+        L=2,R=11 sum 13 > 9 -> R--
+        L=2,R=7  sum 9 -> found.
+    Time O(n), Space O(1).
+    # HOW: each iteration moves l right or r left, so r-l shrinks by 1 -> at most n-1 iterations, O(1) each.
+
+--- T2. 3SUM (all unique triplets summing to 0) -----------------------------
+    Steps: 1) sort the array
+           2) for i in range(n-2): skip if a[i]==a[i-1] (duplicate anchor)
+                 if a[i] > 0: break
+                 l=i+1, r=n-1
+                 while l<r: s=a[i]+a[l]+a[r]
+                     s<0: l++ ; s>0: r--
+                     s==0: record; l++; r--; skip duplicates of a[l], a[r]
+    Diagram: [-4 -1 -1 0 1 2]
+              i  l           r   fix i, run two-sum on the rest
+    Time O(n^2), Space O(1) (excluding output). Brute force is O(n^3).
+    # HOW: n choices for i; for each, the two pointers sweep the remaining items once (<= n steps) -> n*n = O(n^2).
+    #      Brute force (3 nested loops) ~ n^3/6 -> O(n^3).
+
+--- T3. CONTAINER WITH MOST WATER -------------------------------------------
+    Area = min(h[l], h[r]) * (r - l).
+    Steps: 1) l=0, r=n-1, best=0
+           2) area = min(h[l],h[r])*(r-l); best=max(best,area)
+           3) move the pointer at the SHORTER line inward (the taller one can't
+              improve area by moving, width only shrinks)
+           4) repeat until l==r
+    Time O(n), Space O(1).
+    # HOW: every step moves one pointer inward, so the width r-l falls from n-1 to 0 -> at most n steps.
+
+--- T4. REMOVE DUPLICATES FROM SORTED ARRAY (in place) ----------------------
+    Steps: 1) if empty: 0.  w = 1
+           2) for r in 1..n-1: if a[r] != a[w-1]: a[w]=a[r]; w++
+           3) return w (new length)
+    [1,1,2,2,3] -> w=1; r=2 (2!=1) a[1]=2,w=2; r=4 (3!=2) a[2]=3,w=3 -> [1,2,3]
+    Time O(n), Space O(1).
+    # HOW: r visits each index once (n steps), w <= r, nothing nested -> O(n).
+
+--- T5. MOVE ZEROES (see P4)  -----------------------------------------------
+
+--- T6. VALID PALINDROME (see S1) -------------------------------------------
+
+--- T7. TRAPPING RAIN WATER -------------------------------------------------
+    Water above bar i = min(maxLeft, maxRight) - height[i].
+    Two-pointer steps:
+      1) l=0, r=n-1, left_max=right_max=0, water=0
+      2) while l<r:
+            if h[l] < h[r]:
+                 if h[l] >= left_max: left_max = h[l]
+                 else: water += left_max - h[l]
+                 l++
+            else:
+                 if h[r] >= right_max: right_max = h[r]
+                 else: water += right_max - h[r]
+                 r--
+    Why: the smaller side is the limiting wall; its water level is determined
+    by its own side max, regardless of what's in between.
+    Time O(n), Space O(1).
+    # HOW: each iteration moves l or r inward -> n-1 iterations of O(1) work.
+
+--- T8. MERGE SORTED ARRAYS IN PLACE (a has trailing space) -----------------
+    Fill from the BACK so nothing is overwritten:
+    Steps: 1) i=m-1, j=n-1, k=m+n-1
+           2) while j>=0: if i>=0 and a[i]>b[j]: a[k]=a[i]; i-- else a[k]=b[j]; j--
+              k--
+    Time O(m+n), Space O(1).
+    # HOW: k counts down from m+n-1 to 0, one placement per step -> m+n steps; writing in place -> O(1) space.
+
+--- T9. LINKED LIST CYCLE / MIDDLE (Floyd) ----------------------------------
+    Cycle steps: slow=fast=head; loop: slow=slow.next; fast=fast.next.next;
+                 if slow is fast -> cycle; if fast/fast.next None -> no cycle.
+    Find cycle start: after meeting, reset one pointer to head; move both one
+    step at a time; they meet at the cycle entrance.
+
+--- T10. IS SUBSEQUENCE ------------------------------------------------------
+    Steps: 1) i over s, j over t
+           2) for each t[j]: if t[j]==s[i]: i++
+           3) s is a subsequence iff i == len(s) at the end.
+    Time O(len(t)).
+    # HOW: j scans t once (len(t) steps); i only advances on a match and never goes back.
+
+--- T11. SORT COLORS / DUTCH FLAG (see P13) ---------------------------------
+
+--- T12. 4SUM / CLOSEST 3SUM -------------------------------------------------
+    4Sum: sort; two nested loops fix i,j; two pointers for the rest -> O(n^3).
+    # HOW: two nested loops (n*n) times a two-pointer pass (n) = n^3.
+    3Sum closest: same as 3Sum but track min |sum - target|.
+
+--- T13. SQUARES OF A SORTED ARRAY -------------------------------------------
+    Negatives make the biggest squares at both ends.
+    Steps: 1) l=0, r=n-1, fill result from the end (pos=n-1 down to 0)
+           2) compare |a[l]| and |a[r]|; place the larger square at pos;
+              move that pointer.
+    Time O(n) (vs sort O(n log n)).
+    # HOW: each step fills one result slot and moves one pointer -> n steps (sorting the squares would cost n log n).
+
+
+##############################################################################
+ PART 5 : SLIDING WINDOW
+##############################################################################
+
+==============================================================================
+5.1  CONCEPT
+==============================================================================
+
+Maintain a WINDOW (contiguous range [left, right]) over an array/string and
+slide it, updating the window's state incrementally instead of recomputing
+from scratch. Turns O(n*k) or O(n^2) into O(n).
+# HOW: brute force re-sums k items for each of the n-k+1 windows ~ n*k; sliding update does 1 add + 1 subtract per window -> n.
+
+    array:   [ 2  1  5  1  3  2 ]
+    window k=3:
+      [2  1  5] 1  3  2        sum = 8
+       2 [1  5  1] 3  2        sum = 8 - 2 + 1 = 7   (remove left, add right)
+       2  1 [5  1  3] 2        sum = 7 - 1 + 3 = 9
+       2  1  5 [1  3  2]       sum = 9 - 5 + 2 = 6
+
+TWO KINDS
+   (A) FIXED-SIZE WINDOW    : window length k is given.
+   (B) VARIABLE-SIZE WINDOW : window grows/shrinks depending on a condition.
+
+WHEN TO USE (clues)
+   - "Subarray / substring" (CONTIGUOUS) with max/min/longest/shortest/count.
+   - Condition on window: sum, distinct count, frequency, at most k of X.
+   - Typical words: "longest substring...", "smallest subarray with sum >= s",
+     "maximum sum of k consecutive elements", "contains all characters".
+   - Works best when elements are non-negative (for sum conditions) or the
+     condition is monotonic (adding makes it worse, removing makes it better).
+     With negative numbers and sum conditions, use prefix sums + hash map.
+
+SLIDING WINDOW vs TWO POINTERS: sliding window is a two-pointer technique
+where the two pointers are the edges of a contiguous range whose state
+you maintain.
+
+==============================================================================
+5.2  TEMPLATES
+==============================================================================
+
+TEMPLATE A - FIXED WINDOW (size k)
+    window = 0
+    for i in range(len(a)):
+        window += a[i]                    # add entering element
+        if i >= k:
+            window -= a[i - k]            # remove leaving element
+        if i >= k - 1:
+            best = max(best, window)      # window is full -> use it
+
+TEMPLATE B - VARIABLE WINDOW, LONGEST valid ("expand, shrink while invalid")
+    left = 0
+    for right in range(len(a)):
+        add a[right] to window state
+        while window is INVALID:
+            remove a[left] from window state
+            left += 1
+        best = max(best, right - left + 1)       # window is valid here
+
+TEMPLATE C - VARIABLE WINDOW, SHORTEST valid ("shrink while still valid")
+    left = 0
+    for right in range(len(a)):
+        add a[right] to window state
+        while window is VALID:
+            best = min(best, right - left + 1)
+            remove a[left]; left += 1
+
+TEMPLATE D - COUNT subarrays "at most k": exactly(k) = atMost(k) - atMost(k-1)
+
+WHY O(n)? Both left and right only move forward, each at most n times. The
+inner while does not restart the outer loop: total pointer moves <= 2n.
+
+WINDOW STATE data structures:
+   sum (number), Counter/dict (char frequencies), set (distinct),
+   monotonic deque (window max/min).
+
+==============================================================================
+5.3  PROBLEMS  (with solving steps)
+==============================================================================
+
+--- W1. MAX SUM OF SUBARRAY OF SIZE k (fixed) -------------------------------
+    Steps: 1) sum of first k elements = best
+           2) for i in k..n-1: sum += a[i] - a[i-k]; best=max(best,sum)
+    Trace [2,1,5,1,3,2], k=3: 8 -> 7 -> 9 -> 6 ; best 9.
+    Time O(n), Space O(1).
+    # HOW: first sum = k steps, then n-k slides of O(1) each -> n steps total.
+
+--- W2. LONGEST SUBSTRING WITHOUT REPEATING CHARACTERS ----------------------
+    Steps: 1) seen = {} (char -> last index), left=0, best=0
+           2) for right, ch in enumerate(s):
+                 if ch in seen and seen[ch] >= left: left = seen[ch] + 1
+                 seen[ch] = right
+                 best = max(best, right - left + 1)
+    Trace "abcabcbb":
+        r=0 a: window "a"       len1
+        r=1 b: "ab"             len2
+        r=2 c: "abc"            len3
+        r=3 a: a seen at 0>=left0 -> left=1 -> "bca"  len3
+        r=4 b: left=2 -> "cab"
+        r=5 c: left=3 -> "abc"
+        r=6 b: b seen at 4 -> left=5 -> "cb"
+        r=7 b: left=7 -> "b"       best = 3
+    Time O(n), Space O(min(n, alphabet)).
+    # HOW: right visits each char once; left only jumps forward (never back) -> <= 2n pointer moves; 'seen' holds <= min(n, alphabet) keys.
+
+--- W3. SMALLEST SUBARRAY WITH SUM >= S (positive numbers) -------------------
+    Steps: 1) left=0, cur=0, best=inf
+           2) for right: cur += a[right]
+                 while cur >= S: best=min(best,right-left+1); cur-=a[left]; left++
+           3) return best or 0
+    [2,1,5,2,3,2], S=7 -> window [5,2] length 2.
+    Time O(n), Space O(1).
+    # HOW: right moves n times; left moves at most n times IN TOTAL even though a while sits inside the for -> 2n steps (amortized O(n)).
+
+--- W4. LONGEST SUBSTRING WITH AT MOST K DISTINCT CHARACTERS -----------------
+    Steps: 1) count = {}, left=0
+           2) for right: count[s[right]] += 1
+                 while len(count) > k:
+                     count[s[left]] -= 1
+                     if count[s[left]] == 0: del count[s[left]]
+                     left += 1
+                 best = max(best, right-left+1)
+    "eceba", k=2 -> "ece" length 3.
+
+--- W5. LONGEST REPEATING CHARACTER REPLACEMENT ------------------------------
+    (replace at most k chars to make all same)
+    Window valid iff (window length - max frequency in window) <= k.
+    Steps: 1) count = {}, left=0, maxf=0
+           2) for right: count[c]++ ; maxf = max(maxf, count[c])
+                 if (right-left+1) - maxf > k: count[s[left]]--; left++
+                 best = max(best, right-left+1)
+    (maxf need not decrease when shrinking: only a larger maxf can improve answer.)
+
+--- W6. MINIMUM WINDOW SUBSTRING (smallest substring of s containing all of t)-
+    Steps: 1) need = Counter(t); missing = len(t); left=0; best=(0, inf)
+           2) for right, ch in enumerate(s):
+                 if need[ch] > 0: missing -= 1
+                 need[ch] -= 1                      # may go negative (extras)
+                 if missing == 0:                   # window contains all of t
+                     while need[s[left]] < 0:       # shrink unnecessary chars
+                         need[s[left]] += 1; left += 1
+                     update best if (right-left+1) smaller
+                     need[s[left]] += 1; missing += 1; left += 1   # break window
+    Diagram s="ADOBECODEBANC", t="ABC":
+        ADOBEC  -> contains A,B,C (len 6) shrink -> still "ADOBEC"
+        ... later "BANC" (len 4) is the smallest => "BANC"
+    Time O(n + m), Space O(alphabet).
+    # HOW: right and left each pass over s at most once (<= 2n); building 'need' from t costs m.
+
+--- W7. PERMUTATION IN STRING / FIND ALL ANAGRAMS ----------------------------
+    Fixed window of length len(p):
+    Steps: 1) need = Counter(p); window = Counter of first len(p) chars
+           2) slide: add s[i], remove s[i-len(p)] (delete key when count 0)
+           3) if window == need: record start index
+    Time O(n * alphabet) or O(n) using a "matches" counter.
+    # HOW: n window slides; comparing two count tables costs alphabet size (26, a constant) -> O(n); with a 'matches' counter each slide is O(1).
+
+--- W8. MAX CONSECUTIVE ONES III (flip at most k zeros) ----------------------
+    Steps: 1) left=0, zeros=0
+           2) for right: if a[right]==0: zeros++
+                 while zeros > k: if a[left]==0: zeros--; left++
+                 best=max(best,right-left+1)
+
+--- W9. SLIDING WINDOW MAXIMUM (monotonic deque) -----------------------------
+    Keep a deque of INDICES whose values are in DECREASING order; the front is
+    always the window maximum.
+    Steps: 1) dq = deque(); result=[]
+           2) for i, x in enumerate(a):
+                 pop from back while a[dq[-1]] <= x      # smaller values useless
+                 append i
+                 if dq[0] <= i-k: popleft()              # front left the window
+                 if i >= k-1: result.append(a[dq[0]])
+    Trace [1,3,-1,-3,5,3,6,7], k=3 -> [3,3,5,5,6,7]
+    Time O(n) (each index pushed/popped once), Space O(k).
+    # HOW: each index is appended once and popped at most once (from back or front) -> <= 2n deque ops; the deque holds <= k indices.
+
+--- W10. FRUIT INTO BASKETS = longest subarray with at most 2 distinct -------
+    Same as W4 with k = 2.
+
+--- W11. SUBARRAYS WITH EXACTLY K DISTINCT -----------------------------------
+    answer = atMost(K) - atMost(K-1), each computed with a variable window.
+
+--- W12. MAX AVERAGE SUBARRAY OF LENGTH k ------------------------------------
+    Fixed window sum; divide best sum by k at the end.
+
+
+==============================================================================
+ 6.  CHOOSING THE RIGHT TECHNIQUE
+==============================================================================
+
+    Clue in the problem                              Try
+    -----------------------------------------------  --------------------------
+    Need pair/target sum, array UNSORTED             Hash map (complement)
+    Pair/triplet sum, SORTED or sortable             Two pointers (opposite ends)
+    In-place remove/partition/compact                Two pointers (read/write)
+    Palindrome check, reverse                        Two pointers
+    Contiguous subarray/substring, longest/shortest  Sliding window
+    Fixed length k aggregate                         Fixed sliding window
+    Subarray sum = k with NEGATIVES                  Prefix sum + hash map
+    Count frequency, anagram, duplicates             Hash map / Counter / set
+    Many range-sum queries                           Prefix sum
+    Max subarray sum                                 Kadane
+    Majority element                                 Boyer-Moore / hash map
+    Window max/min                                   Monotonic deque
+    Linked-list cycle / middle                       Fast & slow pointers
+    Sorted array search                              Binary search
+
+    FLOW:
+      Is the data sorted (or can we sort)?  ---yes--> two pointers / binary search
+            |no
+      Contiguous subarray/substring?        ---yes--> sliding window / prefix sum
+            |no
+      Need fast lookup / counting?          ---yes--> hash map / set
+            |no
+      Else: brute force first, then look for the bottleneck.
+
+
+==============================================================================
+ 7.  COMMON MISTAKES AND EDGE CASES
+==============================================================================
+
+ ARRAYS
+   - Off-by-one errors: range(n) vs range(n-1) vs range(1, n).
+   - IndexError on empty arrays or single element.
+   - Modifying a list while iterating over it.
+   - [[0]*m]*n makes n references to the SAME row.
+   - a = b copies the reference, not the list. Use b = a[:] or a.copy().
+     Nested lists need copy.deepcopy.
+   - list.pop(0)/insert(0) in a loop => O(n^2).
+   - Forgetting k % n when rotating.
+   - Integer overflow is not an issue in Python, but mention it in interviews
+     for C++/Java (mid = lo + (hi-lo)//2).
+
+ STRINGS
+   - Strings are immutable; s[i] = 'x' fails.
+   - s += c in loops is O(n^2). Use a list and join.
+   - Case sensitivity, spaces, punctuation, unicode.
+   - Slicing creates copies: recursion on s[1:] costs O(n) each.
+   - Comparing with `is` instead of `==`.
+   - Empty string and single character cases.
+
+ HASH TABLES
+   - Using unhashable keys (list) -> TypeError.
+   - KeyError on missing key: use get(), setdefault(), defaultdict, Counter.
+   - Assuming O(1) always (it's average).
+   - Mutating a dict while iterating it (RuntimeError).
+   - Forgetting to initialise count with 1 for prefix-sum map ({0:1}).
+   - Not handling duplicates (Two Sum: same element used twice; check index).
+
+ TWO POINTERS
+   - Using it on UNSORTED data when sorted order is required.
+   - Skipping duplicates incorrectly in 3Sum (skip after processing).
+   - Wrong loop condition: l < r vs l <= r.
+   - Moving the wrong pointer.
+
+ SLIDING WINDOW
+   - Using it with negative numbers for sum conditions (breaks monotonicity).
+   - Updating the answer in the wrong place (before shrinking vs after).
+   - Forgetting to delete zero-count keys when counting DISTINCT characters.
+   - Window length is right - left + 1 (inclusive), not right - left.
+   - Fixed window: forgetting to start recording only after i >= k-1.
+
+ EDGE-CASE CHECKLIST (test mentally before you submit)
+   [] empty input    [x] single element    all identical elements
+   already sorted / reverse sorted    negatives and zeros    duplicates
+   very large n (complexity!)    k > n, k = 0, k = n    target not found
+
+
+==============================================================================
+ 8.  INTERVIEW TIPS AND FAQs
+==============================================================================
+
+APPROACH TEMPLATE
+   1. Restate the problem; ask about constraints (size, sorted?, duplicates?,
+      negatives?, in-place?, return indices or values?).
+   2. Work through a small example by hand.
+   3. State the brute force and its complexity.
+   4. Find the bottleneck; pick a technique (hash map / two pointers / window).
+   5. Code cleanly with meaningful names.
+   6. Dry-run on the example + edge cases.
+   7. State time and space complexity and trade-offs.
+
+FAQs
+ Q1. Array vs linked list?
+     Array: O(1) index access, cache-friendly, O(n) insert/delete in middle,
+     contiguous memory. Linked list: O(1) insert/delete given a node, O(n)
+     access, extra pointer memory.
+ Q2. Why is dynamic array append O(1) amortized?
+     Occasional O(n) resize doubles capacity; total cost over n appends is
+     O(n), so average per append is O(1).
+ Q3. Why are strings immutable in Python?
+     Safe to share, hashable (dict keys), thread-safe, enables interning and
+     caching of hash values.
+ Q4. How does a hash table handle collisions?
+     Chaining (list per bucket) or open addressing (probing). Resize at a
+     load-factor threshold.
+ Q5. Why is lookup O(1) average but O(n) worst?
+     With a good hash and low load factor buckets stay tiny; if all keys land
+     in one bucket it degrades to a linear scan.
+ Q6. Dict vs set?
+     Set is a hash table of keys only (no values), unique members.
+ Q7. List vs tuple?
+     Tuples are immutable and hashable (if elements are), slightly smaller and
+     faster.
+ Q8. Two pointers vs sliding window?
+     Two pointers: general idea of two moving indices (ends, read/write,
+     fast/slow). Sliding window: both pointers form a contiguous range whose
+     aggregate state is maintained.
+ Q9. When does sliding window fail?
+     When the window condition isn't monotonic, e.g. sum conditions with
+     negative numbers. Use prefix sums + hash map.
+ Q10. Can Two Sum use two pointers on an unsorted array?
+     Only after sorting (O(n log n)), and then original indices are lost
+     unless you store them. Hash map is O(n) and keeps indices.
+ Q11. Time complexity of sorting a string's characters?
+     O(n log n); with counting sort over a fixed alphabet O(n).
+ Q12. What is an in-place algorithm?
+     Uses O(1) extra space, modifying the input directly.
+ Q13. Why does 3Sum sort first?
+     To enable two pointers and to skip duplicates easily.
+ Q14. How to detect a cycle in an array of indices / linked list?
+     Floyd's tortoise and hare, O(n) time, O(1) space.
+ Q15. What is the load factor and why resize?
+     entries/buckets; resizing keeps chains short and probes few, preserving
+     O(1) average operations.
+ Q16. Difference between substring and subsequence?
+     Substring is contiguous; subsequence preserves order but may skip.
+ Q17. Space complexity of Counter on a lowercase string?
+     O(26) = O(1); in general O(min(n, alphabet size)).
+ Q18. How would you find the k-th largest element?
+     Min-heap of size k O(n log k), quickselect O(n) average, or sort O(n log n).
+
+
+==============================================================================
+ 9.  PRACTICE PROBLEMS  (answers below)
+==============================================================================
+
+ Q1.  Given [3,2,4], target 6, return indices of two numbers adding to target.
+ Q2.  Check whether "racecar" and "carrace" are anagrams, and whether
+      "racecar" is a palindrome.
+ Q3.  Remove duplicates in place from [0,0,1,1,1,2,2,3,3,4]; return new length.
+ Q4.  Max sum of any 3 consecutive elements in [4,2,1,7,8,1,2,8,1,0].
+ Q5.  Longest substring without repeating characters in "pwwkew".
+ Q6.  Smallest subarray with sum >= 7 in [2,1,5,2,3,2].
+ Q7.  Find all triplets summing to 0 in [-1,0,1,2,-1,-4].
+ Q8.  Rotate [1,2,3,4,5] right by 2 using the reversal method.
+ Q9.  Container with most water for heights [1,8,6,2,5,4,8,3,7].
+ Q10. What is the complexity of:
+         s = ""
+         for c in chars: s += c
+ Q11. Find the maximum subarray sum of [5,4,-1,7,8].
+ Q12. Count subarrays with sum 3 in [1,2,1,2,1].
+
+---- ANSWERS ----
+ A1.  Hash map: i=0 x=3 need 3 not in {} -> {3:0}; i=1 x=2 need 4 -> {3:0,2:1};
+      i=2 x=4 need 2 in map -> [1,2].  (Note 3+3 uses the SAME element, so
+      index 0 must not be paired with itself.)
+ A2.  Anagram: sorted("racecar") = acceerr ; sorted("carrace") = acceerr -> True.
+      Palindrome: "racecar" reversed is "racecar" -> True.
+ A3.  Two pointers: w=1 ... result [0,1,2,3,4], new length 5.
+ A4.  Windows: 4+2+1=7, 2+1+7=10, 1+7+8=16, 7+8+1=16, 8+1+2=11, 1+2+8=11,
+      2+8+1=11, 8+1+0=9. Max = 16.
+ A5.  "wke" (length 3).
+ A6.  [5,2] -> length 2.
+ A7.  [[-1,-1,2],[-1,0,1]]
+ A8.  k=2: reverse all [5,4,3,2,1]; reverse first 2 [4,5,3,2,1];
+      reverse rest [4,5,1,2,3].
+ A9.  49 (between heights 8 at index 1 and 7 at index 8: min 7 * width 7).
+ A10. O(n^2) worst (new string every time); fix with "".join(chars) -> O(n).
+ A11. Kadane: 5, 9, 8, 15, 23 -> 23.
+ A12. Prefix sums + map: subarrays with sum 3 are [1,2],[2,1],[1,2],[2,1] -> 4.
+
+
+==============================================================================
+ 10.  QUICK REVISION SUMMARY
+==============================================================================
+
+ ARRAYS
+   - Contiguous memory; index access O(1); insert/delete middle O(n);
+     append amortized O(1); search unsorted O(n).
+   - Key tools: prefix sum, Kadane, in-place read/write, sorting + scan,
+     counting array, binary search (sorted).
+   - Python list = dynamic array of references; slicing copies.
+
+ STRINGS
+   - Immutable in Python; build with list + join; slicing copies.
+   - Patterns: two-pointer palindrome, Counter for anagrams, expand around
+     centre, stack for parentheses, KMP/Rabin-Karp for matching.
+
+ HASH TABLES
+   - key -> hash -> index; avg O(1) insert/lookup/delete, worst O(n).
+   - Collisions: chaining or open addressing; resize at load factor ~0.7.
+   - Patterns: frequency count, complement lookup (Two Sum), seen-set,
+     grouping, prefix-sum + map.
+   - Keys must be hashable (immutable).
+
+ TWO POINTERS
+   - Opposite ends on sorted data (pair sum, 3Sum, container, palindrome);
+     read/write for in-place edits; fast/slow for linked lists.
+   - Turns O(n^2) into O(n), O(1) space.
+
+ SLIDING WINDOW
+   - Contiguous range with incrementally updated state.
+   - Fixed: add right, remove left once size > k.
+   - Variable: expand right; shrink left while invalid (longest) or while
+     valid (shortest).
+   - Each pointer moves at most n times => O(n).
+   - Not for sum conditions with negatives (use prefix sum + hash map).
+
+ COMPLEXITY CHEAT LINE
+   Hash lookup O(1) | two pointers O(n) | sliding window O(n) | sort O(n log n)
+   | brute-force pairs O(n^2) | 3Sum O(n^2) | prefix sum build O(n), query O(1).
+
+==============================================================================
+ END OF NOTES
+==============================================================================
